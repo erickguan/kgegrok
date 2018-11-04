@@ -2,13 +2,19 @@ import unittest
 import data
 import kgekit
 from torchvision import transforms
+import numpy as np
+import torch
+import pytest
 
+@pytest.mark.numpyfile
 class DataTest(unittest.TestCase):
     @classmethod
     def setUp(cls):
         cls.triple_dir = 'tests/fixtures/triples'
         cls.source = data.TripleSource(cls.triple_dir, 'hrt', ' ')
         cls.dataset = data.TripleIndexesDataset(cls.source)
+        cls.small_triple_list = [kgekit.TripleIndex(0, 0, 1), kgekit.TripleIndex(1, 1, 2)]
+        cls.samples = ([True, False], cls.small_triple_list)
 
     def test_triple_source(self):
         self.assertEqual(len(self.source.train_set), 4)
@@ -24,3 +30,23 @@ class DataTest(unittest.TestCase):
             data.OrderedTripleTransform("hrt")
         ]))
         self.assertEqual(transform_dataset[0], [0, 0, 1])
+
+    def test_uniform_collate(self):
+        np.random.seed(0)
+        self.assertEqual(data.UniformCorruptionCollate()(self.small_triple_list), ([False, False], self.small_triple_list))
+
+    def test_bernoulli_corruption_collate(self):
+        np.random.seed(0)
+        corruptor = kgekit.BernoulliCorruptor(self.source.train_set)
+        self.assertEqual(data.BernoulliCorruptionCollate(self.source, corruptor)(self.small_triple_list),
+            ([False, False], self.small_triple_list))
+
+    def test_lcwa_no_throw_collate(self):
+        np.random.seed(0)
+        negative_sampler = kgekit.LCWANoThrowSampler(self.source.train_set, 1, 1, kgekit.LCWANoThrowSamplerStrategy.Hash)
+        sample_result = data.LCWANoThrowCollate(self.source, negative_sampler)(self.samples, 0)
+        print(sample_result)
+        np.testing.assert_equal(sample_result.numpy(), np.array([
+            [[0, 0, 1], [0, 0, 3], [0, 2, 1]],
+            [[1, 1, 2], [0, 1, 2], [1, 0, 2]],
+        ], dtype=np.int32))

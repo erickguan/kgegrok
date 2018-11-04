@@ -9,7 +9,7 @@ def cli():
     dataset = data.TripleIndexesDataset(triple_source, transform=transforms.Compose([
         data.OrderedTripleTransform("hrt")
     ]))
-    negative_sampler = kgekit.LCWANoThrowSampler(triple_source.train_set, 10, 10, 0)
+    negative_sampler = kgekit.LCWANoThrowSampler(triple_source.train_set, 1, 1, kgekit.LCWANoThrowSamplerStrategy.Hash)
     corruptor = kgekit.BernoulliCorruptor(triple_source.train_set)
     batch_size = 100
     data_loader = torch.utils.data.DataLoader(dataset,

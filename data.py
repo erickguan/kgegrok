@@ -3,6 +3,7 @@
 import os
 import kgekit.io
 import kgekit.utils
+import torch
 from torch.utils.data import Dataset
 from torch.utils.data.dataloader import default_collate
 import numpy as np
@@ -92,6 +93,9 @@ def _make_random_choice(size, probability):
         choices = [np.random.choice([True, False], p=probability[i]) for i in range(size)]
     return choices
 
+def _round_probablities(probabilities):
+    return [probabilities[0], 1-probabilities[0]]
+
 class BernoulliCorruptionCollate(object):
     """Generates corrupted head/tail decision in Bernoulli Distribution based on tph.
     True means we will corrupt head."""
@@ -103,7 +107,7 @@ class BernoulliCorruptionCollate(object):
 
     def __call__(self, batch):
         """return corruption flag and actual batch"""
-        probabilities = [self.bernoulli_corruptor.getProbablityRelation(t.relation) for t in batch]
+        probabilities = [_round_probablities(self.bernoulli_corruptor.getProbablityRelation(t.relation)) for t in batch]
         return _make_random_choice(len(batch), probabilities), batch
 
 class UniformCorruptionCollate(object):
@@ -122,15 +126,19 @@ class LCWANoThrowCollate(object):
         self.sampler = negative_sampler
         self.train_set = triple_source.train_set
 
-    def __call__(self, batch_set):
+    def __call__(self, batch_set, sample_seed=None):
         """process a mini-batch. Each sample in the batch is a list with 3 TripleIndex"""
         if isinstance(batch_set, tuple) and len(batch_set) == 2:
             corrupt_head, batch = batch_set
         else:
-            raise RuntimeError("Wrong parameter type. Need a tuple (corrupt_head, batch). Got " + type(batch_set))
+            raise RuntimeError("Wrong parameter type. Need a tuple (corrupt_head, batch). Got " + str(type(batch_set)))
         batch_size = len(batch)
-        num_samples = 1 + self.sampler.num_negative_samples()
-        arr = np.empty((batch_size, 3, num_samples), dtypes=np.int32)
-        self.sampler.sample(arr, batch, corrupt_head)
+        num_samples = 1 + self.sampler.numNegativeSamples()
+        arr = np.empty((batch_size, 3, num_samples), dtype=np.int32)
+        if sample_seed is not None:
+            assert isinstance(sample_seed, int)
+            self.sampler.sample(arr, corrupt_head, batch, sample_seed)
+        else:
+            self.sampler.sample(arr, corrupt_head, batch)
         return torch.IntTensor(arr)
 
