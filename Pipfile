@@ -9,6 +9,7 @@ torchvision = "*"
 kgekit = "==0.0.13"
 
 [dev-packages]
+pytest = "*"
 
 [requires]
 python_version = "3.6"

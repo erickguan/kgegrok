@@ -17,23 +17,23 @@ class TripleSource(object):
             Directory with {train,valid,test}.txt
         """
         self.data_dir = data_dir
-        self.trains, num_failed = kgekit.io.read_triple_indexes(os.path.join(self.data_dir, "train.txt"), triple_order, delimeter)
+        self.trains, num_failed = kgekit.io.read_triple_indexes(os.path.join(self.data_dir, "train.txt"), triple_order, delimiter)
         assert num_failed == 0
-        self.valids, num_failed = kgekit.io.read_triple_indexes(os.path.join(self.data_dir, "valid.txt"), triple_order, delimeter)
+        self.valids, num_failed = kgekit.io.read_triple_indexes(os.path.join(self.data_dir, "valid.txt"), triple_order, delimiter)
         assert num_failed == 0
-        self.tests, num_failed = kgekit.io.read_triple_indexes(os.path.join(self.data_dir, "test.txt"), triple_order, delimeter)
+        self.tests, num_failed = kgekit.io.read_triple_indexes(os.path.join(self.data_dir, "test.txt"), triple_order, delimiter)
         assert num_failed == 0
 
     @property
-    def train_set():
+    def train_set(self):
         return self.trains
 
     @property
-    def valid_set():
+    def valid_set(self):
         return self.valids
 
     @property
-    def test_set():
+    def test_set(self):
         return self.tests
 
 class TripleIndexesDataset(Dataset):
@@ -50,10 +50,10 @@ class TripleIndexesDataset(Dataset):
         self.transform = transform
 
     def __len__(self):
-        return len(self.trains)
+        return len(self.triple_source.train_set)
 
     def __getitem__(self, idx):
-        sample = self.triple_source.test_set[idx]
+        sample = self.triple_source.train_set[idx]
 
         if self.transform:
             sample = self.transform(sample)
@@ -73,17 +73,14 @@ class OrderedTripleTransform(object):
         self.triple_order = triple_order
 
     def __call__(self, sample):
-        return sample
         vec = []
-        i = 0
         for o in self.triple_order:
             if o == 'h':
-                vec[i] = sample.head
+                vec.append(sample.head)
             elif o == 'r':
-                vec[i] = sample.relation
+                vec.append(sample.relation)
             elif o == 't':
-                vec[i] = sample.tail
-            i += 1
+                vec.append(sample.tail)
 
         return vec
 
