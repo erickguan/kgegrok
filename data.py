@@ -4,13 +4,21 @@ import os
 import kgekit.io
 import kgekit.utils
 import torch
+from torch.autograd.variable import Variable
 from torch.utils.data import Dataset
 from torch.utils.data.dataloader import default_collate
 import numpy as np
 import random
+from enum import Enum
+from torchvision import transforms
 
 TRIPLE_LENGTH = 3
 NUM_POSITIVE_INSTANCE = 1
+
+class DatasetType(Enum):
+    TRAINING = 1
+    VALIDATION = 2
+    TESTING = 3
 
 class TripleSource(object):
     """Triple stores."""
@@ -36,8 +44,8 @@ class TripleSource(object):
         relation_compare = lambda x: x.relation
         max_head = max([max(triple_set, key=head_compare) for triple_set in [self._train_set, self._valid_set, self._test_set]], key=head_compare)
         max_tail = max([max(triple_set, key=tail_compare) for triple_set in [self._train_set, self._valid_set, self._test_set]], key=tail_compare)
-        self._max_entity = max(max_head.head, max_tail.tail)
-        self._max_relation = max([max(triple_set, key=relation_compare) for triple_set in [self._train_set, self._valid_set, self._test_set]], key=relation_compare).relation
+        self._num_entity = max(max_head.head, max_tail.tail) + 1
+        self._num_relation = max([max(triple_set, key=relation_compare) for triple_set in [self._train_set, self._valid_set, self._test_set]], key=relation_compare).relation + 1
 
     @property
     def train_set(self):
@@ -52,31 +60,39 @@ class TripleSource(object):
         return self._test_set
 
     @property
-    def max_entity(self):
-        return self._max_entity
+    def num_entity(self):
+        return self._num_entity
 
     @property
-    def max_relation(self):
-        return self._max_relation
+    def num_relation(self):
+        return self._num_relation
 
 class TripleIndexesDataset(Dataset):
     """Loads triple indexes dataset."""
 
-    def __init__(self, triple_source, transform=None):
+    def __init__(self, triple_source, dataset_type=DatasetType.TRAINING, transform=None):
         """
         Args:
             triple_source: Triple storage.
+            dataset_type: Choose the type of dataset.
             transform (callable, optional): Optional transform to be applied
                 on a sample.
         """
-        self.triple_source = triple_source
+        if dataset_type == DatasetType.TRAINING:
+            self.triples = triple_source.train_set
+        elif dataset_type == DatasetType.VALIDATION:
+            self.triples = triple_source.valid_set
+        elif dataset_type == DatasetType.TESTING:
+            self.triples = triple_source.test_set
+        else:
+            raise RuntimeError("DatasetType doesn't exists. It's " + str(dataset_type))
         self.transform = transform
 
     def __len__(self):
-        return len(self.triple_source.train_set)
+        return len(self.triples)
 
     def __getitem__(self, idx):
-        sample = self.triple_source.train_set[idx]
+        sample = self.triples[idx]
 
         if self.transform:
             sample = self.transform(sample)
@@ -107,6 +123,7 @@ class OrderedTripleTransform(object):
 
         return vec
 
+
 class OrderedTripleListTransform(object):
     """Reformat a triple index into list.
 
@@ -120,7 +137,7 @@ class OrderedTripleListTransform(object):
 
     def __call__(self, samples):
         batch_size = len(samples)
-        batch = np.empty((batch_size, NUM_POSITIVE_INSTANCE, TRIPLE_LENGTH), dtype=np.int32)
+        batch = np.empty((batch_size, NUM_POSITIVE_INSTANCE, TRIPLE_LENGTH), dtype=np.int64)
         for i in range(batch_size):
             for o in self.triple_order:
                 t = samples[i]
@@ -142,6 +159,7 @@ def _make_random_choice(size, probability):
 
 def _round_probablities(probabilities):
     return [probabilities[0], 1-probabilities[0]]
+
 
 class BernoulliCorruptionCollate(object):
     """Generates corrupted head/tail decision in Bernoulli Distribution based on tph.
@@ -167,6 +185,23 @@ class UniformCorruptionCollate(object):
     def __call__(self, batch):
         return _make_random_choice(len(batch), [0.5, 0.5]), batch
 
+class NumpyCollate(object):
+    """Process triples and put them into a triple index.
+    Returns:
+        Positive tensor with shape (batch_size, 1, 3).
+    """
+
+    def __init__(self, transform=None):
+        self.transform = transform
+
+    def __call__(self, batch):
+        """process a mini-batch."""
+        batch_size = len(batch)
+        if self.transform:
+            batch = self.transform(batch)
+        batch = np.array(batch, dtype=np.int64)[:, np.newaxis, :]
+        return batch
+
 class LCWANoThrowCollate(object):
     """Process and sample an negative batch. Supports multiprocess from pytorch.
     We don't throw if |set(subject, predict)| is empty.
@@ -181,13 +216,12 @@ class LCWANoThrowCollate(object):
         self.transform = transform
 
     def __call__(self, batch_set, sample_seed=None):
-        """process a mini-batch. Each sample in the batch is a list with 3 TripleIndex"""
         if isinstance(batch_set, tuple) and len(batch_set) == 2:
             corrupt_head, batch = batch_set
         else:
             raise RuntimeError("Wrong parameter type. Need a tuple (corrupt_head, batch). Got " + str(type(batch_set)))
         batch_size = len(batch)
-        arr = np.empty((batch_size, self.sampler.numNegativeSamples(), TRIPLE_LENGTH), dtype=np.int32)
+        arr = np.empty((batch_size, self.sampler.numNegativeSamples(), TRIPLE_LENGTH), dtype=np.int64)
         if sample_seed is not None:
             assert isinstance(sample_seed, int)
             self.sampler.sample(arr, corrupt_head, batch, sample_seed)
@@ -195,5 +229,74 @@ class LCWANoThrowCollate(object):
             self.sampler.sample(arr, corrupt_head, batch)
         if self.transform:
             batch = self.transform(batch)
-        return torch.IntTensor(batch), torch.IntTensor(arr)
+        return batch, arr
 
+def get_triples_from_batch(batch):
+    """Returns h, r, t from batch."""
+
+    NUM_TRIPLE_ELEMENT = 3
+
+    batch_size = len(batch) if isinstance(batch, list) else batch.shape[0]
+    h, r, t = np.split(batch, NUM_TRIPLE_ELEMENT, axis=2)
+    return h.reshape(batch_size), r.reshape(batch_size), t.reshape(batch_size)
+
+def get_negative_samples_from_batch(batch):
+    """Returns h, r, t from batch."""
+
+    NUM_TRIPLE_ELEMENT = 3
+
+    batch_size, num_negative_samples, _ = batch.shape
+    h, r, t = np.split(batch, NUM_TRIPLE_ELEMENT, axis=2)
+    return h.reshape(batch_size, num_negative_samples), r.reshape(batch_size, num_negative_samples), t.reshape(batch_size, num_negative_samples)
+
+def get_all_instances_from_batch(batch, negative_batch):
+    """Returns h, r, t from batch and negatives."""
+
+    pos_h, pos_r, pos_t = get_triples_from_batch(batch)
+    neg_h, neg_r, neg_t = get_negative_samples_from_batch(negative_batch)
+
+    return np.vstack((pos_h, neg_h)), np.vstack((pos_r, neg_r)), np.vstack((pos_t, neg_t))
+
+def convert_triple_tuple_to_torch(batch):
+    h, r, t = batch
+    if torch.cuda.is_available():
+        return (Variable(torch.from_numpy(h)).cuda(),
+            Variable(torch.from_numpy(r)).cuda(),
+            Variable(torch.from_numpy(t)).cuda())
+    else:
+        return (Variable(torch.from_numpy(h)),
+            Variable(torch.from_numpy(r)),
+            Variable(torch.from_numpy(t)))
+
+def create_dataloader(triple_source, config, dataset_type=DatasetType.TRAINING):
+    """Creates dataloader with certain types"""
+    if dataset_type == DatasetType.TRAINING:
+        dataset = TripleIndexesDataset(triple_source, dataset_type)
+        negative_sampler = kgekit.LCWANoThrowSampler(
+            triple_source.train_set,
+            triple_source.num_entity,
+            triple_source.num_relation,
+            config.negative_entity,
+            config.negative_relation,
+            kgekit.LCWANoThrowSamplerStrategy.Hash
+        )
+        corruptor = kgekit.BernoulliCorruptor(triple_source.train_set)
+
+        data_loader = torch.utils.data.DataLoader(dataset,
+            batch_size=config.batch_size,
+            num_workers=config.num_workers,
+            pin_memory=True, # May cause system froze because of non-preemption
+            collate_fn=transforms.Compose([
+                BernoulliCorruptionCollate(triple_source, corruptor),
+                LCWANoThrowCollate(triple_source, negative_sampler, transform=OrderedTripleListTransform(config.triple_order)),
+            ])
+        )
+    else:
+        dataset = TripleIndexesDataset(triple_source, dataset_type, transform=OrderedTripleTransform(config.triple_order))
+        data_loader = torch.utils.data.DataLoader(dataset,
+            batch_size=config.batch_size,
+            num_workers=config.num_workers,
+            pin_memory=True, # May cause system froze because of of non-preemption
+            collate_fn=NumpyCollate(),
+        )
+    return data_loader

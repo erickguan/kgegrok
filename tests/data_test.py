@@ -6,6 +6,18 @@ import numpy as np
 import torch
 import pytest
 
+class Config(object):
+    data_dir = "tests/fixtures/triples"
+    triple_order = "hrt"
+    triple_delimiter = ' '
+    negative_entity = 1
+    negative_relation = 1
+    batch_size = 100
+    num_workers = 1
+    entity_embedding_dimension = 10
+    margin = 0.01
+    epoches = 1
+
 @pytest.mark.numpyfile
 class DataTest(unittest.TestCase):
     @classmethod
@@ -20,12 +32,15 @@ class DataTest(unittest.TestCase):
         self.assertEqual(len(self.source.train_set), 4)
         self.assertEqual(len(self.source.valid_set), 1)
         self.assertEqual(len(self.source.test_set), 1)
-        self.assertEqual(self.source.max_entity, 3)
-        self.assertEqual(self.source.max_relation, 2)
+        self.assertEqual(self.source.num_entity, 4)
+        self.assertEqual(self.source.num_relation, 3)
 
     def test_dataset(self):
         self.assertEqual(len(self.dataset), 4)
         self.assertEqual(self.dataset[0], kgekit.TripleIndex(0, 0, 1))
+
+        valid_dataset = data.TripleIndexesDataset(self.source, data.DatasetType.VALIDATION)
+        self.assertEqual(len(valid_dataset), 1)
 
     def test_ordered_triple_transform(self):
         transform_dataset = data.TripleIndexesDataset(self.source, transform=transforms.Compose([
@@ -45,13 +60,104 @@ class DataTest(unittest.TestCase):
 
     def test_lcwa_no_throw_collate(self):
         np.random.seed(0)
-        negative_sampler = kgekit.LCWANoThrowSampler(self.source.train_set, 1, 1, kgekit.LCWANoThrowSamplerStrategy.Hash)
+        negative_sampler = kgekit.LCWANoThrowSampler(self.source.train_set, self.source.num_entity, self.source.num_relation, 1, 1, kgekit.LCWANoThrowSamplerStrategy.Hash)
         batch, negatives = data.LCWANoThrowCollate(self.source, negative_sampler, transform=data.OrderedTripleListTransform("hrt"))(self.samples, 0)
-        np.testing.assert_equal(batch.numpy(), np.array([
+        np.testing.assert_equal(batch, np.array([
             [[0, 0, 1]],
             [[1, 1, 2]],
-        ], dtype=np.int32))
-        np.testing.assert_equal(negatives.numpy(), np.array([
+        ], dtype=np.int64))
+        np.testing.assert_equal(negatives, np.array([
             [[0, 0, 3], [0, 2, 1]],
             [[0, 1, 2], [1, 0, 2]],
-        ], dtype=np.int32))
+        ], dtype=np.int64))
+
+    def test_get_triples_from_batch(self):
+        np.random.seed(0)
+        negative_sampler = kgekit.LCWANoThrowSampler(self.source.train_set, self.source.num_entity, self.source.num_relation, 1, 1, kgekit.LCWANoThrowSamplerStrategy.Hash)
+        batch, negatives = data.LCWANoThrowCollate(self.source, negative_sampler, transform=data.OrderedTripleListTransform("hrt"))(self.samples, 0)
+
+        batch_size = batch.shape[0]
+        h, r, t = data.get_triples_from_batch(batch)
+        self.assertEqual(h.shape, (2,))
+        self.assertEqual(r.shape, (2,))
+        self.assertEqual(t.shape, (2,))
+        np.testing.assert_equal(h, np.array([0, 1], dtype=np.int64))
+        np.testing.assert_equal(r, np.array([0, 1], dtype=np.int64))
+        np.testing.assert_equal(t, np.array([1, 2], dtype=np.int64))
+
+    def test_get_negative_samples_from_batch(self):
+        np.random.seed(0)
+        negative_sampler = kgekit.LCWANoThrowSampler(self.source.train_set, self.source.num_entity, self.source.num_relation, 1, 1, kgekit.LCWANoThrowSamplerStrategy.Hash)
+        batch, negatives = data.LCWANoThrowCollate(self.source, negative_sampler, transform=data.OrderedTripleListTransform("hrt"))(self.samples, 0)
+
+        h, r, t = data.get_negative_samples_from_batch(negatives)
+        self.assertEqual(h.shape, (2, 2))
+        self.assertEqual(r.shape, (2, 2))
+        self.assertEqual(t.shape, (2, 2))
+        np.testing.assert_equal(h, np.array([
+            [0, 0],
+            [0, 1],
+        ], dtype=np.int64))
+        np.testing.assert_equal(r, np.array([
+            [0, 2],
+            [1, 0],
+        ], dtype=np.int64))
+        np.testing.assert_equal(t, np.array([
+            [3, 1],
+            [2, 2],
+        ], dtype=np.int64))
+
+    def test_get_all_instances_from_batch(self):
+        np.random.seed(0)
+        negative_sampler = kgekit.LCWANoThrowSampler(self.source.train_set, self.source.num_entity, self.source.num_relation, 1, 1, kgekit.LCWANoThrowSamplerStrategy.Hash)
+        batch, negatives = data.LCWANoThrowCollate(self.source, negative_sampler, transform=data.OrderedTripleListTransform("hrt"))(self.samples, 0)
+
+        h, r, t = data.get_all_instances_from_batch(batch, negatives)
+        self.assertEqual(h.shape, (3, 2))
+        self.assertEqual(r.shape, (3, 2))
+        self.assertEqual(t.shape, (3, 2))
+        np.testing.assert_equal(h, np.array([
+            [0, 1],
+            [0, 0],
+            [0, 1],
+        ], dtype=np.int64))
+        np.testing.assert_equal(r, np.array([
+            [0, 1],
+            [0, 2],
+            [1, 0],
+        ], dtype=np.int64))
+        np.testing.assert_equal(t, np.array([
+            [1, 2],
+            [3, 1],
+            [2, 2],
+        ], dtype=np.int64))
+
+    def test_data_loader(self):
+        np.random.seed(0)
+        config = Config()
+        data_loader = data.create_dataloader(self.source, config, data.DatasetType.TRAINING)
+        _, sample_batched = next(enumerate(data_loader))
+        np.testing.assert_equal(sample_batched[0], np.array([
+            [[0, 0, 1]],
+            [[0, 1, 2]],
+            [[1, 2, 3]],
+            [[3, 1, 2]]
+        ], dtype=np.int64))
+        negatives = sample_batched[1]
+        print(sample_batched)
+        self.assertEqual(negatives[0, 0, 1], 0) # 0 0 1
+        self.assertEqual(negatives[0, 1, 0], 0)
+        self.assertEqual(negatives[0, 1, 2], 1)
+
+        self.assertEqual(negatives[1, 0, 1], 1) # 0 1 2
+        self.assertEqual(negatives[1, 1, 0], 0)
+        self.assertEqual(negatives[1, 1, 2], 2)
+
+        self.assertEqual(negatives[2, 0, 1], 2) # 1 2 3
+        self.assertEqual(negatives[2, 1, 0], 1)
+        self.assertEqual(negatives[2, 1, 2], 3)
+
+        self.assertEqual(negatives[3, 0, 1], 1) # 3 1 2
+        self.assertEqual(negatives[3, 1, 0], 3)
+        self.assertEqual(negatives[3, 1, 2], 2)
+

@@ -1,7 +1,8 @@
 import torch
 import data
-from torchvision import transforms
 import kgekit
+import models
+
 
 class Config(object):
     data_dir = "data/YAGO3-10"
@@ -11,34 +12,34 @@ class Config(object):
     negative_relation = 1
     batch_size = 100
     num_workers = 2
+    entity_embedding_dimension = 50
+    margin = 0.01
+    epoches = 1
+
+def train_and_validate(config, model_klass):
+    triple_source = data.TripleSource(config.data_dir, config.triple_order, config.triple_delimiter)
+    data_loader = data.create_dataloader(triple_source, config)
+    valid_data_loader = data.create_dataloader(triple_source, config, data.DatasetType.VALIDATION)
+    model = model_klass(triple_source, config)
+
+    for i_epoch in range(config.epoches):
+        for i_batch, sample_batched in enumerate(data_loader):
+            batch, negative_batch = sample_batched
+
+            batch = data.convert_triple_tuple_to_torch(data.get_triples_from_batch(batch))
+            negative_batch = data.convert_triple_tuple_to_torch(data.get_negative_samples_from_batch(negative_batch))
+            model.forward(batch, negative_batch)
+
+        for i_batch, sample_batched in enumerate(valid_data_loader):
+            # print(type(sample_batched[0]), len(sample_batched), sample_batched[0].shape)
+            batch = data.convert_triple_tuple_to_torch(data.get_triples_from_batch(sample_batched))
+            predicted_batch = model.predict(batch)
+            print(predicted_batch)
+
 
 def cli():
     config = Config()
-
-    triple_source = data.TripleSource(config.data_dir, config.triple_order, config.triple_delimiter)
-    dataset = data.TripleIndexesDataset(triple_source))
-    negative_sampler = kgekit.LCWANoThrowSampler(
-        triple_source.train_set,
-        triple_source.max_entity,
-        triple_source.max_relation,
-        config.negative_entity,
-        config.negative_relation,
-        kgekit.LCWANoThrowSamplerStrategy.Hash
-    )
-    corruptor = kgekit.BernoulliCorruptor(triple_source.train_set)
-
-    data_loader = torch.utils.data.DataLoader(dataset,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        collate_fn=transforms.Compose([
-            data.BernoulliCorruptionCollate(triple_source, corruptor),
-            data.LCWANoThrowCollate(triple_source, negative_sampler, transform=data.OrderedTripleTransform(config.triple_order),
-        ])
-    )
-    for i_batch, sample_batched in enumerate(data_loader):
-        print(i_batch, len(sample_batched), type(sample_batched), sample_batched[0])
-        if i_batch > 2:
-            exit()
+    train_and_validate(config, models.TransE)
 
 if __name__ == '__main__':
     cli()
