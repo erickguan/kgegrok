@@ -20,6 +20,8 @@ class DataTest(unittest.TestCase):
         self.assertEqual(len(self.source.train_set), 4)
         self.assertEqual(len(self.source.valid_set), 1)
         self.assertEqual(len(self.source.test_set), 1)
+        self.assertEqual(self.source.max_entity, 3)
+        self.assertEqual(self.source.max_relation, 2)
 
     def test_dataset(self):
         self.assertEqual(len(self.dataset), 4)

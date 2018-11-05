@@ -9,6 +9,7 @@ from torch.autograd import Variable
 def _get_all_instance(batch, negative_batch):
     """returns the tuple of all h, r, t including negative samples.
     """
+
     return
 
 class Model(nn.Module):
@@ -54,8 +55,8 @@ class TransE(Model):
     '''
 	def __init__(self, config):
 		super(TransE, self).__init__(config)
-		self.ent_embeddings=nn.Embedding(config.entTotal,config.hidden_size)
-		self.rel_embeddings=nn.Embedding(config.relTotal,config.hidden_size)
+		self.ent_embeddings = nn.Embedding(config.entTotal,config.hidden_size)
+		self.rel_embeddings = nn.Embedding(config.relTotal,config.hidden_size)
 		self.init_weights()
 
 	def init_weights(self):

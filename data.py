@@ -15,30 +15,49 @@ NUM_POSITIVE_INSTANCE = 1
 class TripleSource(object):
     """Triple stores."""
 
+    TRAIN_FILENAME = "train.txt"
+    VALID_FILENAME = "valid.txt"
+    TEST_FILENAME = "test.txt"
+
     def __init__(self, data_dir, triple_order, delimiter):
         """loads the data.
         Args:
             Directory with {train,valid,test}.txt
         """
         self.data_dir = data_dir
-        self.trains, num_failed = kgekit.io.read_triple_indexes(os.path.join(self.data_dir, "train.txt"), triple_order, delimiter)
+        self._train_set, num_failed = kgekit.io.read_triple_indexes(os.path.join(self.data_dir, self.TRAIN_FILENAME), triple_order, delimiter)
         assert num_failed == 0
-        self.valids, num_failed = kgekit.io.read_triple_indexes(os.path.join(self.data_dir, "valid.txt"), triple_order, delimiter)
+        self._valid_set, num_failed = kgekit.io.read_triple_indexes(os.path.join(self.data_dir, self.VALID_FILENAME), triple_order, delimiter)
         assert num_failed == 0
-        self.tests, num_failed = kgekit.io.read_triple_indexes(os.path.join(self.data_dir, "test.txt"), triple_order, delimiter)
+        self._test_set, num_failed = kgekit.io.read_triple_indexes(os.path.join(self.data_dir, self.TEST_FILENAME), triple_order, delimiter)
         assert num_failed == 0
+        head_compare = lambda x: x.head
+        tail_compare = lambda x: x.tail
+        relation_compare = lambda x: x.relation
+        max_head = max([max(triple_set, key=head_compare) for triple_set in [self._train_set, self._valid_set, self._test_set]], key=head_compare)
+        max_tail = max([max(triple_set, key=tail_compare) for triple_set in [self._train_set, self._valid_set, self._test_set]], key=tail_compare)
+        self._max_entity = max(max_head.head, max_tail.tail)
+        self._max_relation = max([max(triple_set, key=relation_compare) for triple_set in [self._train_set, self._valid_set, self._test_set]], key=relation_compare).relation
 
     @property
     def train_set(self):
-        return self.trains
+        return self._train_set
 
     @property
     def valid_set(self):
-        return self.valids
+        return self._valid_set
 
     @property
     def test_set(self):
-        return self.tests
+        return self._test_set
+
+    @property
+    def max_entity(self):
+        return self._max_entity
+
+    @property
+    def max_relation(self):
+        return self._max_relation
 
 class TripleIndexesDataset(Dataset):
     """Loads triple indexes dataset."""

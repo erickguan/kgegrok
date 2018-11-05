@@ -19,6 +19,8 @@ def cli():
     dataset = data.TripleIndexesDataset(triple_source))
     negative_sampler = kgekit.LCWANoThrowSampler(
         triple_source.train_set,
+        triple_source.max_entity,
+        triple_source.max_relation,
         config.negative_entity,
         config.negative_relation,
         kgekit.LCWANoThrowSamplerStrategy.Hash
@@ -30,7 +32,7 @@ def cli():
         num_workers=num_workers,
         collate_fn=transforms.Compose([
             data.BernoulliCorruptionCollate(triple_source, corruptor),
-            data.LCWANoThrowCollate(triple_source, negative_sampler, transform==data.OrderedTripleTransform(config.triple_order),
+            data.LCWANoThrowCollate(triple_source, negative_sampler, transform=data.OrderedTripleTransform(config.triple_order),
         ])
     )
     for i_batch, sample_batched in enumerate(data_loader):
