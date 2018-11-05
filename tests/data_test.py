@@ -44,9 +44,12 @@ class DataTest(unittest.TestCase):
     def test_lcwa_no_throw_collate(self):
         np.random.seed(0)
         negative_sampler = kgekit.LCWANoThrowSampler(self.source.train_set, 1, 1, kgekit.LCWANoThrowSamplerStrategy.Hash)
-        sample_result = data.LCWANoThrowCollate(self.source, negative_sampler)(self.samples, 0)
-        print(sample_result)
-        np.testing.assert_equal(sample_result.numpy(), np.array([
-            [[0, 0, 1], [0, 0, 3], [0, 2, 1]],
-            [[1, 1, 2], [0, 1, 2], [1, 0, 2]],
+        batch, negatives = data.LCWANoThrowCollate(self.source, negative_sampler, transform=data.OrderedTripleListTransform("hrt"))(self.samples, 0)
+        np.testing.assert_equal(batch.numpy(), np.array([
+            [[0, 0, 1]],
+            [[1, 1, 2]],
+        ], dtype=np.int32))
+        np.testing.assert_equal(negatives.numpy(), np.array([
+            [[0, 0, 3], [0, 2, 1]],
+            [[0, 1, 2], [1, 0, 2]],
         ], dtype=np.int32))

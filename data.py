@@ -9,6 +9,9 @@ from torch.utils.data.dataloader import default_collate
 import numpy as np
 import random
 
+TRIPLE_LENGTH = 3
+NUM_POSITIVE_INSTANCE = 1
+
 class TripleSource(object):
     """Triple stores."""
 
@@ -85,6 +88,31 @@ class OrderedTripleTransform(object):
 
         return vec
 
+class OrderedTripleListTransform(object):
+    """Reformat a triple index into list.
+
+    Args:
+        triple_order (str): Desired triple order in list.
+    """
+
+    def __init__(self, triple_order):
+        kgekit.utils.assert_triple_order(triple_order)
+        self.triple_order = triple_order
+
+    def __call__(self, samples):
+        batch_size = len(samples)
+        batch = np.empty((batch_size, NUM_POSITIVE_INSTANCE, TRIPLE_LENGTH), dtype=np.int32)
+        for i in range(batch_size):
+            for o in self.triple_order:
+                t = samples[i]
+                if o == 'h':
+                    batch[i, 0, 0] = t.head
+                elif o == 'r':
+                    batch[i, 0, 1] = t.relation
+                elif o == 't':
+                    batch[i, 0, 2] = t.tail
+
+        return batch
 
 def _make_random_choice(size, probability):
     if isinstance(probability[0], float):
@@ -107,7 +135,10 @@ class BernoulliCorruptionCollate(object):
 
     def __call__(self, batch):
         """return corruption flag and actual batch"""
-        probabilities = [_round_probablities(self.bernoulli_corruptor.getProbablityRelation(t.relation)) for t in batch]
+        if isinstance(batch[0], list):
+            probabilities = [_round_probablities(self.bernoulli_corruptor.getProbablityRelation(t[1])) for t in batch]
+        else:
+            probabilities = [_round_probablities(self.bernoulli_corruptor.getProbablityRelation(t.relation)) for t in batch]
         return _make_random_choice(len(batch), probabilities), batch
 
 class UniformCorruptionCollate(object):
@@ -120,11 +151,15 @@ class UniformCorruptionCollate(object):
 class LCWANoThrowCollate(object):
     """Process and sample an negative batch. Supports multiprocess from pytorch.
     We don't throw if |set(subject, predict)| is empty.
+    Returns:
+        Positive tensor with shape (batch_size, 1, 3).
+        Negative tensor with shape (batch_size, negative_samples, 3).
     """
 
-    def __init__(self, triple_source, negative_sampler):
+    def __init__(self, triple_source, negative_sampler, transform=None):
         self.sampler = negative_sampler
         self.train_set = triple_source.train_set
+        self.transform = transform
 
     def __call__(self, batch_set, sample_seed=None):
         """process a mini-batch. Each sample in the batch is a list with 3 TripleIndex"""
@@ -133,12 +168,13 @@ class LCWANoThrowCollate(object):
         else:
             raise RuntimeError("Wrong parameter type. Need a tuple (corrupt_head, batch). Got " + str(type(batch_set)))
         batch_size = len(batch)
-        num_samples = 1 + self.sampler.numNegativeSamples()
-        arr = np.empty((batch_size, 3, num_samples), dtype=np.int32)
+        arr = np.empty((batch_size, self.sampler.numNegativeSamples(), TRIPLE_LENGTH), dtype=np.int32)
         if sample_seed is not None:
             assert isinstance(sample_seed, int)
             self.sampler.sample(arr, corrupt_head, batch, sample_seed)
         else:
             self.sampler.sample(arr, corrupt_head, batch)
-        return torch.IntTensor(arr)
+        if self.transform:
+            batch = self.transform(batch)
+        return torch.IntTensor(batch), torch.IntTensor(arr)
 
