@@ -315,7 +315,6 @@ class TestCollate(object):
     def __call__(self, batch):
         pass
 
-
 def create_dataloader(triple_source, config, dataset_type=DatasetType.TRAINING):
     """Creates dataloader with certain types"""
     if dataset_type == DatasetType.TRAINING:
