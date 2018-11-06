@@ -3,7 +3,6 @@ import data
 import kgekit
 import models
 
-
 class Config(object):
     data_dir = "data/YAGO3-10"
     triple_order = "hrt"
@@ -15,6 +14,10 @@ class Config(object):
     entity_embedding_dimension = 50
     margin = 0.01
     epoches = 1
+    test_head = True
+    test_relation = False
+    test_tail = True
+
 
 def train_and_validate(config, model_klass):
     triple_source = data.TripleSource(config.data_dir, config.triple_order, config.triple_delimiter)
@@ -25,16 +28,19 @@ def train_and_validate(config, model_klass):
     for i_epoch in range(config.epoches):
         for i_batch, sample_batched in enumerate(data_loader):
             batch, negative_batch = sample_batched
-
-            batch = data.convert_triple_tuple_to_torch(data.get_triples_from_batch(batch))
-            negative_batch = data.convert_triple_tuple_to_torch(data.get_negative_samples_from_batch(negative_batch))
             model.forward(batch, negative_batch)
 
         for i_batch, sample_batched in enumerate(valid_data_loader):
-            # print(type(sample_batched[0]), len(sample_batched), sample_batched[0].shape)
-            batch = data.convert_triple_tuple_to_torch(data.get_triples_from_batch(sample_batched))
-            predicted_batch = model.predict(batch)
-            print(predicted_batch)
+            # triple has shape (1, 3). We need to tile it for the test.
+            for triple in sample_batched:
+                if config.test_head:
+                    batch = data.expand_triple_to_sets(triple[0, :], triple_source.num_entity, data.TripleElement.HEAD)
+                    batch = data.convert_triple_tuple_to_torch(batch)
+                    predicted_batch = model.predict(batch)
+                    print(predicted_batch, len(predicted_batch))
+                    exit()
+
+    return model
 
 
 def cli():

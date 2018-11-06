@@ -20,6 +20,15 @@ class DatasetType(Enum):
     VALIDATION = 2
     TESTING = 3
 
+class TripleElement(Enum):
+    HEAD = 1
+    RELATION = 2
+    TAIL = 3
+
+    @classmethod
+    def has_value(cls, value):
+        return any(value == item for item in cls)
+
 class TripleSource(object):
     """Triple stores."""
 
@@ -231,6 +240,7 @@ class LCWANoThrowCollate(object):
             batch = self.transform(batch)
         return batch, arr
 
+
 def get_triples_from_batch(batch):
     """Returns h, r, t from batch."""
 
@@ -268,6 +278,44 @@ def convert_triple_tuple_to_torch(batch):
             Variable(torch.from_numpy(r)),
             Variable(torch.from_numpy(t)))
 
+def expand_triple_to_sets(triple, num_expands, arange_target):
+    """Tiles triple into a large sets for testing. One node will be initialized with arange.
+    Returns (h, r, t), each with a shape of (num_expands,)
+    """
+
+    if not TripleElement.has_value(arange_target):
+        raise RuntimeError("arange_target is set to wrong value. It has to be one of TripleElement but it's " + str(arange_target))
+    h, r, t = triple
+
+    if arange_target == TripleElement.HEAD:
+        h = np.arange(num_expands, dtype=np.int64)
+        r = np.tile(np.array([r], dtype=np.int64), num_expands)
+        t = np.tile(np.array([t], dtype=np.int64), num_expands)
+    elif arange_target == TripleElement.RELATION:
+        h = np.tile(np.array([h], dtype=np.int64), num_expands)
+        r = np.arange(num_expands, dtype=np.int64)
+        t = np.tile(np.array([t], dtype=np.int64), num_expands)
+    elif arange_target == TripleElement.TAIL:
+        h = np.tile(np.array([h], dtype=np.int64), num_expands)
+        r = np.tile(np.array([r], dtype=np.int64), num_expands)
+        t = np.arange(num_expands, dtype=np.int64)
+    else:
+        raise RuntimeError("Miracle happened. arange_target passed the validation and reached impossible branch.")
+
+    return (h, r, t)
+
+def training_collate(batch_sampled):
+    """Prepare batch for training."""
+    batch, negative_batch = batch_sampled
+    batch = convert_triple_tuple_to_torch(get_triples_from_batch(batch))
+    negative_batch = convert_triple_tuple_to_torch(get_negative_samples_from_batch(negative_batch))
+    return batch, negative_batch
+
+class TestCollate(object):
+    def __call__(self, batch):
+        pass
+
+
 def create_dataloader(triple_source, config, dataset_type=DatasetType.TRAINING):
     """Creates dataloader with certain types"""
     if dataset_type == DatasetType.TRAINING:
@@ -289,6 +337,7 @@ def create_dataloader(triple_source, config, dataset_type=DatasetType.TRAINING):
             collate_fn=transforms.Compose([
                 BernoulliCorruptionCollate(triple_source, corruptor),
                 LCWANoThrowCollate(triple_source, negative_sampler, transform=OrderedTripleListTransform(config.triple_order)),
+                training_collate,
             ])
         )
     else:

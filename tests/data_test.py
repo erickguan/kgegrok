@@ -161,3 +161,22 @@ class DataTest(unittest.TestCase):
         self.assertEqual(negatives[3, 1, 0], 3)
         self.assertEqual(negatives[3, 1, 2], 2)
 
+    def test_expand_triple_to_sets(self):
+        h, r, t = data.expand_triple_to_sets((1, 2, 3), 10, data.TripleElement.HEAD)
+        np.testing.assert_equal(h, np.arange(10, dtype=np.int64))
+        np.testing.assert_equal(r, np.tile(np.array([2], dtype=np.int64), 10))
+        np.testing.assert_equal(t, np.tile(np.array([3], dtype=np.int64), 10))
+
+        h, r, t = data.expand_triple_to_sets((1, 2, 3), 10, data.TripleElement.RELATION)
+        np.testing.assert_equal(h, np.tile(np.array([1], dtype=np.int64), 10))
+        np.testing.assert_equal(r, np.arange(10, dtype=np.int64))
+        np.testing.assert_equal(t, np.tile(np.array([3], dtype=np.int64), 10))
+
+        h, r, t = data.expand_triple_to_sets((1, 2, 3), 10, data.TripleElement.TAIL)
+        np.testing.assert_equal(h, np.tile(np.array([1], dtype=np.int64), 10))
+        np.testing.assert_equal(r, np.tile(np.array([2], dtype=np.int64), 10))
+        np.testing.assert_equal(t, np.arange(10, dtype=np.int64))
+
+        with pytest.raises(RuntimeError):
+            h, r, t = data.expand_triple_to_sets((1, 2, 3), 10, -1)
+

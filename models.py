@@ -40,8 +40,8 @@ class TransE(Model):
         self.entity_embeddings = nn.Embedding(self.triple_source.num_entity, self.embedding_dimension)
         self.relation_embeddings = nn.Embedding(self.triple_source.num_relation, self.embedding_dimension)
 
-        nn.init.xavier_uniform(self.entity_embeddings.weight.data)
-        nn.init.xavier_uniform(self.relation_embeddings.weight.data)
+        nn.init.xavier_uniform_(self.entity_embeddings.weight.data)
+        nn.init.xavier_uniform_(self.relation_embeddings.weight.data)
 
     def _calc(self,h,t,r):
         return torch.abs(h + r - t)
