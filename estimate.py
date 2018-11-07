@@ -3,7 +3,7 @@
 import data
 import kgekit
 
-def evaulate(model, config, ranker, data_loader):
+def evaulate(model, triple_source, config, ranker, data_loader):
     model.eval()
 
     head_ranks = []
@@ -58,7 +58,7 @@ def train_and_validate(config, model_klass):
             batch, negative_batch = sample_batched
             model.forward(batch, negative_batch)
 
-        t = evaulate(model, config, ranker, valid_data_loader)
+        t = evaulate(model, triple_source, config, ranker, valid_data_loader)
         print(t)
 
     return model
