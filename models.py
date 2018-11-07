@@ -64,6 +64,7 @@ class TransE(Model):
         p_r = self.relation_embeddings(pos_r)
         _p_score = self._calc(p_h, p_t, p_r)
         _p_score = _p_score.view(-1, 1, self.embedding_dimension)
+        logging.debug("_p_score shape " + str(_p_score.shape))
 
         if negative_batch is not None:
             neg_h, neg_r, neg_t = negative_batch
@@ -79,4 +80,5 @@ class TransE(Model):
             return loss
         else:
             p_score = torch.sum(_p_score, 1)
+            logging.debug("p_score shape " + str(p_score.shape))
             return p_score
