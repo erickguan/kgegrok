@@ -25,10 +25,14 @@ def cli():
     config = Config()
     train_and_validate(config, models.TransE)
 
+def report_gpu_info():
+    count = torch.cuda.device_count()
+    for i in range(count):
+        print(i + " " + torch.cuda.get_device_name(i))
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    print(os.environ["CUDA_VISIBLE_DEVICES"])
-
+    report_gpu_info()
 
     cli()
 
