@@ -368,13 +368,13 @@ def get_rank_statistics(rank_list, features):
     if LinkPredictionStatistics.MEAN_RANK & features:
         result['mean_rank'] = sum(rank_list) / len(rank_list)
     if LinkPredictionStatistics.HITS_1 & features:
-        result['HITS_1'] = functools.reduce(rank_list, HitsReducer(1))
+        result['HITS_1'] = functools.reduce(HitsReducer(1), rank_list)
     if LinkPredictionStatistics.HITS_3 & features:
-        result['HITS_3'] = functools.reduce(rank_list, HitsReducer(3))
+        result['HITS_3'] = functools.reduce(HitsReducer(3), rank_list)
     if LinkPredictionStatistics.HITS_5 & features:
-        result['HITS_5'] = functools.reduce(rank_list, HitsReducer(5))
+        result['HITS_5'] = functools.reduce(HitsReducer(5), rank_list)
     if LinkPredictionStatistics.HITS_10 & features:
-        result['HITS_10'] = functools.reduce(rank_list, HitsReducer(10))
+        result['HITS_10'] = functools.reduce(HitsReducer(10), rank_list)
     return result
 
 
