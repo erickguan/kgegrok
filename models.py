@@ -57,29 +57,26 @@ class TransE(Model):
         loss = criterion(p_score, n_score, y)
         return loss
 
-    def forward(self, batch, negative_batch):
+    def forward(self, batch, negative_batch=None):
         pos_h, pos_r, pos_t = batch
-        neg_h, neg_r, neg_t = negative_batch
         p_h = self.entity_embeddings(pos_h)
         p_t = self.entity_embeddings(pos_t)
         p_r = self.relation_embeddings(pos_r)
-        n_h = self.entity_embeddings(neg_h)
-        n_t = self.entity_embeddings(neg_t)
-        n_r = self.relation_embeddings(neg_r)
         _p_score = self._calc(p_h, p_t, p_r)
-        _n_score = self._calc(n_h, n_t, n_r)
         _p_score = _p_score.view(-1, 1, self.embedding_dimension)
-        _n_score = _n_score.view(-1, self.config.negative_entity + self.config.negative_relation, self.embedding_dimension)
-        p_score = torch.sum(torch.mean(_p_score, 1), 1)
-        n_score = torch.sum(torch.mean(_n_score, 1), 1)
-        loss = self.loss_func(p_score, n_score)
-        return loss
 
-    def predict(self, batch):
-        h, r, t = batch
-        p_h = self.entity_embeddings(h)
-        p_r = self.relation_embeddings(r)
-        p_t = self.entity_embeddings(t)
-        _p_score = self._calc(p_h, p_t, p_r)
-        p_score = torch.sum(_p_score, 1)
-        return p_score.cpu()
+        if negative_batch is not None:
+            neg_h, neg_r, neg_t = negative_batch
+            n_h = self.entity_embeddings(neg_h)
+            n_t = self.entity_embeddings(neg_t)
+            n_r = self.relation_embeddings(neg_r)
+            _n_score = self._calc(n_h, n_t, n_r)
+            _n_score = _n_score.view(-1, self.config.negative_entity + self.config.negative_relation, self.embedding_dimension)
+            n_score = torch.sum(torch.mean(_n_score, 1), 1)
+
+            p_score = torch.sum(torch.mean(_p_score, 1), 1)
+            loss = self.loss_func(p_score, n_score)
+            return loss
+        else:
+            p_score = torch.sum(_p_score, 1)
+            return p_score

@@ -14,7 +14,7 @@ def _evaluate_predict_element(model, triple_index, num_expands, element_type, ra
     batch = data.convert_triple_tuple_to_torch(batch)
     logging.debug(element_type)
     logging.debug("Batch len: " + str(len(batch)) + "; batch sample: " + str(batch[0]))
-    predicted_batch = model.predict(batch)
+    predicted_batch = model.forward(batch)
     logging.debug("Predicted batch len" + str(len(batch)) + "; batch sample: " + str(predicted_batch[0]))
     rank, filtered_rank = rank_fn(predicted_batch.data.numpy(), triple_index)
     logging.debug("Rank :" + str(rank) + "; Filtered rank length :" + str(filtered_rank))
