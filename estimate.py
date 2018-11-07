@@ -6,6 +6,7 @@ import logging
 import torch
 import pprint
 import torch.nn as nn
+import torch.optim as optim
 
 
 def _evaluate_predict_element(model, triple_index, num_expands, element_type, rank_fn, ranks_list, filtered_ranks_list):
@@ -61,12 +62,23 @@ def evaulate_prediction(model, triple_source, config, ranker, data_loader):
 
     return (head_ranks, filtered_head_ranks), (tail_ranks, filtered_tail_ranks), (relation_ranks, filtered_relation_ranks)
 
-def train_and_validate(config, model_klass):
+def create_optimizer(optimizer_class, config, parameters):
+    if optimizer_class == optim.Adagrad
+        return optimizer_class(parameters, lr=config.alpha, lr_decay=self.lr_decay, weight_decay=self.weight_decay)
+    elif optimizer_class == optim.Adadelta:
+        return optimizer_class(parameters, lr=config.alpha)
+    elif optimizer_class == optim.Adam:
+        return optimizer_class(parameters, lr=config.alpha)
+    else:
+        return optimizer_class(parameters, lr=config.alpha)
+
+def train_and_validate(config, model_class, optimizer_class):
     # Data loaders have many processes. Here it's a main program.
     triple_source = data.TripleSource(config.data_dir, config.triple_order, config.triple_delimiter)
     data_loader = data.create_dataloader(triple_source, config)
     valid_data_loader = data.create_dataloader(triple_source, config, data.DatasetType.VALIDATION)
-    model = nn.DataParallel(model_klass(triple_source, config))
+    model = nn.DataParallel(model_class(triple_source, config))
+    optimizer = create_optimizer(optimizer_class, config, model.parameters())
     ranker = kgekit.Ranker(triple_source.train_set, triple_source.valid_set, triple_source.test_set)
 
     if torch.cuda.is_available():
@@ -85,6 +97,8 @@ def train_and_validate(config, model_klass):
             batch = data.convert_triple_tuple_to_torch(data.get_triples_from_batch(batch))
             negative_batch = data.convert_triple_tuple_to_torch(data.get_negative_samples_from_batch(negative_batch))
             loss = model.forward(batch, negative_batch)
+            loss.backward()
+            optimizer.step()
             loss_epoch += loss[0].item()
 
         logging.info("Epoch " + str(i_epoch) + ": loss " + str(loss_epoch))

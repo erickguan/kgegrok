@@ -5,26 +5,28 @@ import models
 from estimate import train_and_validate
 import logging
 import os
+import torch.optim as optim
 
 
 class Config(object):
     data_dir = "data/YAGO3-10"
     triple_order = "hrt"
     triple_delimiter = ' '
-    negative_entity = 1
+    negative_entity = 5
     negative_relation = 1
     batch_size = 100
     num_workers = 2
     entity_embedding_dimension = 50
-    margin = 0.01
+    margin = 1.0
     epoches = 1
     test_head = True
     test_relation = False
     test_tail = True
+    alpha = 0.001
 
 def cli():
     config = Config()
-    train_and_validate(config, models.TransE)
+    train_and_validate(config, models.TransE, optim.Adam)
 
 def report_gpu_info():
     count = torch.cuda.device_count()
