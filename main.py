@@ -28,7 +28,7 @@ def cli():
 def report_gpu_info():
     count = torch.cuda.device_count()
     for i in range(count):
-        print(i + " " + torch.cuda.get_device_name(i))
+        print(str(i) + " " + torch.cuda.get_device_name(i))
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
