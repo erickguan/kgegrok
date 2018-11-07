@@ -5,7 +5,6 @@ import models
 from estimate import train_and_validate
 import logging
 import os
-import torch.multiprocessing as mp
 
 
 class Config(object):
@@ -25,7 +24,6 @@ class Config(object):
 
 def cli():
     config = Config()
-    mp.set_start_method('spawn')
     train_and_validate(config, models.TransE)
 
 def report_gpu_info():

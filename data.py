@@ -304,19 +304,9 @@ def expand_triple_to_sets(triple, num_expands, arange_target):
 
     return (h, r, t)
 
-def training_collate(batch_sampled):
-    """Prepare batch for training."""
-    batch, negative_batch = batch_sampled
-    batch = convert_triple_tuple_to_torch(get_triples_from_batch(batch))
-    negative_batch = convert_triple_tuple_to_torch(get_negative_samples_from_batch(negative_batch))
-    return batch, negative_batch
-
-class TestCollate(object):
-    def __call__(self, batch):
-        pass
-
 def create_dataloader(triple_source, config, dataset_type=DatasetType.TRAINING):
     """Creates dataloader with certain types"""
+    # Use those C++ extension is fast but then we can't use spawn method to start data loader.
     if dataset_type == DatasetType.TRAINING:
         dataset = TripleIndexesDataset(triple_source, dataset_type)
         negative_sampler = kgekit.LCWANoThrowSampler(
@@ -336,7 +326,6 @@ def create_dataloader(triple_source, config, dataset_type=DatasetType.TRAINING):
             collate_fn=transforms.Compose([
                 BernoulliCorruptionCollate(triple_source, corruptor),
                 LCWANoThrowCollate(triple_source, negative_sampler, transform=OrderedTripleListTransform(config.triple_order)),
-                training_collate,
             ])
         )
     else:
