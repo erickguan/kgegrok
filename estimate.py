@@ -5,6 +5,8 @@ import kgekit.data
 import logging
 import torch
 import pprint
+import torch.nn as nn
+
 
 def _evaluate_predict_element(model, triple_index, num_expands, element_type, rank_fn, ranks_list, filtered_ranks_list):
     batch = data.expand_triple_to_sets(kgekit.data.unpack(triple_index), num_expands, element_type)
@@ -64,7 +66,7 @@ def train_and_validate(config, model_klass):
     triple_source = data.TripleSource(config.data_dir, config.triple_order, config.triple_delimiter)
     data_loader = data.create_dataloader(triple_source, config)
     valid_data_loader = data.create_dataloader(triple_source, config, data.DatasetType.VALIDATION)
-    model = model_klass(triple_source, config)
+    model = nn.DataParallel(model_klass(triple_source, config))
     ranker = kgekit.Ranker(triple_source.train_set, triple_source.valid_set, triple_source.test_set)
 
     if torch.cuda.is_available():
