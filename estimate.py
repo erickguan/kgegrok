@@ -22,7 +22,9 @@ def _report_prediction_element(element, features):
     rank, filtered_rank = element
     if len(rank) == 0:
         return
-    pprint.pprint(data.get_rank_statistics(element, features))
+    pprint.pprint(data.get_rank_statistics(rank, features))
+    pprint.pprint(data.get_rank_statistics(filtered_rank, features))
+
 
 def report_prediction_result(result, features):
     heads, tails, relations = result
