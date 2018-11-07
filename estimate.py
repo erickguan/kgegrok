@@ -63,7 +63,7 @@ def evaulate_prediction(model, triple_source, config, ranker, data_loader):
     return (head_ranks, filtered_head_ranks), (tail_ranks, filtered_tail_ranks), (relation_ranks, filtered_relation_ranks)
 
 def create_optimizer(optimizer_class, config, parameters):
-    if optimizer_class == optim.Adagrad
+    if optimizer_class == optim.Adagrad:
         return optimizer_class(parameters, lr=config.alpha, lr_decay=self.lr_decay, weight_decay=self.weight_decay)
     elif optimizer_class == optim.Adadelta:
         return optimizer_class(parameters, lr=config.alpha)
