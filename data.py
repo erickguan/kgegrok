@@ -363,18 +363,19 @@ class HitsReducer(object):
 
 def get_rank_statistics(rank_list, features):
     result = {}
+    num_ranks = len(rank_list)
     if LinkPredictionStatistics.MEAN_RECIPROCAL_RANK & features:
-        result['mean_reciprocal_rank'] = sum(map(reciprocal_rank_fn, rank_list)) / len(rank_list)
+        result['mean_reciprocal_rank'] = sum(map(reciprocal_rank_fn, rank_list)) / num_ranks
     if LinkPredictionStatistics.MEAN_RANK & features:
-        result['mean_rank'] = sum(rank_list) / len(rank_list)
+        result['mean_rank'] = sum(rank_list) / num_ranks
     if LinkPredictionStatistics.HITS_1 & features:
-        result['HITS_1'] = functools.reduce(HitsReducer(1), rank_list)
+        result['HITS_1'] = functools.reduce(HitsReducer(1), rank_list) / num_ranks
     if LinkPredictionStatistics.HITS_3 & features:
-        result['HITS_3'] = functools.reduce(HitsReducer(3), rank_list)
+        result['HITS_3'] = functools.reduce(HitsReducer(3), rank_list) / num_ranks
     if LinkPredictionStatistics.HITS_5 & features:
-        result['HITS_5'] = functools.reduce(HitsReducer(5), rank_list)
+        result['HITS_5'] = functools.reduce(HitsReducer(5), rank_list) / num_ranks
     if LinkPredictionStatistics.HITS_10 & features:
-        result['HITS_10'] = functools.reduce(HitsReducer(10), rank_list)
+        result['HITS_10'] = functools.reduce(HitsReducer(10), rank_list) / num_ranks
     return result
 
 
