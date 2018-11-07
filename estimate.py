@@ -97,7 +97,7 @@ def train_and_validate(config, model_class, optimizer_class):
             batch = data.convert_triple_tuple_to_torch(data.get_triples_from_batch(batch))
             negative_batch = data.convert_triple_tuple_to_torch(data.get_negative_samples_from_batch(negative_batch))
             loss = model.forward(batch, negative_batch)
-            loss.backward()
+            loss.sum().backward()
             optimizer.step()
             loss_epoch += loss[0].item()
 
