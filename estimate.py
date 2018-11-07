@@ -56,7 +56,8 @@ def train_and_validate(config, model_klass):
         for i_batch, sample_batched in enumerate(data_loader):
             logging.info('Training batch ' + str(i_batch) + "/" + str(len(data_loader)))
             batch, negative_batch = sample_batched
-            model.forward(batch, negative_batch)
+            loss = model.forward(batch, negative_batch)
+            logging.info("Batch " + str(i_epoch) + ": loss " + str(loss))
 
         logging.info('Evaluation for epoch ' + str(i_epoch))
         t = evaulate(model, triple_source, config, ranker, valid_data_loader)

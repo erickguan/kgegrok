@@ -4,7 +4,7 @@ import kgekit
 import models
 from estimate import train_and_validate
 import logging
-
+import os
 
 class Config(object):
     data_dir = "data/YAGO3-10"
@@ -27,6 +27,8 @@ def cli():
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
+    print(os.environ["CUDA_VISIBLE_DEVICES"])
+
 
     cli()
 
