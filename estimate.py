@@ -51,13 +51,10 @@ def evaulate_prediction(model, triple_source, config, ranker, data_loader):
             triple_index = kgekit.TripleIndex(*triple[0, :])
 
             if config.test_head:
-                logging.debug('validate head prediction')
                 _evaluate_predict_element(model, triple_index, triple_source.num_entity, data.TripleElement.HEAD, ranker.rankHead, head_ranks, filtered_head_ranks)
             if config.test_tail:
-                logging.debug('validate tail prediction')
                 _evaluate_predict_element(model, triple_index, triple_source.num_entity, data.TripleElement.TAIL, ranker.rankTail, tail_ranks, filtered_tail_ranks)
             if config.test_relation:
-                logging.debug('validate relation prediction')
                 _evaluate_predict_element(model, triple_index, triple_source.num_relation, data.TripleElement.RELATION, ranker.rankRelation, relation_ranks, filtered_relation_ranks)
 
     return (head_ranks, filtered_head_ranks), (tail_ranks, filtered_tail_ranks), (relation_ranks, filtered_relation_ranks)

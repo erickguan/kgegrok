@@ -8,6 +8,7 @@ import torch.optim as optim
 import torch.utils.data.dataset
 from torch.autograd import Variable
 import numpy as np
+import logging
 
 
 class Model(nn.Module):
