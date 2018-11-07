@@ -57,13 +57,16 @@ def train_and_validate(config, model_klass):
         logging.info('Training at epoch ' + str(i_epoch))
         logging.info('--------------------')
 
+        loss_epoch = 0.0
         for i_batch, sample_batched in enumerate(data_loader):
             logging.info('Training batch ' + str(i_batch) + "/" + str(len(data_loader)))
             batch, negative_batch = sample_batched
             batch = data.convert_triple_tuple_to_torch(data.get_triples_from_batch(batch))
             negative_batch = data.convert_triple_tuple_to_torch(data.get_negative_samples_from_batch(negative_batch))
             loss = model.forward(batch, negative_batch)
-            logging.info("Batch " + str(i_epoch) + ": loss " + str(loss))
+            loss_epoch += loss[0].item()
+
+        logging.info("Epoch " + str(i_epoch) + ": loss " + str(loss_epoch))
 
         logging.info('Evaluation for epoch ' + str(i_epoch))
         t = evaulate(model, triple_source, config, ranker, valid_data_loader)
