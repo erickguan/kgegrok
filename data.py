@@ -11,7 +11,7 @@ import numpy as np
 import random
 from enum import Enum, Flag, auto
 from torchvision import transforms
-import itertools
+import functools
 
 TRIPLE_LENGTH = 3
 NUM_POSITIVE_INSTANCE = 1
@@ -368,13 +368,13 @@ def get_rank_statistics(rank_list, features):
     if LinkPredictionStatistics.MEAN_RANK & features:
         result['mean_rank'] = sum(rank_list) / len(rank_list)
     if LinkPredictionStatistics.HITS_1 & features:
-        result['HITS_1'] = itertools.reduce(rank_list, HitsReducer(1))
+        result['HITS_1'] = functools.reduce(rank_list, HitsReducer(1))
     if LinkPredictionStatistics.HITS_3 & features:
-        result['HITS_3'] = itertools.reduce(rank_list, HitsReducer(3))
+        result['HITS_3'] = functools.reduce(rank_list, HitsReducer(3))
     if LinkPredictionStatistics.HITS_5 & features:
-        result['HITS_5'] = itertools.reduce(rank_list, HitsReducer(5))
+        result['HITS_5'] = functools.reduce(rank_list, HitsReducer(5))
     if LinkPredictionStatistics.HITS_10 & features:
-        result['HITS_10'] = itertools.reduce(rank_list, HitsReducer(10))
+        result['HITS_10'] = functools.reduce(rank_list, HitsReducer(10))
     return result
 
 
