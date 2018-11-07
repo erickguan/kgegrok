@@ -358,8 +358,8 @@ class HitsReducer(object):
     def __init__(self, target):
         self.target = target
 
-    def __call__(self, rank):
-        return 1 if rank <= self.target else 0
+    def __call__(self, value, rank):
+        return value + 1 if rank <= self.target else value
 
 def get_rank_statistics(rank_list, features):
     result = {}
