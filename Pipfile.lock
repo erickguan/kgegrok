@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "d3513469227e5127dd46a8d033592a52139704d755d1a9ba710e8c3801b4c667"
+            "sha256": "659bc06389608fb0480b1713f6bd15675c56da3ed4f08081d56f072668240b3a"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -18,10 +18,10 @@
     "default": {
         "kgekit": {
             "hashes": [
-                "sha256:69a5958bd6ba00f7b266309aa20dd34133ebb69e5265d4330b08ee122cda815d"
+                "sha256:fb8ddd824be3716c7fecf8b527380919abff737e8150f5e704e3b2a4bd48970d"
             ],
             "index": "pypi",
-            "version": "==0.0.29"
+            "version": "==0.0.31"
         },
         "numpy": {
             "hashes": [
