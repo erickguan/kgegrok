@@ -3,6 +3,8 @@ import data
 import kgekit
 import models
 from estimate import train_and_validate
+import logging
+
 
 class Config(object):
     data_dir = "data/YAGO3-10"
@@ -24,5 +26,7 @@ def cli():
     train_and_validate(config, models.TransE)
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
+
     cli()
 

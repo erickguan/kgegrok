@@ -1,47 +1,43 @@
 """Training function module."""
 
 import data
-import kgekit
+import kgekit.data
+import logging
+
+def _evaluate_element(model, triple_index, num_expands, element_type, rank_fn, ranks_list, filtered_ranks_list):
+    batch = data.expand_triple_to_sets(kgekit.data.unpack(triple_index), num_expands, element_type)
+    batch = data.convert_triple_tuple_to_torch(batch)
+    predicted_batch = model.predict(batch)
+    rank, filtered_rank = rank_fn(predicted_batch.data.numpy(), triple_index)
+    ranks_list.append(rank)
+    filtered_ranks_list.append(filtered_rank)
 
 def evaulate(model, triple_source, config, ranker, data_loader):
     model.eval()
 
     head_ranks = []
-    head_filtered_ranks = []
+    filtered_head_ranks = []
     tail_ranks = []
-    tail_filtered_ranks = []
+    filtered_tail_ranks = []
     relation_ranks = []
-    relation_filtered_ranks = []
+    filtered_relation_ranks = []
 
     for i_batch, sample_batched in enumerate(data_loader):
         # triple has shape (1, 3). We need to tile it for the test.
         for triple in sample_batched:
-            if config.test_head:
-                batch = data.expand_triple_to_sets(triple[0, :], triple_source.num_entity, data.TripleElement.HEAD)
-                batch = data.convert_triple_tuple_to_torch(batch)
-                predicted_batch = model.predict(batch)
-                triple_index = kgekit.TripleIndex(*triple[0, :])
-                rank, filtered_rank = ranker.rankHead(predicted_batch.data.numpy(), triple_index)
-                head_ranks.append(rank)
-                head_filtered_ranks.append(filtered_rank)
-            if config.test_tail:
-                batch = data.expand_triple_to_sets(triple[0, :], triple_source.num_entity, data.TripleElement.TAIL)
-                batch = data.convert_triple_tuple_to_torch(batch)
-                predicted_batch = model.predict(batch)
-                triple_index = kgekit.TripleIndex(*triple[0, :])
-                rank, filtered_rank = ranker.rankTail(predicted_batch.data.numpy(), triple_index)
-                tail_ranks.append(rank)
-                tail_filtered_ranks.append(filtered_rank)
-            if config.test_relation:
-                batch = data.expand_triple_to_sets(triple[0, :], triple_source.num_entity, data.TripleElement.RELATION)
-                batch = data.convert_triple_tuple_to_torch(batch)
-                predicted_batch = model.predict(batch)
-                triple_index = kgekit.TripleIndex(*triple[0, :])
-                rank, filtered_rank = ranker.rankRelation(predicted_batch.data.numpy(), triple_index)
-                relation_ranks.append(rank)
-                relation_filtered_ranks.append(filtered_rank)
+            triple_index = kgekit.TripleIndex(*triple[0, :])
 
-    return (head_ranks, head_filtered_ranks), (tail_ranks, tail_filtered_ranks), (relation_ranks, relation_filtered_ranks)
+            if config.test_head:
+                logging.debug('validate head prediction')
+                _evaluate_element(model, triple_index, triple_source.num_entity, data.TripleElement.HEAD, ranker.rankHead, head_ranks, filtered_head_ranks)
+            if config.test_tail:
+                logging.debug('validate tail prediction')
+                _evaluate_element(model, triple_index, triple_source.num_entity, data.TripleElement.TAIL, ranker.rankTail, tail_ranks, filtered_tail_ranks)
+            if config.test_relation:
+                logging.debug('validate relation prediction')
+                _evaluate_element(model, triple_index, triple_source.num_relation, data.TripleElement.RELATION, ranker.rankRelation, relation_ranks, filtered_relation_ranks)
+
+    return (head_ranks, filtered_head_ranks), (tail_ranks, filtered_tail_ranks), (relation_ranks, filtered_relation_ranks)
 
 def train_and_validate(config, model_klass):
     # Data loaders have many processes. Here it's a main program.
@@ -53,11 +49,16 @@ def train_and_validate(config, model_klass):
 
     for i_epoch in range(config.epoches):
         model.train()
+        logging.info('--------------------')
+        logging.info('Training at epoch ' + str(i_epoch))
+        logging.info('--------------------')
 
         for i_batch, sample_batched in enumerate(data_loader):
+            logging.info('Training batch ' + str(i_batch) + "/" + str(len(data_loader)))
             batch, negative_batch = sample_batched
             model.forward(batch, negative_batch)
 
+        logging.info('Evaluation for epoch ' + str(i_epoch))
         t = evaulate(model, triple_source, config, ranker, valid_data_loader)
         print(t)
 
