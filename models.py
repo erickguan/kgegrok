@@ -80,6 +80,6 @@ class TransE(Model):
             loss = self.loss_func(p_score, n_score)
             return loss
         else:
-            p_score = torch.sum(_p_score, 1)
+            p_score = torch.sum(_p_score, (1, 2))
             logging.debug("p_score shape " + str(p_score.shape))
             return p_score
