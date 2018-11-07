@@ -180,3 +180,11 @@ class DataTest(unittest.TestCase):
         with pytest.raises(RuntimeError):
             h, r, t = data.expand_triple_to_sets((1, 2, 3), 10, -1)
 
+    def test_reciprocal_rank_fn(self):
+        self.assertAlmostEqual(self.reciprocal_rank_fn(10), 0.1)
+
+    def test_hits_accumulator(self):
+        accumulator = HitsAccumulator(10)
+        self.assert_equal(accumulator(10), 1)
+        self.assert_equal(accumulator(9), 1)
+        self.assert_equal(accumulator(11), 0)
