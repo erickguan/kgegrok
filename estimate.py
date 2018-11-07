@@ -4,8 +4,9 @@ import data
 import kgekit.data
 import logging
 import torch
+import pprint
 
-def _evaluate_element(model, triple_index, num_expands, element_type, rank_fn, ranks_list, filtered_ranks_list):
+def _evaluate_predict_element(model, triple_index, num_expands, element_type, rank_fn, ranks_list, filtered_ranks_list):
     batch = data.expand_triple_to_sets(kgekit.data.unpack(triple_index), num_expands, element_type)
     batch = data.convert_triple_tuple_to_torch(batch)
     logging.debug(element_type)
@@ -17,7 +18,19 @@ def _evaluate_element(model, triple_index, num_expands, element_type, rank_fn, r
     ranks_list.append(rank)
     filtered_ranks_list.append(filtered_rank)
 
-def evaulate(model, triple_source, config, ranker, data_loader):
+def _report_prediction_element(element, features):
+    rank, filtered_rank = element
+    if len(rank) == 0:
+        return
+    pprint.pprint(data.get_rank_statistics(element, features))
+
+def report_prediction_result(result, features):
+    heads, tails, relations = result
+    _report_prediction_element(heads, features)
+    _report_prediction_element(tails, features)
+    _report_prediction_element(relations, features)
+
+def evaulate_prediction(model, triple_source, config, ranker, data_loader):
     model.eval()
 
     head_ranks = []
@@ -73,7 +86,7 @@ def train_and_validate(config, model_klass):
         logging.info("Epoch " + str(i_epoch) + ": loss " + str(loss_epoch))
 
         logging.info('Evaluation for epoch ' + str(i_epoch))
-        t = evaulate(model, triple_source, config, ranker, valid_data_loader)
-        print(t)
+        result = evaulate_prediction(model, triple_source, config, ranker, valid_data_loader)
+        report_prediction_result(result, data.LinkPredictionStatistics.DEFAULT)
 
     return model

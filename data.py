@@ -9,18 +9,29 @@ from torch.utils.data import Dataset
 from torch.utils.data.dataloader import default_collate
 import numpy as np
 import random
-from enum import Enum
+from enum import Enum, Flag, auto
 from torchvision import transforms
+import itertools
 
 TRIPLE_LENGTH = 3
 NUM_POSITIVE_INSTANCE = 1
 
-class DatasetType(Enum):
-    TRAINING = 1
-    VALIDATION = 2
-    TESTING = 3
+DatasetType = Enum('DatasetType', 'TRAINING VALIDATION TESTING')
 
-class TripleElement(Enum):
+class LinkPredictionStatistics(Flag):
+    MEAN_RECIPROCAL_RANK = auto()
+    MEAN_RANK = auto()
+    ALL_RANK = MEAN_RECIPROCAL_RANK | MEAN_RANK
+    HITS_1 = auto()
+    HITS_3 = auto()
+    HITS_5 = auto()
+    HITS_10 = auto()
+    MINIMAL_HIT = HITS_1 | HITS_10
+    ALL_HIT = HITS_1 | HITS_3 | HITS_5 | HITS_10
+    DEFAULT = MINIMAL_HIT | MEAN_RECIPROCAL_RANK
+    ALL = ALL_RANK | ALL_HIT
+
+class TripleElement(Flag):
     HEAD = 1
     RELATION = 2
     TAIL = 3
@@ -337,3 +348,33 @@ def create_dataloader(triple_source, config, dataset_type=DatasetType.TRAINING):
             collate_fn=NumpyCollate(),
         )
     return data_loader
+
+def reciprocal_rank_fn(rank):
+    return 1.0/rank
+
+class HitsAccumulator(object):
+    """Used with accumulation function"""
+
+    def __init__(self, target):
+        self.target = target
+
+    def __call__(self, rank):
+        return 1 if rank <= target else 0
+
+def get_rank_statistics(rank_list, features):
+    result = {}
+    if LinkPredictionStatistics.MEAN_RECIPROCAL_RANK & features:
+        result['mean_reciprocal_rank'] = sum(map(reciprocal_rank_fn, rank_list)) / len(rank_list)
+    if LinkPredictionStatistics.MEAN_RANK & features:
+        result['mean_rank'] = sum(rank_list) / len(rank_list)
+    if LinkPredictionStatistics.HITS_1 & features:
+        result['HITS_1'] = itertools.accumulate(rank_list, HitsAccumulator(1))
+    if LinkPredictionStatistics.HITS_3 & features:
+        result['HITS_3'] = itertools.accumulate(rank_list, HitsAccumulator(3))
+    if LinkPredictionStatistics.HITS_5 & features:
+        result['HITS_5'] = itertools.accumulate(rank_list, HitsAccumulator(5))
+    if LinkPredictionStatistics.HITS_10 & features:
+        result['HITS_10'] = itertools.accumulate(rank_list, HitsAccumulator(10))
+    return result
+
+
