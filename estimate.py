@@ -13,8 +13,7 @@ def _evaluate_element(model, triple_index, num_expands, element_type, rank_fn, r
     predicted_batch = model.predict(batch)
     logging.debug("Predicted batch len" + str(len(batch)) + "; batch sample: " + str(predicted_batch[0]))
     rank, filtered_rank = rank_fn(predicted_batch.data.numpy(), triple_index)
-    logging.debug("Rank length :" + str(len(rank)) + "; sampled rank " + str(rank[0]))
-    logging.debug("Filtered rank length :" + str(len(filtered_rank)) + "; sampled filtered rank " + str(filtered_rank[0]))
+    logging.debug("Rank :" + str(rank) + "; Filtered rank length :" + str(len(filtered_rank)))
     ranks_list.append(rank)
     filtered_ranks_list.append(filtered_rank)
 
