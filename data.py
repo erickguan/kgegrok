@@ -352,14 +352,14 @@ def create_dataloader(triple_source, config, dataset_type=DatasetType.TRAINING):
 def reciprocal_rank_fn(rank):
     return 1.0/rank
 
-class HitsAccumulator(object):
+class HitsReducer(object):
     """Used with accumulation function"""
 
     def __init__(self, target):
         self.target = target
 
     def __call__(self, rank):
-        return 1 if rank <= target else 0
+        return 1 if rank <= self.target else 0
 
 def get_rank_statistics(rank_list, features):
     result = {}
@@ -368,13 +368,13 @@ def get_rank_statistics(rank_list, features):
     if LinkPredictionStatistics.MEAN_RANK & features:
         result['mean_rank'] = sum(rank_list) / len(rank_list)
     if LinkPredictionStatistics.HITS_1 & features:
-        result['HITS_1'] = itertools.accumulate(rank_list, HitsAccumulator(1))
+        result['HITS_1'] = itertools.reduce(rank_list, HitsReducer(1))
     if LinkPredictionStatistics.HITS_3 & features:
-        result['HITS_3'] = itertools.accumulate(rank_list, HitsAccumulator(3))
+        result['HITS_3'] = itertools.reduce(rank_list, HitsReducer(3))
     if LinkPredictionStatistics.HITS_5 & features:
-        result['HITS_5'] = itertools.accumulate(rank_list, HitsAccumulator(5))
+        result['HITS_5'] = itertools.reduce(rank_list, HitsReducer(5))
     if LinkPredictionStatistics.HITS_10 & features:
-        result['HITS_10'] = itertools.accumulate(rank_list, HitsAccumulator(10))
+        result['HITS_10'] = itertools.reduce(rank_list, HitsReducer(10))
     return result
 
 
