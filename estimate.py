@@ -46,7 +46,7 @@ def report_prediction_result(epoch, result, config, drawer, results_drawer):
         _append_drawer(epoch, drawer, results_drawer, head_result, data.TAIL_KEY)
 
     elif config.report_dimension & data.StatisticsDimension.COMBINED_ENTITY:
-        combined = {k: (h + t) / 2.0 for k, h, t in _common_entries(data.get_rank_statistics(*heads, features), data.get_rank_statistics(*tails, features))}
+        combined = {k: (h + t) / 2.0 for k, h, t in _common_entries(data.get_rank_statistics(*heads, config.report_features), data.get_rank_statistics(*tails, config.report_features))}
         _report_prediction_element(combined)
         _append_drawer(epoch, drawer, results_drawer, combined)
 
