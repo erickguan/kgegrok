@@ -6,7 +6,7 @@ name = "pypi"
 [packages]
 torch = "==0.4.1"
 torchvision = "*"
-kgekit = "==0.0.31"
+kgekit = "==0.1.1"
 visdom = "*"
 
 [dev-packages]

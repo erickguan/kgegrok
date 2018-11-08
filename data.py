@@ -262,11 +262,12 @@ class LCWANoThrowCollate(object):
             raise RuntimeError("Wrong parameter type. Need a tuple (corrupt_head, batch). Got " + str(type(batch_set)))
         batch_size = len(batch)
         arr = np.empty((batch_size, self.sampler.numNegativeSamples(), TRIPLE_LENGTH), dtype=np.int64)
-        if sample_seed is not None:
-            assert isinstance(sample_seed, int)
-            self.sampler.sample(arr, corrupt_head, batch, sample_seed)
-        else:
-            self.sampler.sample(arr, corrupt_head, batch)
+        if sample_seed is None:
+            sample_seed = numpy.random.randint(0, 10000000000)
+
+        assert isinstance(sample_seed, int)
+        self.sampler.sample(arr, corrupt_head, batch, sample_seed)
+
         if self.transform:
             batch = self.transform(batch)
         return batch, arr

@@ -29,6 +29,11 @@ class Config(object):
 
 def cli():
     config = Config()
+    np.random.seed(10000)
+    torch.manual_seed(20000)
+    torch.cuda.manual_seed_all(2192)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
     train_and_validate(config, models.TransE, optim.Adam, visdom.Visdom(port=6006))
 
 def report_gpu_info():
