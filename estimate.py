@@ -189,7 +189,7 @@ def train_and_validate(config, model_class, optimizer_class, drawer=None):
             loss = model.forward(batch, negative_batch)
             loss.sum().backward()
             optimizer.step()
-            loss_epoch += loss.item()
+            loss_epoch += loss.data[0]
 
         loss_values_drawer.append(loss_epoch)
         logging.info("Epoch " + str(i_epoch) + ": loss " + str(loss_epoch))
