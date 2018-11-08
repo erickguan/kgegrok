@@ -52,7 +52,7 @@ def report_prediction_result(epoch, result, config, drawer, results_drawer):
 
     if config.report_dimension & data.StatisticsDimension.RELATION:
         relation_result = data.get_rank_statistics(*relations, config.report_features)
-        _report_prediction_element(rellation_result)
+        _report_prediction_element(relation_result)
         _append_drawer(epoch, drawer, results_drawer, relation_result, data.RELATION_KEY)
 
 def evaulate_prediction(model, triple_source, config, ranker, data_loader):
