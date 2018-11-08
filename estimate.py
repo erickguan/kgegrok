@@ -34,24 +34,24 @@ def _append_drawer(epoch, drawer, drawers, result, prefix_key=None):
         drawer_key = data.dict_key_gen(prefix_key, key) if prefix_key is not None else key
         drawer.line(X=np.array([epoch], dtype='f'), Y=np.array([value], dtype='f'), win=drawers[drawer_key], update='append')
 
-def report_prediction_result(epoch, result, config, drawer, results_drawer):
+def report_prediction_result(epoch, result, config, drawer, results_drawer, triple_source):
     heads, tails, relations = result
 
     if config.report_dimension & data.StatisticsDimension.SEPERATE_ENTITY:
-        head_result = data.get_rank_statistics(*heads, config.report_features)
-        tail_result = data.get_rank_statistics(*tails, config.report_features)
+        head_result = data.get_rank_statistics(*heads, config.report_features, triple_source.num_entity)
+        tail_result = data.get_rank_statistics(*tails, config.report_features, triple_source.num_entity)
         _report_prediction_element(head_result)
         _report_prediction_element(tail_result)
         _append_drawer(epoch, drawer, results_drawer, head_result, data.HEAD_KEY)
         _append_drawer(epoch, drawer, results_drawer, head_result, data.TAIL_KEY)
 
     elif config.report_dimension & data.StatisticsDimension.COMBINED_ENTITY:
-        combined = {k: (h + t) / 2.0 for k, h, t in _common_entries(data.get_rank_statistics(*heads, config.report_features), data.get_rank_statistics(*tails, config.report_features))}
+        combined = {k: (h + t) / 2.0 for k, h, t in _common_entries(data.get_rank_statistics(*heads, config.report_features, num_entity), data.get_rank_statistics(*tails, config.report_features, num_entity))}
         _report_prediction_element(combined)
         _append_drawer(epoch, drawer, results_drawer, combined)
 
     if config.report_dimension & data.StatisticsDimension.RELATION:
-        relation_result = data.get_rank_statistics(*relations, config.report_features)
+        relation_result = data.get_rank_statistics(*relations, config.report_features, triple_source.num_relation)
         _report_prediction_element(relation_result)
         _append_drawer(epoch, drawer, results_drawer, relation_result, data.RELATION_KEY)
 
@@ -196,6 +196,6 @@ def train_and_validate(config, model_class, optimizer_class, drawer=None):
 
         logging.info('Evaluation for epoch ' + str(i_epoch))
         result = evaulate_prediction(model, triple_source, config, ranker, valid_data_loader)
-        report_prediction_result(i_epoch, result, config, drawer, validation_results_drawer)
+        report_prediction_result(i_epoch, result, config, drawer, validation_results_drawer, triple_source)
 
     return model

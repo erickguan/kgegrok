@@ -263,7 +263,7 @@ class LCWANoThrowCollate(object):
         batch_size = len(batch)
         arr = np.empty((batch_size, self.sampler.numNegativeSamples(), TRIPLE_LENGTH), dtype=np.int64)
         if sample_seed is None:
-            sample_seed = numpy.random.randint(0, 10000000000)
+            sample_seed = np.random.randint(0, 10000000000)
 
         assert isinstance(sample_seed, int)
         self.sampler.sample(arr, corrupt_head, batch, sample_seed)
@@ -418,7 +418,7 @@ def _calc_hits(ranks, target, num_ranks):
 def gen_drawer_key(config, title=None):
     return dict(fillarea=True, title=title)
 
-def get_rank_statistics(rank_list, filtered_rank_list, features):
+def get_rank_statistics(rank_list, filtered_rank_list, features, num_entry):
     result = {}
     num_ranks = len(rank_list)
 
@@ -428,14 +428,14 @@ def get_rank_statistics(rank_list, filtered_rank_list, features):
     _add_rank_statistics(result, MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY, LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK & features, _calc_reciprocal_rank, filtered_rank_list, num_ranks)
     _add_rank_statistics(result, MEAN_RANK_FEATURE_KEY, LinkPredictionStatistics.MEAN_RANK & features, _calc_rank, rank_list, num_ranks)
     _add_rank_statistics(result, MEAN_FILTERED_RANK_FEATURE_KEY, LinkPredictionStatistics.MEAN_FILTERED_RANK & features, _calc_rank, filtered_rank_list, num_ranks)
-    _add_rank_statistics(result, HITS_1_FEATURE_KEY, LinkPredictionStatistics.HITS_1 & features, _calc_hits, rank_list, 1, num_ranks)
-    _add_rank_statistics(result, HITS_3_FEATURE_KEY, LinkPredictionStatistics.HITS_3 & features, _calc_hits, rank_list, 3, num_ranks)
-    _add_rank_statistics(result, HITS_5_FEATURE_KEY, LinkPredictionStatistics.HITS_5 & features, _calc_hits, rank_list, 5, num_ranks)
-    _add_rank_statistics(result, HITS_10_FEATURE_KEY, LinkPredictionStatistics.HITS_10 & features, _calc_hits, rank_list, 10, num_ranks)
-    _add_rank_statistics(result, HITS_1_FILTERED_FEATURE_KEY, LinkPredictionStatistics.HITS_1_FILTERED & features, _calc_hits, filtered_rank_list, 1, num_ranks)
-    _add_rank_statistics(result, HITS_3_FILTERED_FEATURE_KEY, LinkPredictionStatistics.HITS_3_FILTERED & features, _calc_hits, filtered_rank_list, 3, num_ranks)
-    _add_rank_statistics(result, HITS_5_FILTERED_FEATURE_KEY, LinkPredictionStatistics.HITS_5_FILTERED & features, _calc_hits, filtered_rank_list, 5, num_ranks)
-    _add_rank_statistics(result, HITS_10_FILTERED_FEATURE_KEY, LinkPredictionStatistics.HITS_10_FILTERED & features, _calc_hits, filtered_rank_list, 10, num_ranks)
+    _add_rank_statistics(result, HITS_1_FEATURE_KEY, LinkPredictionStatistics.HITS_1 & features, _calc_hits, rank_list, 1, num_entry)
+    _add_rank_statistics(result, HITS_3_FEATURE_KEY, LinkPredictionStatistics.HITS_3 & features, _calc_hits, rank_list, 3, num_entry)
+    _add_rank_statistics(result, HITS_5_FEATURE_KEY, LinkPredictionStatistics.HITS_5 & features, _calc_hits, rank_list, 5, num_entry)
+    _add_rank_statistics(result, HITS_10_FEATURE_KEY, LinkPredictionStatistics.HITS_10 & features, _calc_hits, rank_list, 10, num_entry)
+    _add_rank_statistics(result, HITS_1_FILTERED_FEATURE_KEY, LinkPredictionStatistics.HITS_1_FILTERED & features, _calc_hits, filtered_rank_list, 1, num_entry)
+    _add_rank_statistics(result, HITS_3_FILTERED_FEATURE_KEY, LinkPredictionStatistics.HITS_3_FILTERED & features, _calc_hits, filtered_rank_list, 3, num_entry)
+    _add_rank_statistics(result, HITS_5_FILTERED_FEATURE_KEY, LinkPredictionStatistics.HITS_5_FILTERED & features, _calc_hits, filtered_rank_list, 5, num_entry)
+    _add_rank_statistics(result, HITS_10_FILTERED_FEATURE_KEY, LinkPredictionStatistics.HITS_10_FILTERED & features, _calc_hits, filtered_rank_list, 10, num_entry)
 
     return result
 

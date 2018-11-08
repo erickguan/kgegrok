@@ -4,10 +4,9 @@ import kgekit
 import models
 from estimate import train_and_validate
 import logging
-import os
 import torch.optim as optim
 import visdom
-
+import numpy as np
 
 class Config(object):
     data_dir = "data/YAGO3-10"
