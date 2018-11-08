@@ -6,6 +6,7 @@ from estimate import train_and_validate
 import logging
 import os
 import torch.optim as optim
+import visdom
 
 
 class Config(object):
@@ -23,10 +24,12 @@ class Config(object):
     test_relation = False
     test_tail = True
     alpha = 0.001
+    report_features = data.LinkPredictionStatistics.DEFAULT
+    report_dimension = data.StatisticsDimension.DEFAULT
 
 def cli():
     config = Config()
-    train_and_validate(config, models.TransE, optim.Adam)
+    train_and_validate(config, models.TransE, optim.Adam, visdom.Visdom())
 
 def report_gpu_info():
     count = torch.cuda.device_count()

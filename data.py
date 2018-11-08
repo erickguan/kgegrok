@@ -20,16 +20,35 @@ DatasetType = Enum('DatasetType', 'TRAINING VALIDATION TESTING')
 
 class LinkPredictionStatistics(Flag):
     MEAN_RECIPROCAL_RANK = auto()
+    MEAN_FILTERED_RECIPROCAL_RANK = auto()
     MEAN_RANK = auto()
-    ALL_RANK = MEAN_RECIPROCAL_RANK | MEAN_RANK
+    MEAN_FILTERED_RANK = auto()
+    MEAN_RANKS = MEAN_RECIPROCAL_RANK | MEAN_RANK
+    MEAN_FILTERED_RANKS = MEAN_FILTERED_RECIPROCAL_RANK | MEAN_FILTERED_RANK
+    ALL_RANKS = MEAN_RANKS | MEAN_FILTERED_RANKS
     HITS_1 = auto()
+    HITS_1_FILTERED = auto()
     HITS_3 = auto()
+    HITS_3_FILTERED = auto()
     HITS_5 = auto()
+    HITS_5_FILTERED = auto()
     HITS_10 = auto()
-    MINIMAL_HIT = HITS_1 | HITS_10
-    ALL_HIT = HITS_1 | HITS_3 | HITS_5 | HITS_10
-    DEFAULT = MINIMAL_HIT | MEAN_RECIPROCAL_RANK
-    ALL = ALL_RANK | ALL_HIT
+    HITS_10_FILTERED = auto()
+    MINIMAL_HITS = HITS_1 | HITS_10
+    MINIMAL_HITS_FILTERED = HITS_1_FILTERED | HITS_10_FILTERED
+    HITS = HITS_1 | HITS_3 | HITS_5 | HITS_10
+    HITS_FILTERED = HITS_1_FILTERED | HITS_3_FILTERED | HITS_5_FILTERED | HITS_10_FILTERED
+    ALL_HITS = HITS | HITS_FILTERED
+    UNFILTERED_DEFAULT = MINIMAL_HITS | MEAN_RECIPROCAL_RANK
+    DEFAULT = MINIMAL_HITS_FILTERED | MEAN_FILTERED_RECIPROCAL_RANK
+    ALL = ALL_RANKS | ALL_HITS
+
+class StatisticsDimension(Flag):
+    SEPERATE_ENTITY = auto()
+    COMBINED_ENTITY = auto()
+    RELATION = auto()
+    DEFAULT = COMBINED_ENTITY | RELATION
+    ALL = SEPERATE_ENTITY | RELATION
 
 class TripleElement(Flag):
     HEAD = 1
@@ -39,6 +58,7 @@ class TripleElement(Flag):
     @classmethod
     def has_value(cls, value):
         return any(value == item for item in cls)
+
 
 class TripleSource(object):
     """Triple stores."""
@@ -361,21 +381,61 @@ class HitsReducer(object):
     def __call__(self, value, rank):
         return value + 1 if rank <= self.target else value
 
-def get_rank_statistics(rank_list, features):
+def dict_key_gen(*args):
+    return "_".join(args)
+
+MEAN_RECIPROCAL_RANK_FEATURE_KEY = 'mean_reciprocal_rank'
+MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY = 'mean_filtered_reciprocal_rank'
+MEAN_RANK_FEATURE_KEY = 'mean_rank'
+MEAN_FILTERED_RANK_FEATURE_KEY = 'mean_filtered_rank'
+HITS_1_FEATURE_KEY = 'hits_1'
+HITS_1_FILTERED_FEATURE_KEY = "hits_1_filtered"
+HITS_3_FEATURE_KEY = 'hits_3'
+HITS_3_FILTERED_FEATURE_KEY = 'hits_3_filtered'
+HITS_5_FEATURE_KEY = 'hits_5'
+HITS_5_FILTERED_FEATURE_KEY = "hits_5_filtered"
+HITS_10_FEATURE_KEY = 'hits_10'
+HITS_10_FILTERED_FEATURE_KEY = "hits_10_filtered"
+HEAD_KEY = "head"
+TAIL_KEY = "tail"
+RELATION_KEY = "relation"
+
+def _add_rank_statistics(result, key, add, value_fn, *value_args):
+    if not add:
+        return
+    result[key] = value_fn(*value_args)
+
+def _calc_rank(ranks, num_ranks):
+    return sum(ranks) / num_ranks
+
+def _calc_reciprocal_rank(ranks, num_ranks):
+    return sum(map(reciprocal_rank_fn, ranks)) / num_ranks
+
+def _calc_hits(ranks, target, num_ranks):
+    return functools.reduce(HitsReducer(target), ranks) / num_ranks
+
+def gen_drawer_key(config, title=None):
+    return dict(fillarea=True, title=title)
+
+def get_rank_statistics(rank_list, filtered_rank_list, features):
     result = {}
     num_ranks = len(rank_list)
-    if LinkPredictionStatistics.MEAN_RECIPROCAL_RANK & features:
-        result['mean_reciprocal_rank'] = sum(map(reciprocal_rank_fn, rank_list)) / num_ranks
-    if LinkPredictionStatistics.MEAN_RANK & features:
-        result['mean_rank'] = sum(rank_list) / num_ranks
-    if LinkPredictionStatistics.HITS_1 & features:
-        result['HITS_1'] = functools.reduce(HitsReducer(1), rank_list) / num_ranks
-    if LinkPredictionStatistics.HITS_3 & features:
-        result['HITS_3'] = functools.reduce(HitsReducer(3), rank_list) / num_ranks
-    if LinkPredictionStatistics.HITS_5 & features:
-        result['HITS_5'] = functools.reduce(HitsReducer(5), rank_list) / num_ranks
-    if LinkPredictionStatistics.HITS_10 & features:
-        result['HITS_10'] = functools.reduce(HitsReducer(10), rank_list) / num_ranks
+
+    _calc_reciprocal_rank = lambda ranks, num_ranks: sum(map(reciprocal_rank_fn, ranks)) / num_ranks
+
+    _add_rank_statistics(result, MEAN_RECIPROCAL_RANK_FEATURE_KEY, LinkPredictionStatistics.MEAN_RECIPROCAL_RANK & features, _calc_reciprocal_rank, rank_list, num_ranks)
+    _add_rank_statistics(result, MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY, LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK & features, _calc_reciprocal_rank, filtered_rank_list, num_ranks)
+    _add_rank_statistics(result, MEAN_RANK_FEATURE_KEY, LinkPredictionStatistics.MEAN_RANK & features, _calc_rank, rank_list, num_ranks)
+    _add_rank_statistics(result, MEAN_FILTERED_RANK_FEATURE_KEY, LinkPredictionStatistics.MEAN_FILTERED_RANK & features, _calc_rank, filtered_rank_list, num_ranks)
+    _add_rank_statistics(result, HITS_1_FEATURE_KEY, LinkPredictionStatistics.HITS_1 & features, _calc_hits, rank_list, 1, num_ranks)
+    _add_rank_statistics(result, HITS_3_FEATURE_KEY, LinkPredictionStatistics.HITS_3 & features, _calc_hits, rank_list, 3, num_ranks)
+    _add_rank_statistics(result, HITS_5_FEATURE_KEY, LinkPredictionStatistics.HITS_5 & features, _calc_hits, rank_list, 5, num_ranks)
+    _add_rank_statistics(result, HITS_10_FEATURE_KEY, LinkPredictionStatistics.HITS_10 & features, _calc_hits, rank_list, 10, num_ranks)
+    _add_rank_statistics(result, HITS_1_FILTERED_FEATURE_KEY, LinkPredictionStatistics.HITS_1_FILTERED & features, _calc_hits, filtered_rank_list, 1, num_ranks)
+    _add_rank_statistics(result, HITS_3_FILTERED_FEATURE_KEY, LinkPredictionStatistics.HITS_3_FILTERED & features, _calc_hits, filtered_rank_list, 3, num_ranks)
+    _add_rank_statistics(result, HITS_5_FILTERED_FEATURE_KEY, LinkPredictionStatistics.HITS_5_FILTERED & features, _calc_hits, filtered_rank_list, 5, num_ranks)
+    _add_rank_statistics(result, HITS_10_FILTERED_FEATURE_KEY, LinkPredictionStatistics.HITS_10_FILTERED & features, _calc_hits, filtered_rank_list, 10, num_ranks)
+
     return result
 
 
