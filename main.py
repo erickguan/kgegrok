@@ -29,7 +29,7 @@ class Config(object):
 
 def cli():
     config = Config()
-    train_and_validate(config, models.TransE, optim.Adam, visdom.Visdom())
+    train_and_validate(config, models.TransE, optim.Adam, visdom.Visdom(port=6006))
 
 def report_gpu_info():
     count = torch.cuda.device_count()
