@@ -51,7 +51,7 @@ def report_prediction_result(epoch, result, config, drawer, results_drawer, trip
         _append_drawer(epoch, drawer, results_drawer, combined)
 
     if config.report_dimension & data.StatisticsDimension.RELATION:
-        relation_result = data.get_rank_statistics(*relations, config.report_features, triple_source.num_relation)
+        relation_result = data.get_rank_statistics(*relations, config.report_features, triple_source.num_entity)
         _report_prediction_element(relation_result)
         _append_drawer(epoch, drawer, results_drawer, relation_result, data.RELATION_KEY)
 
@@ -70,11 +70,10 @@ def evaulate_prediction(model, triple_source, config, ranker, data_loader):
         for triple in sample_batched:
             triple_index = kgekit.TripleIndex(*triple[0, :])
 
-            if config.test_head:
+            if (config.report_dimension & data.StatisticsDimension.SEPERATE_ENTITY) or (config.report_dimension & data.StatisticsDimension.COMBINED_ENTITY):
                 _evaluate_predict_element(model, triple_index, triple_source.num_entity, data.TripleElement.HEAD, ranker.rankHead, head_ranks, filtered_head_ranks)
-            if config.test_tail:
                 _evaluate_predict_element(model, triple_index, triple_source.num_entity, data.TripleElement.TAIL, ranker.rankTail, tail_ranks, filtered_tail_ranks)
-            if config.test_relation:
+            if config.report_dimension & data.StatisticsDimension.RELATION:
                 _evaluate_predict_element(model, triple_index, triple_source.num_relation, data.TripleElement.RELATION, ranker.rankRelation, relation_ranks, filtered_relation_ranks)
 
     return (head_ranks, filtered_head_ranks), (tail_ranks, filtered_tail_ranks), (relation_ranks, filtered_relation_ranks)

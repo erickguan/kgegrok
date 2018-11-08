@@ -19,9 +19,6 @@ class Config(object):
     entity_embedding_dimension = 50
     margin = 1.0
     epoches = 1
-    test_head = True
-    test_relation = False
-    test_tail = True
     alpha = 0.001
     report_features = data.LinkPredictionStatistics.DEFAULT
     report_dimension = data.StatisticsDimension.DEFAULT
