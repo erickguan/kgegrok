@@ -20,8 +20,13 @@ class Config(object):
     margin = 1.0
     epoches = 1
     alpha = 0.001
+    lambda_ = 0.001
     report_features = data.LinkPredictionStatistics.DEFAULT
     report_dimension = data.StatisticsDimension.DEFAULT
+    # filename to resume
+    resume = None
+    # Introduce underministic behaviour but allow cudnn find best algoritm
+    cudnn_benchmark = True
 
 def cli():
     config = Config()
@@ -29,8 +34,8 @@ def cli():
     torch.manual_seed(20000)
     torch.cuda.manual_seed_all(2192)
     torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    train_and_validate(config, models.TransE, optim.Adam, visdom.Visdom(port=6006))
+    torch.backends.cudnn.benchmark = config.cudnn_benchmark
+    model = train_and_validate(config, models.TransE, optim.Adam, visdom.Visdom(port=6006))
 
 def report_gpu_info():
     count = torch.cuda.device_count()

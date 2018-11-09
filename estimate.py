@@ -8,6 +8,7 @@ import pprint
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
+import shutil
 
 
 def _evaluate_predict_element(model, triple_index, num_expands, element_type, rank_fn, ranks_list, filtered_ranks_list):
@@ -154,6 +155,23 @@ def _prepare_plot_validation_result(drawer, config):
 
     return drawers
 
+def save_checkpoint(state, filename='checkpoint.pth.tar', postfix_num=None):
+    path = "{}_{}".format(filename, postfix_num) if postfix_num is not None else filename
+    torch.save(state, path)
+
+def load_checkpoint(model, optimizer, config):
+    if config.resume:
+        if os.path.isfile(config.resume):
+            logging.info("loading checkpoint '{}'".format(config.resume))
+            checkpoint = torch.load(config.resume)
+            start_epoch = checkpoint['epoch']
+            model.load_state_dict(checkpoint['state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer'])
+            logging.info("loaded checkpoint '{}' (epoch {})"
+                  .format(config.resume, checkpoint['epoch']))
+        else:
+            logging.info("no checkpoint found at '{}'".format(config.resume))
+
 def train_and_validate(config, model_class, optimizer_class, drawer=None):
     # Data loaders have many processes. Here it's a main program.
     triple_source = data.TripleSource(config.data_dir, config.triple_order, config.triple_delimiter)
@@ -161,6 +179,7 @@ def train_and_validate(config, model_class, optimizer_class, drawer=None):
     valid_data_loader = data.create_dataloader(triple_source, config, data.DatasetType.VALIDATION)
     model = nn.DataParallel(model_class(triple_source, config))
     optimizer = create_optimizer(optimizer_class, config, model.parameters())
+    load_checkpoint(model, optimizer, config)
     ranker = kgekit.Ranker(triple_source.train_set, triple_source.valid_set, triple_source.test_set)
 
     if torch.cuda.is_available():
@@ -196,5 +215,11 @@ def train_and_validate(config, model_class, optimizer_class, drawer=None):
         logging.info('Evaluation for epoch ' + str(i_epoch))
         result = evaulate_prediction(model, triple_source, config, ranker, valid_data_loader)
         report_prediction_result(i_epoch, result, config, drawer, validation_results_drawer, triple_source)
+        save_checkpoint({
+            'epoch': i_epoch,
+            'state_dict': model.state_dict(),
+            'optimizer' : optimizer.state_dict(),
+        }, i_epoch)
+
 
     return model
