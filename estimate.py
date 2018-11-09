@@ -155,7 +155,7 @@ def _prepare_plot_validation_result(drawer, config):
 
     return drawers
 
-def save_checkpoint(state, filename='checkpoint.pth.tar', postfix_num=None):
+def save_checkpoint(state, filename='model_states/checkpoint.pth.tar', postfix_num=None):
     path = "{}_{}".format(filename, postfix_num) if postfix_num is not None else filename
     torch.save(state, path)
 
@@ -219,7 +219,7 @@ def train_and_validate(config, model_class, optimizer_class, drawer=None):
             'epoch': i_epoch,
             'state_dict': model.state_dict(),
             'optimizer' : optimizer.state_dict(),
-        }, i_epoch)
+        }, postfix_num=i_epoch)
 
 
     return model
