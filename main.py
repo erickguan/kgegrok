@@ -7,6 +7,7 @@ import logging
 import torch.optim as optim
 import visdom
 import numpy as np
+from utils import report_gpu_info
 
 class Config(object):
     data_dir = "data/YAGO3-10"
@@ -36,11 +37,6 @@ def cli():
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = config.cudnn_benchmark
     model = train_and_validate(config, models.TransE, optim.Adam, visdom.Visdom(port=6006))
-
-def report_gpu_info():
-    count = torch.cuda.device_count()
-    for i in range(count):
-        print(str(i) + " " + torch.cuda.get_device_name(i))
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
