@@ -31,6 +31,10 @@ def write_logging_data(drawer, windows, config):
     """writes the logging data."""
     if config.logging_path is None or config.name is None:
         return
-    result = list(map(lambda win: json.loads(drawer.get_window_data(win)), windows))
+    try:
+        result = list(map(lambda win: json.loads(drawer.get_window_data(win)), windows))
+    except json.decoder.JSONDecodeError as e:
+        print(e)
+        exit()
     with open(os.path.join(config.logging_path, config.name), 'w') as f:
         f.write(json.dumps(result))
