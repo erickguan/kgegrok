@@ -16,6 +16,7 @@ __pycache__/
 build/
 data/
 develop-eggs/
+logs/
 dist/
 downloads/
 eggs/

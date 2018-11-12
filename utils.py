@@ -33,6 +33,8 @@ class _VisdomWindowDataReader(object):
 
     def __call__(self, win):
         content = self.drawer.get_window_data(win)
+        if content is None or len(content) == 0:
+            content = "{}"
         try:
             return json.loads(content)
         except json.JSONDecodeError:
