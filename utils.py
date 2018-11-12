@@ -27,14 +27,22 @@ def load_checkpoint(model, optimizer, config):
             logging.info("no checkpoint found at '{}'".format(config.resume))
 
 
+class _VisdomWindowDataReader(object):
+    def __init__(self, drawer):
+        self.drawer = drawer
+
+    def __call__(self, win):
+        try:
+            return json.loads(self.drawer.get_window_data(win))
+        except json.decoder.JSONDecodeError as e:
+            print(e, self.drawer.get_window_data(win))
+            raise e
+
 def write_logging_data(drawer, windows, config):
     """writes the logging data."""
     if config.logging_path is None or config.name is None:
         return
-    try:
-        result = list(map(lambda win: json.loads(drawer.get_window_data(win)), windows))
-    except json.decoder.JSONDecodeError as e:
-        print(e, drawer.get_window_data(win))
-        exit()
+    r = _VisdomWindowDataReader(drawer)
+    result = list(map(r, windows))
     with open(os.path.join(config.logging_path, config.name), 'w') as f:
         f.write(json.dumps(result))
