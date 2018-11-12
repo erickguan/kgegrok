@@ -70,8 +70,11 @@ def train_and_validate(config, model_class, optimizer_class, drawer=None):
             'state_dict': model.state_dict(),
             'optimizer' : optimizer.state_dict(),
         }, postfix_num=i_epoch)
-        write_logging_data(drawer, list(validation_results_drawer.keys()) + [loss_values_drawer], config)
-        exit()
+        drawing_wins = list(validation_results_drawer.keys()) + [loss_values_drawer]
+        if i_epoch > 5:
+            print(drawing_wins)
+            write_logging_data(drawer, drawing_wins, config)
+            exit()
 
 
     return model
