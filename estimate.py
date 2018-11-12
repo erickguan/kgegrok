@@ -70,7 +70,7 @@ def train_and_validate(config, model_class, optimizer_class, drawer=None):
             'state_dict': model.state_dict(),
             'optimizer' : optimizer.state_dict(),
         }, postfix_num=i_epoch)
-        write_logging_data(drawer, list(validation_results_drawer.keys()) + loss_values_drawer, path)
+        write_logging_data(drawer, list(validation_results_drawer.keys()) + [loss_values_drawer], path)
         exit()
 
 
