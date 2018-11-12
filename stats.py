@@ -2,6 +2,7 @@ import pprint
 import data
 import kgekit
 import numpy as np
+import logging
 
 def _evaluate_predict_element(model, triple_index, num_expands, element_type, rank_fn, ranks_list, filtered_ranks_list):
     batch = data.expand_triple_to_sets(kgekit.data.unpack(triple_index), num_expands, element_type)
