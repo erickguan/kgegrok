@@ -11,7 +11,7 @@ from utils import save_checkpoint, load_checkpoint, write_logging_data
 from stats import evaulate_prediction, report_prediction_result, prepare_plot_validation_result
 
 
-def _evaluate_predict_element(model, triple_index, num_expands, element_type, rank_fn, ranks_list, filtered_ranks_list):
+def evaluate_predict_element(model, triple_index, num_expands, element_type, rank_fn, ranks_list, filtered_ranks_list):
     batch = data.expand_triple_to_sets(kgekit.data.unpack(triple_index), num_expands, element_type)
     batch = data.convert_triple_tuple_to_torch(batch)
     logging.debug(element_type)
