@@ -9,6 +9,8 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import shutil
+import os.path
+import json
 
 
 def _evaluate_predict_element(model, triple_index, num_expands, element_type, rank_fn, ranks_list, filtered_ranks_list):
@@ -172,6 +174,14 @@ def load_checkpoint(model, optimizer, config):
         else:
             logging.info("no checkpoint found at '{}'".format(config.resume))
 
+def write_logging_data(drawer, windows, config):
+    """writes the logging data."""
+    if config.logging_path is None or config.name is None:
+        return
+    result = list(map(lambda win: json.loads(drawer.get_window_data(win), windows)))
+    with open(os.path.join(config.logging_path, config.name), 'w') as f:
+        f.write(json.dumps(result))
+
 def train_and_validate(config, model_class, optimizer_class, drawer=None):
     # Data loaders have many processes. Here it's a main program.
     triple_source = data.TripleSource(config.data_dir, config.triple_order, config.triple_delimiter)
@@ -209,7 +219,7 @@ def train_and_validate(config, model_class, optimizer_class, drawer=None):
             optimizer.step()
             loss_epoch += loss.data[0]
 
-        drawer.line(X=np.array([i_epoch], dtype='f'), Y=np.array([loss_epoch], dtype='f'), win=loss_values_drawer,update='append')
+        drawer.line(X=np.array([i_epoch], dtype='f'), Y=np.array([loss_epoch], dtype='f'), win=loss_values_drawer, update='append')
         logging.info("Epoch " + str(i_epoch) + ": loss " + str(loss_epoch))
 
         logging.info('Evaluation for epoch ' + str(i_epoch))
@@ -220,6 +230,8 @@ def train_and_validate(config, model_class, optimizer_class, drawer=None):
             'state_dict': model.state_dict(),
             'optimizer' : optimizer.state_dict(),
         }, postfix_num=i_epoch)
+        write_logging_data(drawer, validation_results_drawer.keys() + loss_values_drawer, path)
+        exit()
 
 
     return model

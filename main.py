@@ -28,6 +28,8 @@ class Config(object):
     resume = None
     # Introduce underministic behaviour but allow cudnn find best algoritm
     cudnn_benchmark = True
+    logging_path = "logs"
+    name = "TransE-YAGO3_10"
 
 def cli():
     config = Config()
