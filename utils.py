@@ -34,7 +34,7 @@ def write_logging_data(drawer, windows, config):
     try:
         result = list(map(lambda win: json.loads(drawer.get_window_data(win)), windows))
     except json.decoder.JSONDecodeError as e:
-        print(e)
+        print(e, drawer.get_window_data(win))
         exit()
     with open(os.path.join(config.logging_path, config.name), 'w') as f:
         f.write(json.dumps(result))
