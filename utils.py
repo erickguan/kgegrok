@@ -32,11 +32,11 @@ class _VisdomWindowDataReader(object):
         self.drawer = drawer
 
     def __call__(self, win):
+        content = self.drawer.get_window_data(win)
         try:
-            return json.loads(self.drawer.get_window_data(win))
-        except json.decoder.JSONDecodeError as e:
-            print(e, self.drawer.get_window_data(win))
-            raise e
+            return json.loads(content)
+        except json.JSONDecodeError:
+            print(content)
 
 def write_logging_data(drawer, windows, config):
     """writes the logging data."""
