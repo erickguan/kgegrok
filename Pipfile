@@ -9,6 +9,8 @@ torchvision = "*"
 kgekit = "==0.1.3"
 visdom = "*"
 tqdm = "*"
+tensorflow = "*"
+tensorflow-gpu = "*"
 
 [dev-packages]
 pytest = "*"

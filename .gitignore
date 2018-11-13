@@ -17,6 +17,7 @@ build/
 data/
 develop-eggs/
 logs/
+tmp/
 dist/
 downloads/
 eggs/
