@@ -56,9 +56,10 @@ def train_and_validate(config, model_class, optimizer_class, drawer=None):
             batch = data.convert_triple_tuple_to_torch(data.get_triples_from_batch(batch))
             negative_batch = data.convert_triple_tuple_to_torch(data.get_negative_samples_from_batch(negative_batch))
             loss = model.forward(batch, negative_batch)
-            loss.sum().backward()
+            loss_sum = loss.sum()
+            loss_sum.backward()
             optimizer.step()
-            loss_epoch += loss.data[0]
+            loss_epoch += loss_sum.data[0]
 
         drawer.line(X=np.array([i_epoch], dtype='f'), Y=np.array([loss_epoch], dtype='f'), win=loss_values_drawer, update='append')
         logging.info("Epoch " + str(i_epoch) + ": loss " + str(loss_epoch))
