@@ -42,7 +42,8 @@ def train_and_validate(config, model_class, optimizer_class, drawer=None):
             opts=data.gen_drawer_key(config, "Loss value"))
         validation_results_drawer = prepare_plot_validation_result(drawer, config)
 
-    for i_epoch in range(config.epoches):
+    INDEX_OFFSET = 1
+    for i_epoch in range(INDEX_OFFSET, config.epoches+INDEX_OFFSET, 1):
         model.train()
         logging.info('--------------------')
         logging.info('Training at epoch ' + str(i_epoch))
@@ -50,7 +51,7 @@ def train_and_validate(config, model_class, optimizer_class, drawer=None):
 
         loss_epoch = 0.0
         for i_batch, sample_batched in enumerate(data_loader):
-            logging.info('Training batch ' + str(i_batch) + "/" + str(len(data_loader)))
+            logging.info('Training batch ' + str(i_batch+INDEX_OFFSET) + "/" + str(len(data_loader)))
             batch, negative_batch = sample_batched
             batch = data.convert_triple_tuple_to_torch(data.get_triples_from_batch(batch))
             negative_batch = data.convert_triple_tuple_to_torch(data.get_negative_samples_from_batch(negative_batch))
