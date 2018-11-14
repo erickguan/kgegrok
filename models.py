@@ -111,7 +111,7 @@ class ComplEx(Model):
 
     def forward(self, batch, negative_batch):
         pos_h, pos_r, pos_t = batch
-        y = np.tile(np.array([-1], dtype=np.int64), pos_h.shape[0])
+        y = torch.from_numpy(np.tile(np.array([-1], dtype=np.int64), pos_h.shape[0]))
         e_re_h = self.ent_re_embeddings(pos_h)
         e_im_h = self.ent_im_embeddings(pos_h)
         e_re_t = self.ent_re_embeddings(pos_t)
@@ -122,7 +122,10 @@ class ComplEx(Model):
         # Calculating loss to get what the framework will optimize
         if negative_batch is not None:
             neg_h, neg_r, neg_t = negative_batch
-            neg_y = np.tile(np.array([-1], dtype=np.int64), neg_h.shape[0])
+            neg_h = neg_h.view(-1)
+            neg_r = neg_r.view(-1)
+            neg_t = neg_t.view(-1)
+            neg_y = torch.from_numpy(np.tile(np.array([-1], dtype=np.int64), neg_h.shape[0]))
             neg_e_re_h = self.ent_re_embeddings(neg_h)
             neg_e_im_h = self.ent_im_embeddings(neg_h)
             neg_e_re_t = self.ent_re_embeddings(neg_t)
