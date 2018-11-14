@@ -13,7 +13,7 @@ from stats import evaulate_prediction, report_prediction_result, prepare_plot_va
 
 def create_optimizer(optimizer_class, config, parameters):
     if optimizer_class == optim.Adagrad:
-        return optimizer_class(parameters, lr=config.alpha, lr_decay=self.lr_decay, weight_decay=self.weight_decay)
+        return optimizer_class(parameters, lr=config.alpha, lr_decay=config.lr_decay, weight_decay=config.weight_decay)
     elif optimizer_class == optim.Adadelta:
         return optimizer_class(parameters, lr=config.alpha)
     elif optimizer_class == optim.Adam:

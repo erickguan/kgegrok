@@ -21,6 +21,8 @@ class Config(object):
     margin = 1.0
     epoches = 1
     alpha = 0.001
+    lr_decay = 0.96
+    weight_decay = 0.96
     lambda_ = 0.001
     report_features = data.LinkPredictionStatistics.DEFAULT
     report_dimension = data.StatisticsDimension.DEFAULT
