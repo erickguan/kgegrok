@@ -71,7 +71,7 @@ def train_and_validate(config, model_class, optimizer_class, drawer=None):
             'epoch': i_epoch,
             'state_dict': model.state_dict(),
             'optimizer' : optimizer.state_dict(),
-        }, postfix_num=i_epoch)
+        }, "model_states/" + config.name + "/checkpoint.pth.tar", postfix_num=i_epoch)
         drawing_wins = list(validation_results_drawer.values()) + [loss_values_drawer]
     write_logging_data(drawer, drawing_wins, config)
 
