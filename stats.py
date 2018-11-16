@@ -5,6 +5,7 @@ import numpy as np
 import logging
 
 def _evaluate_predict_element(model, triple_index, num_expands, element_type, rank_fn, ranks_list, filtered_ranks_list):
+    """Evaluation a single triple with expanded sets."""
     batch = data.expand_triple_to_sets(kgekit.data.unpack(triple_index), num_expands, element_type)
     batch = data.convert_triple_tuple_to_torch(batch)
     logging.debug(element_type)
@@ -15,6 +16,13 @@ def _evaluate_predict_element(model, triple_index, num_expands, element_type, ra
     logging.debug("Rank :" + str(rank) + "; Filtered rank length :" + str(filtered_rank))
     ranks_list.append(rank)
     filtered_ranks_list.append(filtered_rank)
+
+def _evaluate_prediction_view(result_view, triple_index, rank_fn, ranks_list, filtered_ranks_list):
+    """Evaluation on a view of batch."""
+    rank, filtered_rank = rank_fn(result_view, triple_index)
+    ranks_list.append(rank)
+    filtered_ranks_list.append(filtered_rank)
+
 
 def _report_prediction_element(element):
     pprint.pprint(element)
@@ -60,7 +68,32 @@ def evaulate_prediction(model, triple_source, config, ranker, data_loader):
     filtered_relation_ranks = []
 
     for i_batch, sample_batched in enumerate(data_loader):
-        # triple has shape (1, 3). We need to tile it for the test.
+        sampled, batch, splits = sample_batched
+        sampled = data.convert_triple_tuple_to_torch(sampled)
+        predicted_batch = model.forward(sampled).cpu().data.numpy()
+
+        for triple_index, split in zip(batch, splits):
+            if split[0] != split[1] and split[1] != split[2]:
+                _evaluate_prediction_view(predicted_batch[split[0]:split[1]], triple_index, ranker.rankHead, head_ranks, filtered_head_ranks)
+                _evaluate_prediction_view(predicted_batch[split[1]:split[2]], triple_index, ranker.rankTail, tail_ranks, filtered_tail_ranks)
+            if split[2] != split[3]:
+                _evaluate_prediction_view(predicted_batch[split[2]:split[3]], triple_index, ranker.rankRelation, relation_ranks, filtered_relation_ranks)
+
+    return (head_ranks, filtered_head_ranks), (tail_ranks, filtered_tail_ranks), (relation_ranks, filtered_relation_ranks)
+
+def evaulate_prediction_np_collate(model, triple_source, config, ranker, data_loader):
+    """use with NumpyCollate."""
+    model.eval()
+
+    head_ranks = []
+    filtered_head_ranks = []
+    tail_ranks = []
+    filtered_tail_ranks = []
+    relation_ranks = []
+    filtered_relation_ranks = []
+
+    for i_batch, sample_batched in enumerate(data_loader):
+        # sample_batched is a list of triple. triple has shape (1, 3). We need to tile it for the test.
         for triple in sample_batched:
             triple_index = kgekit.TripleIndex(*triple[0, :])
 

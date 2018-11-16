@@ -197,9 +197,8 @@ def _make_random_choice(size, probability):
         choices = [np.random.choice([True, False], p=probability[i]) for i in range(size)]
     return choices
 
-def _round_probablities(probabilities):
-    return [probabilities[0], 1-probabilities[0]]
-
+def _round_probablities(probability):
+    return (probability, 1-probability)
 
 class BernoulliCorruptionCollate(object):
     """Generates corrupted head/tail decision in Bernoulli Distribution based on tph.
@@ -241,6 +240,33 @@ class NumpyCollate(object):
             batch = self.transform(batch)
         batch = np.array(batch, dtype=np.int64)[:, np.newaxis, :]
         return batch
+
+
+class TripleTileCollate(object):
+    """Process triples and put them into a tiled but flat numpy array.
+    Args:
+        config: config object for reading dimension information
+        triple_source: triple source function
+    Returns:
+        Positive tensor with shape (batch_size * varied_size, 1, 3).
+        varied_size will depends on testing dimension, num_entity and num_relation.
+    """
+
+    def __init__(self, config, triple_source):
+        self.config = config
+        self.triple_source = triple_source
+
+    def __call__(self, batch):
+        """process a mini-batch."""
+        sampled, splits = kgekit.expand_triple_batch(batch,
+            self.triple_source.num_entity,
+            self.triple_source.num_relation,
+            (self.config.report_dimension & StatisticsDimension.SEPERATE_ENTITY) or (self.config.report_dimension & StatisticsDimension.COMBINED_ENTITY),
+            self.config.report_dimension & StatisticsDimension.RELATION)
+
+        sampled = sampled[:, np.newaxis, :]
+        return (sampled, batch, splits)
+
 
 class LCWANoThrowCollate(object):
     """Process and sample an negative batch. Supports multiprocess from pytorch.
@@ -360,13 +386,13 @@ def create_dataloader(triple_source, config, dataset_type=DatasetType.TRAINING):
                 LCWANoThrowCollate(triple_source, negative_sampler, transform=OrderedTripleListTransform(config.triple_order)),
             ])
         )
-    else:
+    else: # Validation and Test
         dataset = TripleIndexesDataset(triple_source, dataset_type, transform=OrderedTripleTransform(config.triple_order))
         data_loader = torch.utils.data.DataLoader(dataset,
             batch_size=config.batch_size,
             num_workers=config.num_workers,
             pin_memory=True, # May cause system froze because of of non-preemption
-            collate_fn=NumpyCollate(),
+            collate_fn=TripleTileCollate(),
         )
     return data_loader
 

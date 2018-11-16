@@ -43,7 +43,7 @@ def cli():
     model = train_and_validate(config, models.TransE, optim.Adam, visdom.Visdom(port=6006))
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     report_gpu_info()
 
     cli()
