@@ -76,6 +76,7 @@ def evaulate_prediction(model, triple_source, config, ranker, data_loader):
         sampled = data.convert_triple_tuple_to_torch(data.get_triples_from_batch(sampled), config)
         predicted_batch = model.forward(sampled).cpu().data.numpy()
 
+        # TODO: ranker can be extended to multiprocessing for more performance.
         for triple_index, split in zip(batch, splits):
             if split[0] != split[1] and split[1] != split[2]:
                 _evaluate_prediction_view(predicted_batch[split[0]:split[1]], triple_index, ranker.rankHead, head_ranks, filtered_head_ranks)

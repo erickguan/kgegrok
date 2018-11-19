@@ -36,7 +36,7 @@ class Config(object):
     name = "TransE-YAGO3_10"
     enable_cuda = True
     # due to tile in the evaluation, it's reasonable to have less batch size
-    evaluation_load_factor = 0.001
+    evaluation_load_factor = 0.1
     plot_graph = True
 
     @classmethod

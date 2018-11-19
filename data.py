@@ -394,7 +394,7 @@ def create_dataloader(triple_source, config, dataset_type=DatasetType.TRAINING):
         )
     else: # Validation and Test
         data_loader = torch.utils.data.DataLoader(dataset,
-            batch_size=min(_SAFE_MINIMAL_BATCH_SIZE, config.batch_size*config.evaluation_load_factor),
+            batch_size=min(_SAFE_MINIMAL_BATCH_SIZE, int(config.batch_size*config.evaluation_load_factor)),
             num_workers=config.num_workers,
             pin_memory=True, # May cause system froze because of of non-preemption
             collate_fn=TripleTileCollate(config, triple_source),
