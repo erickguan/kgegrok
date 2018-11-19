@@ -1,6 +1,7 @@
 import torch
 import os.path
 import json
+from pathlib import Path
 
 
 def report_gpu_info():
@@ -10,6 +11,8 @@ def report_gpu_info():
 
 def save_checkpoint(state, filename='model_states/checkpoint.pth.tar', postfix_num=None):
     path = "{}_{}".format(filename, postfix_num) if postfix_num is not None else filename
+    dirname = os.path.dirname(path)
+    Path(dirname).mkdir(parents=True, exist_ok=True)
     torch.save(state, path)
 
 
