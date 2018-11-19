@@ -57,17 +57,24 @@ class Config(object):
 
     def __init__(self, args={}):
         for k, v in args.items():
-            if v is not None:
+            if v is not None and k in self.registered_options():
                 self.__dict__[k] = v
 
+def cli_train(config):
+    drawer = visdom.Visdom(port=6006) if config.plot_graph else None
+    model = train_and_validate(config, models.TransE, optim.Adam, drawer)
+
+def cli_test(config):
+    pass
 
 def cli(args):
     parser = argparse.ArgumentParser()
+    parser.add_argument('--mode', default='train')
     for k in Config.registered_options():
         parser.add_argument("--{}".format(k), type=Config.option_type(k))
 
-    parsed_args = parser.parse_args(args)
-    config = Config(vars(parsed_args))
+    parsed_args = vars(parser.parse_args(args[1:]))
+    config = Config(parsed_args)
     config.enable_cuda = True if torch.cuda.is_available() and config.enable_cuda else False
     print(config.__dict__)
     input("Continue? [Ctrl-C] to stop.")
@@ -77,12 +84,16 @@ def cli(args):
     torch.cuda.manual_seed_all(2192)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = config.cudnn_benchmark
-    drawer = visdom.Visdom(port=6006) if config.plot_graph else None
-    model = train_and_validate(config, models.TransE, optim.Adam, drawer)
+
+    if parsed_args['mode'] == 'train':
+        cli_train(config)
+    else:
+        cli_test(config)
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     report_gpu_info()
 
-    cli(sys.argv[1:])
+    cli(sys.argv)
 
