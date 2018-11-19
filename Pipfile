@@ -11,6 +11,7 @@ visdom = "*"
 tqdm = "*"
 tensorflow = "*"
 tensorflow-gpu = "*"
+pytorch-pretrained-bert = "*"
 
 [dev-packages]
 pytest = "*"
