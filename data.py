@@ -364,9 +364,10 @@ def expand_triple_to_sets(triple, num_expands, arange_target):
 
 def create_dataloader(triple_source, config, dataset_type=DatasetType.TRAINING):
     """Creates dataloader with certain types"""
+    dataset = TripleIndexesDataset(triple_source, dataset_type)
+
     # Use those C++ extension is fast but then we can't use spawn method to start data loader.
     if dataset_type == DatasetType.TRAINING:
-        dataset = TripleIndexesDataset(triple_source, dataset_type)
         negative_sampler = kgekit.LCWANoThrowSampler(
             triple_source.train_set,
             triple_source.num_entity,
@@ -387,7 +388,6 @@ def create_dataloader(triple_source, config, dataset_type=DatasetType.TRAINING):
             ])
         )
     else: # Validation and Test
-        dataset = TripleIndexesDataset(triple_source, dataset_type, transform=OrderedTripleTransform(config.triple_order))
         data_loader = torch.utils.data.DataLoader(dataset,
             batch_size=config.batch_size,
             num_workers=config.num_workers,
