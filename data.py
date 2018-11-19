@@ -325,16 +325,19 @@ def get_all_instances_from_batch(batch, negative_batch):
 
     return np.vstack((pos_h, neg_h)), np.vstack((pos_r, neg_r)), np.vstack((pos_t, neg_t))
 
-def convert_triple_tuple_to_torch(batch):
-    h, r, t = batch
-    if torch.cuda.is_available():
-        return (Variable(torch.from_numpy(h)).cuda(),
-            Variable(torch.from_numpy(r)).cuda(),
-            Variable(torch.from_numpy(t)).cuda())
-    else:
-        return (Variable(torch.from_numpy(h)),
-            Variable(torch.from_numpy(r)),
-            Variable(torch.from_numpy(t)))
+class _BatchElementConverter(object):
+    def __init__(self, cuda_enabled=False):
+        self.cuda_enabled = cuda_enabled
+
+    def __call__(self, x):
+        x = Variable(torch.from_numpy(x))
+        if self.cuda_enabled:
+            x = x.cuda()
+        return x
+
+def convert_triple_tuple_to_torch(batch, config):
+    converter = _BatchElementConverter(config.enable_cuda)
+    return tuple(map(converter, batch))
 
 def expand_triple_to_sets(triple, num_expands, arange_target):
     """Tiles triple into a large sets for testing. One node will be initialized with arange.

@@ -4,10 +4,10 @@ import kgekit
 import numpy as np
 import logging
 
-def _evaluate_predict_element(model, triple_index, num_expands, element_type, rank_fn, ranks_list, filtered_ranks_list):
+def _evaluate_predict_element(model, config, triple_index, num_expands, element_type, rank_fn, ranks_list, filtered_ranks_list):
     """Evaluation a single triple with expanded sets."""
     batch = data.expand_triple_to_sets(kgekit.data.unpack(triple_index), num_expands, element_type)
-    batch = data.convert_triple_tuple_to_torch(batch)
+    batch = data.convert_triple_tuple_to_torch(batch, config)
     logging.debug(element_type)
     logging.debug("Batch len: " + str(len(batch)) + "; batch sample: " + str(batch[0]))
     predicted_batch = model.forward(batch).cpu()
@@ -73,7 +73,7 @@ def evaulate_prediction(model, triple_source, config, ranker, data_loader):
 
     for i_batch, sample_batched in enumerate(data_loader):
         sampled, batch, splits = sample_batched
-        sampled = data.convert_triple_tuple_to_torch(sampled)
+        sampled = data.convert_triple_tuple_to_torch(data.get_triples_from_batch(sampled), config)
         predicted_batch = model.forward(sampled).cpu().data.numpy()
 
         for triple_index, split in zip(batch, splits):
@@ -102,10 +102,10 @@ def evaulate_prediction_np_collate(model, triple_source, config, ranker, data_lo
             triple_index = kgekit.TripleIndex(*triple[0, :])
 
             if (config.report_dimension & data.StatisticsDimension.SEPERATE_ENTITY) or (config.report_dimension & data.StatisticsDimension.COMBINED_ENTITY):
-                _evaluate_predict_element(model, triple_index, triple_source.num_entity, data.TripleElement.HEAD, ranker.rankHead, head_ranks, filtered_head_ranks)
-                _evaluate_predict_element(model, triple_index, triple_source.num_entity, data.TripleElement.TAIL, ranker.rankTail, tail_ranks, filtered_tail_ranks)
+                _evaluate_predict_element(model, config, triple_index, triple_source.num_entity, data.TripleElement.HEAD, ranker.rankHead, head_ranks, filtered_head_ranks)
+                _evaluate_predict_element(model, config, triple_index, triple_source.num_entity, data.TripleElement.TAIL, ranker.rankTail, tail_ranks, filtered_tail_ranks)
             if config.report_dimension & data.StatisticsDimension.RELATION:
-                _evaluate_predict_element(model, triple_index, triple_source.num_relation, data.TripleElement.RELATION, ranker.rankRelation, relation_ranks, filtered_relation_ranks)
+                _evaluate_predict_element(model, config, triple_index, triple_source.num_relation, data.TripleElement.RELATION, ranker.rankRelation, relation_ranks, filtered_relation_ranks)
 
     return (head_ranks, filtered_head_ranks), (tail_ranks, filtered_tail_ranks), (relation_ranks, filtered_relation_ranks)
 
