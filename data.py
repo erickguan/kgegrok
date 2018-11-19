@@ -365,6 +365,8 @@ def expand_triple_to_sets(triple, num_expands, arange_target):
 
     return (h, r, t)
 
+_SAFE_MINIMAL_BATCH_SIZE = 1
+
 def create_dataloader(triple_source, config, dataset_type=DatasetType.TRAINING):
     """Creates dataloader with certain types"""
     dataset = TripleIndexesDataset(triple_source, dataset_type)
@@ -392,7 +394,7 @@ def create_dataloader(triple_source, config, dataset_type=DatasetType.TRAINING):
         )
     else: # Validation and Test
         data_loader = torch.utils.data.DataLoader(dataset,
-            batch_size=config.batch_size,
+            batch_size=min(_SAFE_MINIMAL_BATCH_SIZE, config.batch_size*config.evaluation_load_factor),
             num_workers=config.num_workers,
             pin_memory=True, # May cause system froze because of of non-preemption
             collate_fn=TripleTileCollate(config, triple_source),
