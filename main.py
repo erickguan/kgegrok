@@ -67,6 +67,7 @@ def cli(args):
     config = Config(vars(parsed_args))
     config.enable_cuda = True if torch.cuda.is_available() and config.enable_cuda else False
     print(config.__dict__)
+    input("Continue? [Ctrl-C] to stop.")
 
     np.random.seed(10000)
     torch.manual_seed(20000)
