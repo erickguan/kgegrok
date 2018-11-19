@@ -392,7 +392,7 @@ def create_dataloader(triple_source, config, dataset_type=DatasetType.TRAINING):
             batch_size=config.batch_size,
             num_workers=config.num_workers,
             pin_memory=True, # May cause system froze because of of non-preemption
-            collate_fn=TripleTileCollate(),
+            collate_fn=TripleTileCollate(config, triple_source),
         )
     return data_loader
 
