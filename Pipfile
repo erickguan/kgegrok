@@ -9,8 +9,6 @@ torchvision = "*"
 kgekit = "==0.2.0"
 visdom = "*"
 tqdm = "*"
-tensorflow = "*"
-tensorflow-gpu = "*"
 pytorch-pretrained-bert = "*"
 
 [dev-packages]
