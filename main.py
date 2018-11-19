@@ -35,6 +35,7 @@ class Config(object):
     logging_path = "logs"
     name = "TransE-YAGO3_10"
     enable_cuda = True
+    plot_graph = True
 
     @classmethod
     def registered_options(cls):
@@ -74,7 +75,8 @@ def cli(args):
     torch.cuda.manual_seed_all(2192)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = config.cudnn_benchmark
-    model = train_and_validate(config, models.TransE, optim.Adam, visdom.Visdom(port=6006))
+    drawer = visdom.Visdom(port=6006) if config.plot_graph else None
+    model = train_and_validate(config, models.TransE, optim.Adam, drawer)
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
