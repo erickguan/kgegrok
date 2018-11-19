@@ -441,9 +441,6 @@ def _calc_reciprocal_rank(ranks, num_ranks):
 def _calc_hits(ranks, target, num_ranks):
     return functools.reduce(HitsReducer(target), ranks) / num_ranks
 
-def gen_drawer_key(config, title=None):
-    return dict(fillarea=True, title=title)
-
 def get_rank_statistics(rank_list, filtered_rank_list, features, num_entry):
     result = {}
     num_ranks = len(rank_list)

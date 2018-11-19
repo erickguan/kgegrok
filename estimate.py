@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 from utils import save_checkpoint, load_checkpoint, write_logging_data
-from stats import evaulate_prediction, report_prediction_result, prepare_plot_validation_result
+from stats import evaulate_prediction, report_prediction_result, prepare_plot_validation_result, gen_drawer_key
 
 
 def create_optimizer(optimizer_class, config, parameters):
@@ -39,7 +39,7 @@ def train_and_validate(config, model_class, optimizer_class, drawer=None):
         loss_values_drawer = drawer.line(
             X=np.array([0.], dtype='f'),
             Y=np.array([0.], dtype='f'),
-            opts=data.gen_drawer_key(config, "Loss value"))
+            opts=gen_drawer_key(config, "Loss value"))
         validation_results_drawer = prepare_plot_validation_result(drawer, config)
 
     INDEX_OFFSET = 1

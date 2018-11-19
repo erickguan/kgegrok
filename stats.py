@@ -23,6 +23,10 @@ def _evaluate_prediction_view(result_view, triple_index, rank_fn, ranks_list, fi
     ranks_list.append(rank)
     filtered_ranks_list.append(filtered_rank)
 
+def gen_drawer_key(config, title=None):
+    if title is not None:
+        title = "{}/{}".format(config.name, title)
+    return dict(fillarea=True, title=title)
 
 def _report_prediction_element(element):
     pprint.pprint(element)
@@ -110,7 +114,7 @@ def _add_rank_plot_maker(config, drawers, drawer, key, *add):
     drawers[key] = drawer.line(
             X=np.array([0.], dtype='f'),
             Y=np.array([0.], dtype='f'),
-            opts=data.gen_drawer_key(config, key))
+            opts=gen_drawer_key(config, key))
 
 def prepare_plot_validation_result(drawer, config):
     drawers = {}
