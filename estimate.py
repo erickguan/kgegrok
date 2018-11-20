@@ -24,7 +24,7 @@ def create_optimizer(optimizer_class, config, parameters):
 
 def test(triple_source, config, model_class):
     """Test config.resume model."""
-    data_loader = data.create_dataloader(triple_source, config, collates_label=False, dataset_type=data.DatasetType.TESTING))
+    data_loader = data.create_dataloader(triple_source, config, collates_label=False, dataset_type=data.DatasetType.TESTING)
     model = nn.DataParallel(model_class(triple_source, config))
     load_checkpoint(config, model)
     ranker = kgekit.Ranker(triple_source.train_set, triple_source.valid_set, triple_source.test_set)
