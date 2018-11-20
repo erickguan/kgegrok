@@ -227,14 +227,14 @@ def prepare_plot_validation_result(drawer, config):
     if config.report_dimension & data.StatisticsDimension.COMBINED_ENTITY:
         for key, condition in DRAWING_KEY_AND_CONDITION[data.StatisticsDimension.COMBINED_ENTITY]:
             if condition & config.report_features:
-                drawer.create_plot(key)
+                drawer.create_plot(key, gen_drawer_option(config, key))
     elif config.report_dimension & data.StatisticsDimension.SEPERATE_ENTITY:
         for key, condition in DRAWING_KEY_AND_CONDITION[data.StatisticsDimension.SEPERATE_ENTITY]:
             if condition & config.report_features:
-                drawer.create_plot(key)
+                drawer.create_plot(key, gen_drawer_option(config, key))
     if config.report_dimension & data.StatisticsDimension.RELATION:
         for key, condition in DRAWING_KEY_AND_CONDITION[data.StatisticsDimension.RELATION]:
             if condition & config.report_features:
-                drawer.create_plot(key, condition)
+                drawer.create_plot(key, gen_drawer_option(config, key))
 
     return drawer
