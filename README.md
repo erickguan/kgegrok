@@ -10,5 +10,6 @@ The design follows DIY, data oriented design and a few OO classes.
 
 - Small memory footprint
 - Fast parallelized sampling and batch
-- Easy extensible
+- Deterministic
+- Easily extensible and readable
 - Visible drawing

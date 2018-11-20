@@ -440,6 +440,7 @@ HITS_10_FILTERED_FEATURE_KEY = "hits_10_filtered"
 LOSS_FEATURE_KEY = 'loss'
 HEAD_KEY = "head"
 TAIL_KEY = "tail"
+ENTITY_KEY = "entity"
 RELATION_KEY = "relation"
 
 def _add_rank_statistics(result, key, add, value_fn, *value_args):

@@ -1,7 +1,7 @@
 import torch
 import data
 import models
-from estimate import train_and_validate
+from estimate import train_and_validate, test
 import logging
 import torch.optim as optim
 import visdom
@@ -12,15 +12,25 @@ import argparse
 from itertools import filterfalse
 from utils import report_gpu_info
 from stats import ReportDrawer
+import importlib
 
 class Config(object):
+    # Data
     data_dir = "data/YAGO3-10"
     triple_order = "hrt"
     triple_delimiter = ' '
+
+    # Data processing
     negative_entity = 5
     negative_relation = 1
     batch_size = 100
     num_workers = 2
+
+    # Model
+    model = "TransE"
+    optimizer = "Adam"
+
+    # Model hyperparameters
     entity_embedding_dimension = 50
     margin = 1.0
     epoches = 1000
@@ -28,17 +38,21 @@ class Config(object):
     lr_decay = 0.96
     weight_decay = 0.96
     lambda_ = 0.001
+
+    # Stats
     report_features = data.LinkPredictionStatistics.DEFAULT
     report_dimension = data.StatisticsDimension.DEFAULT
+    # due to tile in the evaluation, it's reasonable to have less batch size
+    evaluation_load_factor = 0.1
     # filename to resume
     resume = None
     # Introduce underministic behaviour but allow cudnn find best algoritm
     cudnn_benchmark = True
+    enable_cuda = True
+
+    # logging
     logging_path = "logs"
     name = "TransE-YAGO3_10"
-    enable_cuda = True
-    # due to tile in the evaluation, it's reasonable to have less batch size
-    evaluation_load_factor = 0.1
     plot_graph = True
 
     @classmethod
@@ -62,12 +76,15 @@ class Config(object):
             if v is not None and k in self.registered_options():
                 self.__dict__[k] = v
 
-def cli_train(config):
+def cli_train(triple_source, config, model_class, optimizer_class):
     drawer = ReportDrawer(visdom.Visdom(port=6006), config) if config.plot_graph else None
-    model = train_and_validate(config, models.TransE, optim.Adam, drawer)
+    model = train_and_validate(triple_source, config, model_class, optimizer_class, drawer)
 
-def cli_test(config):
-    pass
+def cli_test(triple_source, config, model_class, optimizer_class):
+    assert config.resume is not None
+
+    model_class = getattr(models, config.model)
+    model = test(triple_source, config, model_class)
 
 def cli(args):
     parser = argparse.ArgumentParser()
@@ -88,10 +105,13 @@ def cli(args):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = config.cudnn_benchmark
 
+    triple_source = data.TripleSource(config.data_dir, config.triple_order, config.triple_delimiter)
+    model_class = getattr(models, config.model)
+    optimizer_class = getattr(optim, config.optimizer)
     if parsed_args['mode'] == 'train':
-        cli_train(config)
+        cli_train(triple_source, config, model_class, optimizer_class)
     else:
-        cli_test(config)
+        cli_test(triple_source, config, model_class, optimizer_class)
 
 
 if __name__ == '__main__':

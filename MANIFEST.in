@@ -1,3 +1,2 @@
 prune model_states
 include *.py
-exclude main.py

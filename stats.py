@@ -39,31 +39,40 @@ def _common_entries(*dcts):
         yield (i,) + tuple(d[i] for d in dcts)
 
 def _append_drawer(drawer, epoch, result, prefix_key=None):
+    assert epoch is not None
     for key, value in result.items():
         drawer_key = data.dict_key_gen(prefix_key, key) if prefix_key is not None else key
         drawer.append(drawer_key, X=np.array([epoch], dtype='f'), Y=np.array([value], dtype='f'))
 
-def report_prediction_result(epoch, result, config, drawer, triple_source):
+def report_prediction_result(triple_source, config, result, printing=True, epoch=None, drawer=None):
     heads, tails, relations = result
+    ret_values = {}
 
     if config.report_dimension & data.StatisticsDimension.SEPERATE_ENTITY:
         head_result = data.get_rank_statistics(*heads, config.report_features, triple_source.num_entity)
         tail_result = data.get_rank_statistics(*tails, config.report_features, triple_source.num_entity)
+        ret_values[data.HEAD_KEY] = head_result
+        ret_values[data.TAIL_KEY] = tail_result
         _report_prediction_element(head_result)
         _report_prediction_element(tail_result)
-        drawer.append()
-        _append_drawer(drawer, epoch, head_result, data.HEAD_KEY)
-        _append_drawer(drawer, epoch, tail_result, data.TAIL_KEY)
+        if drawer is not None:
+            _append_drawer(drawer, epoch, head_result, data.HEAD_KEY)
+            _append_drawer(drawer, epoch, tail_result, data.TAIL_KEY)
 
     elif config.report_dimension & data.StatisticsDimension.COMBINED_ENTITY:
         combined = {k: (h + t) / 2.0 for k, h, t in _common_entries(data.get_rank_statistics(*heads, config.report_features, triple_source.num_entity), data.get_rank_statistics(*tails, config.report_features, triple_source.num_entity))}
+        ret_values[data.ENTITY_KEY] = combined
         _report_prediction_element(combined)
-        _append_drawer(drawer, epoch, combined)
+        if drawer is not None:
+            _append_drawer(drawer, epoch, combined)
 
     if config.report_dimension & data.StatisticsDimension.RELATION:
         relation_result = data.get_rank_statistics(*relations, config.report_features, triple_source.num_entity)
+        ret_values[data.RELATION_KEY] = relation_result
         _report_prediction_element(relation_result)
-        _append_drawer(drawer, epoch, relation_result, data.RELATION_KEY)
+        if drawer is not None:
+            _append_drawer(drawer, epoch, relation_result, data.RELATION_KEY)
+    return ret_values
 
 def evaulate_prediction(model, triple_source, config, ranker, data_loader):
     model.eval()

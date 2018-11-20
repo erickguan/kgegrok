@@ -12,6 +12,7 @@ import stats
 
 
 def create_optimizer(optimizer_class, config, parameters):
+    """return optimizer initialized with correct parameters."""
     if optimizer_class == optim.Adagrad:
         return optimizer_class(parameters, lr=config.alpha, lr_decay=config.lr_decay, weight_decay=config.weight_decay)
     elif optimizer_class == optim.Adadelta:
@@ -21,18 +22,34 @@ def create_optimizer(optimizer_class, config, parameters):
     else:
         return optimizer_class(parameters, lr=config.alpha)
 
+def test(triple_source, config, model_class):
+    """Test config.resume model."""
+    data_loader = data.create_dataloader(triple_source, config, collates_label=False, dataset_type=data.DatasetType.TESTING))
+    model = nn.DataParallel(model_class(triple_source, config))
+    load_checkpoint(config, model)
+    ranker = kgekit.Ranker(triple_source.train_set, triple_source.valid_set, triple_source.test_set)
 
-def train_and_validate(config, model_class, optimizer_class, drawer=None):
+    if config.enable_cuda:
+        model.cuda()
+
+    logging.info('Testing starts')
+    result = stats.evaulate_prediction(model, triple_source, config, ranker, data_loader)
+
+    stats.report_prediction_result(triple_source, config, result, epoch=i_epoch, drawer=drawer)
+
+    return model
+
+def train_and_validate(triple_source, config, model_class, optimizer_class, drawer=None):
+    """Train and validates the dataset."""
     # Data loaders have many processes. Here it's main process.
-    triple_source = data.TripleSource(config.data_dir, config.triple_order, config.triple_delimiter)
     data_loader = data.create_dataloader(triple_source, config, model_class.require_labels())
     valid_data_loader = data.create_dataloader(triple_source, config, collates_label=False, dataset_type=data.DatasetType.VALIDATION)
     model = nn.DataParallel(model_class(triple_source, config))
     optimizer = create_optimizer(optimizer_class, config, model.parameters())
-    load_checkpoint(model, optimizer, config)
+    load_checkpoint(config, model, optimizer)
     ranker = kgekit.Ranker(triple_source.train_set, triple_source.valid_set, triple_source.test_set)
 
-    if torch.cuda.is_available():
+    if config.enable_cuda:
         model.cuda()
 
     if drawer is not None:
@@ -64,7 +81,7 @@ def train_and_validate(config, model_class, optimizer_class, drawer=None):
         logging.info('Evaluation for epoch ' + str(i_epoch))
         result = stats.evaulate_prediction(model, triple_source, config, ranker, valid_data_loader)
 
-        stats.report_prediction_result(i_epoch, result, config, drawer, triple_source)
+        stats.report_prediction_result(triple_source, config, result, epoch=i_epoch, drawer=drawer)
         save_checkpoint({
             'epoch': i_epoch,
             'state_dict': model.state_dict(),

@@ -16,7 +16,7 @@ def save_checkpoint(state, filename='model_states/checkpoint.pth.tar', postfix_n
     torch.save(state, path)
 
 
-def load_checkpoint(model, optimizer, config):
+def load_checkpoint(config, model, optimizer=None):
     if config.resume:
         if os.path.isfile(config.resume):
             logging.info("loading checkpoint '{}'".format(config.resume))
