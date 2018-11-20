@@ -443,39 +443,61 @@ TAIL_KEY = "tail"
 ENTITY_KEY = "entity"
 RELATION_KEY = "relation"
 
-def _add_rank_statistics(result, key, add, value_fn, *value_args):
-    if not add:
-        return
-    result[key] = value_fn(*value_args)
+class _StatisticsGathering(object):
+    def __init__(self):
+        self.result = {}
 
-def _calc_rank(ranks, num_ranks):
+    def _calc_rank(self, ranks, num_ranks):
     return sum(ranks) / num_ranks
 
-def _calc_reciprocal_rank(ranks, num_ranks):
+    def _calc_reciprocal_rank(self, ranks, num_ranks):
     return sum(map(reciprocal_rank_fn, ranks)) / num_ranks
 
-def _calc_hits(ranks, target, num_ranks):
-    return functools.reduce(HitsReducer(target), ranks) / num_ranks
+    def _calc_hits(self, target, ranks, num_entry):
+        return functools.reduce(HitsReducer(target), ranks) / num_entry
 
-def get_rank_statistics(rank_list, filtered_rank_list, features, num_entry):
-    result = {}
+    def add_rank(self, key, ranks, num_ranks):
+        self.result[key] = self._calc_rank(ranks, num_ranks)
+
+    def add_reciprocal_rank(self, key, ranks, num_ranks):
+        self.result[key] = self._calc_reciprocal_rank(ranks, num_ranks)
+
+    def add_hit(self, key, ranks, target, num_entry):
+        self.result[key] = self._calc_hits(target, ranks, num_entry)
+
+    def get_result(self):
+        return self.result
+
+
+def get_evaluation_statistics(rank_list, filtered_rank_list, features, num_entry):
     num_ranks = len(rank_list)
+    assert isinstance(rank_list, list) and isinstance(filtered_rank_list, list) and num_ranks == len(filtered_rank_list)
 
-    _calc_reciprocal_rank = lambda ranks, num_ranks: sum(map(reciprocal_rank_fn, ranks)) / num_ranks
-
-    _add_rank_statistics(result, MEAN_RECIPROCAL_RANK_FEATURE_KEY, LinkPredictionStatistics.MEAN_RECIPROCAL_RANK & features, _calc_reciprocal_rank, rank_list, num_ranks)
-    _add_rank_statistics(result, MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY, LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK & features, _calc_reciprocal_rank, filtered_rank_list, num_ranks)
-    _add_rank_statistics(result, MEAN_RANK_FEATURE_KEY, LinkPredictionStatistics.MEAN_RANK & features, _calc_rank, rank_list, num_ranks)
-    _add_rank_statistics(result, MEAN_FILTERED_RANK_FEATURE_KEY, LinkPredictionStatistics.MEAN_FILTERED_RANK & features, _calc_rank, filtered_rank_list, num_ranks)
-    _add_rank_statistics(result, HITS_1_FEATURE_KEY, LinkPredictionStatistics.HITS_1 & features, _calc_hits, rank_list, 1, num_entry)
-    _add_rank_statistics(result, HITS_3_FEATURE_KEY, LinkPredictionStatistics.HITS_3 & features, _calc_hits, rank_list, 3, num_entry)
-    _add_rank_statistics(result, HITS_5_FEATURE_KEY, LinkPredictionStatistics.HITS_5 & features, _calc_hits, rank_list, 5, num_entry)
-    _add_rank_statistics(result, HITS_10_FEATURE_KEY, LinkPredictionStatistics.HITS_10 & features, _calc_hits, rank_list, 10, num_entry)
-    _add_rank_statistics(result, HITS_1_FILTERED_FEATURE_KEY, LinkPredictionStatistics.HITS_1_FILTERED & features, _calc_hits, filtered_rank_list, 1, num_entry)
-    _add_rank_statistics(result, HITS_3_FILTERED_FEATURE_KEY, LinkPredictionStatistics.HITS_3_FILTERED & features, _calc_hits, filtered_rank_list, 3, num_entry)
-    _add_rank_statistics(result, HITS_5_FILTERED_FEATURE_KEY, LinkPredictionStatistics.HITS_5_FILTERED & features, _calc_hits, filtered_rank_list, 5, num_entry)
-    _add_rank_statistics(result, HITS_10_FILTERED_FEATURE_KEY, LinkPredictionStatistics.HITS_10_FILTERED & features, _calc_hits, filtered_rank_list, 10, num_entry)
-
-    return result
+    gathering = _StatisticsGathering()
+    if LinkPredictionStatistics.MEAN_RECIPROCAL_RANK & features:
+        gathering.add_reciprocal_rank(MEAN_RECIPROCAL_RANK_FEATURE_KEY, rank_list, num_ranks)
+    if LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK & features:
+        gathering.add_reciprocal_rank(MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY, filtered_rank_list, num_ranks)
+    if LinkPredictionStatistics.MEAN_RANK & features:
+        gathering.add_rank(MEAN_RANK_FEATURE_KEY, rank_list, num_ranks)
+    if LinkPredictionStatistics.MEAN_FILTERED_RANK & features:
+        gathering.add_rank(MEAN_FILTERED_RANK_FEATURE_KEY, filtered_rank_list, num_ranks)
+    if LinkPredictionStatistics.HITS_1 & features:
+        gathering.add_hit(HITS_1_FEATURE_KEY, rank_list, 1, num_entry)
+    if LinkPredictionStatistics.HITS_3 & features:
+        gathering.add_hit(HITS_3_FEATURE_KEY, rank_list, 3, num_entry)
+    if LinkPredictionStatistics.HITS_5 & features:
+        gathering.add_hit(HITS_5_FEATURE_KEY, rank_list, 5, num_entry)
+    if LinkPredictionStatistics.HITS_10 & features:
+        gathering.add_hit(HITS_10_FEATURE_KEY, rank_list, 10, num_entry)
+    if LinkPredictionStatistics.HITS_1_FILTERED & features:
+        gathering.add_hit(HITS_1_FILTERED_FEATURE_KEY, filtered_rank_list, 1, num_entry)
+    if LinkPredictionStatistics.HITS_3_FILTERED & features:
+        gathering.add_hit(HITS_3_FILTERED_FEATURE_KEY, filtered_rank_list, 3, num_entry)
+    if LinkPredictionStatistics.HITS_5_FILTERED & features:
+        gathering.add_hit(HITS_5_FILTERED_FEATURE_KEY, filtered_rank_list, 5, num_entry)
+    if LinkPredictionStatistics.HITS_10_FILTERED & features:
+        gathering.add_hit(HITS_10_FILTERED_FEATURE_KEY, filtered_rank_list, 10, num_entry)
+    return gathering.get_result()
 
 

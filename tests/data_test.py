@@ -214,7 +214,7 @@ class DataTest(unittest.TestCase):
         self.assertAlmostEqual(data._calc_hits([1,2,4], 2, 3), 2/3.0)
 
     def test_rank_stats(self):
-        res = data.get_rank_statistics([1,6,11,9,12], [1,5,10,9,12], data.LinkPredictionStatistics.ALL, 5)
+        res = data.get_evaluation_statistics([1,6,11,9,12], [1,5,10,9,12], data.LinkPredictionStatistics.ALL, 5)
         self.assertAlmostEqual(res[data.MEAN_RECIPROCAL_RANK_FEATURE_KEY], (1.0+1/6.0+1/11.0+1/9.0+1/12.0)/5.0)
         self.assertAlmostEqual(res[data.MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY], (1.0+1/5.0+1/10.0+1/9.0+1/12.0)/5.0)
         self.assertAlmostEqual(res[data.MEAN_RANK_FEATURE_KEY], (1+6+11+9+12)/5.0)

@@ -49,8 +49,8 @@ def report_prediction_result(triple_source, config, result, printing=True, epoch
     ret_values = {}
 
     if config.report_dimension & data.StatisticsDimension.SEPERATE_ENTITY:
-        head_result = data.get_rank_statistics(*heads, config.report_features, triple_source.num_entity)
-        tail_result = data.get_rank_statistics(*tails, config.report_features, triple_source.num_entity)
+        head_result = data.get_evaluation_statistics(*heads, config.report_features, triple_source.num_entity)
+        tail_result = data.get_evaluation_statistics(*tails, config.report_features, triple_source.num_entity)
         ret_values[data.HEAD_KEY] = head_result
         ret_values[data.TAIL_KEY] = tail_result
         _report_prediction_element(head_result)
@@ -60,14 +60,14 @@ def report_prediction_result(triple_source, config, result, printing=True, epoch
             _append_drawer(drawer, epoch, tail_result, data.TAIL_KEY)
 
     elif config.report_dimension & data.StatisticsDimension.COMBINED_ENTITY:
-        combined = {k: (h + t) / 2.0 for k, h, t in _common_entries(data.get_rank_statistics(*heads, config.report_features, triple_source.num_entity), data.get_rank_statistics(*tails, config.report_features, triple_source.num_entity))}
+        combined = {k: (h + t) / 2.0 for k, h, t in _common_entries(data.get_evaluation_statistics(*heads, config.report_features, triple_source.num_entity), data.get_evaluation_statistics(*tails, config.report_features, triple_source.num_entity))}
         ret_values[data.ENTITY_KEY] = combined
         _report_prediction_element(combined)
         if drawer is not None:
             _append_drawer(drawer, epoch, combined)
 
     if config.report_dimension & data.StatisticsDimension.RELATION:
-        relation_result = data.get_rank_statistics(*relations, config.report_features, triple_source.num_entity)
+        relation_result = data.get_evaluation_statistics(*relations, config.report_features, triple_source.num_relation)
         ret_values[data.RELATION_KEY] = relation_result
         _report_prediction_element(relation_result)
         if drawer is not None:
