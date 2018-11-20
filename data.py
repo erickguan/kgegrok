@@ -397,6 +397,7 @@ def create_dataloader(triple_source, config, collates_label=False, dataset_type=
         if collates_label:
             collates.append(label_collate)
         collate_fn = transforms.Compose(collates)
+        batch_size = config.batch_size
     else: # Validation and Test
         batch_size = min(_SAFE_MINIMAL_BATCH_SIZE, int(config.batch_size*config.evaluation_load_factor))
         collate_fn = TripleTileCollate(config, triple_source)
@@ -436,6 +437,7 @@ HITS_5_FEATURE_KEY = 'hits_5'
 HITS_5_FILTERED_FEATURE_KEY = "hits_5_filtered"
 HITS_10_FEATURE_KEY = 'hits_10'
 HITS_10_FILTERED_FEATURE_KEY = "hits_10_filtered"
+LOSS_FEATURE_KEY = 'loss'
 HEAD_KEY = "head"
 TAIL_KEY = "tail"
 RELATION_KEY = "relation"

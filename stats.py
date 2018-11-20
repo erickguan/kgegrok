@@ -3,6 +3,9 @@ import data
 import kgekit
 import numpy as np
 import logging
+from collections import defaultdict
+import json
+
 
 def _evaluate_predict_element(model, config, triple_index, num_expands, element_type, rank_fn, ranks_list, filtered_ranks_list):
     """Evaluation a single triple with expanded sets."""
@@ -23,7 +26,7 @@ def _evaluate_prediction_view(result_view, triple_index, rank_fn, ranks_list, fi
     ranks_list.append(rank)
     filtered_ranks_list.append(filtered_rank)
 
-def gen_drawer_key(config, title=None):
+def gen_drawer_option(config, title=None):
     if title is not None:
         title = "{}/{}".format(config.name, title)
     return dict(fillarea=True, title=title)
@@ -35,12 +38,12 @@ def _common_entries(*dcts):
     for i in set(dcts[0]).intersection(*dcts[1:]):
         yield (i,) + tuple(d[i] for d in dcts)
 
-def _append_drawer(epoch, drawer, drawers, result, prefix_key=None):
+def _append_drawer(drawer, epoch, result, prefix_key=None):
     for key, value in result.items():
         drawer_key = data.dict_key_gen(prefix_key, key) if prefix_key is not None else key
-        drawer.line(X=np.array([epoch], dtype='f'), Y=np.array([value], dtype='f'), win=drawers[drawer_key], update='append')
+        drawer.append(drawer_key, X=np.array([epoch], dtype='f'), Y=np.array([value], dtype='f'))
 
-def report_prediction_result(epoch, result, config, drawer, results_drawer, triple_source):
+def report_prediction_result(epoch, result, config, drawer, triple_source):
     heads, tails, relations = result
 
     if config.report_dimension & data.StatisticsDimension.SEPERATE_ENTITY:
@@ -48,18 +51,19 @@ def report_prediction_result(epoch, result, config, drawer, results_drawer, trip
         tail_result = data.get_rank_statistics(*tails, config.report_features, triple_source.num_entity)
         _report_prediction_element(head_result)
         _report_prediction_element(tail_result)
-        _append_drawer(epoch, drawer, results_drawer, head_result, data.HEAD_KEY)
-        _append_drawer(epoch, drawer, results_drawer, head_result, data.TAIL_KEY)
+        drawer.append()
+        _append_drawer(drawer, epoch, head_result, data.HEAD_KEY)
+        _append_drawer(drawer, epoch, tail_result, data.TAIL_KEY)
 
     elif config.report_dimension & data.StatisticsDimension.COMBINED_ENTITY:
         combined = {k: (h + t) / 2.0 for k, h, t in _common_entries(data.get_rank_statistics(*heads, config.report_features, triple_source.num_entity), data.get_rank_statistics(*tails, config.report_features, triple_source.num_entity))}
         _report_prediction_element(combined)
-        _append_drawer(epoch, drawer, results_drawer, combined)
+        _append_drawer(drawer, epoch, combined)
 
     if config.report_dimension & data.StatisticsDimension.RELATION:
         relation_result = data.get_rank_statistics(*relations, config.report_features, triple_source.num_entity)
         _report_prediction_element(relation_result)
-        _append_drawer(epoch, drawer, results_drawer, relation_result, data.RELATION_KEY)
+        _append_drawer(drawer, epoch, relation_result, data.RELATION_KEY)
 
 def evaulate_prediction(model, triple_source, config, ranker, data_loader):
     model.eval()
@@ -110,67 +114,127 @@ def evaulate_prediction_np_collate(model, triple_source, config, ranker, data_lo
 
     return (head_ranks, filtered_head_ranks), (tail_ranks, filtered_tail_ranks), (relation_ranks, filtered_relation_ranks)
 
-def _add_rank_plot_maker(config, drawers, drawer, key, *add):
-    if not any(add): return
-    drawers[key] = drawer.line(
-            X=np.array([0.], dtype='f'),
-            Y=np.array([0.], dtype='f'),
-            opts=gen_drawer_key(config, key))
+class ReportDrawer(object):
+    """It's actually expecting Visdom drawer."""
+
+    def __init__(self, drawer, config):
+        self.drawer = drawer
+        # holds the our key: visdom window key
+        self.plots = {}
+        self.plots_opts = {}
+        self.config = config
+
+    def _is_plot_exist(self, key):
+        return key in self.plots_opts
+
+    def _lazy_create_plot(self, key, X, Y):
+        """Return False if creation is not needed."""
+        if key not in self.plots:
+            self.plots[key] = self.drawer.line(X=X, Y=Y, opts=self.plots_opts[key])
+            return True
+        return False
+
+    def append(self, key, X, Y):
+        """X and Y are numpy array"""
+        if not self._is_plot_exist:
+            raise RuntimeError("{} doesn't exists in drawer.".format(key))
+        if not self._lazy_create_plot(key, X, Y):
+            # append condition
+            self.drawer.line(X=X, Y=Y, win=self.plots[key], update='append')
+
+    def create_plot(self, key, options=None):
+        # lazy creation so we can avoid an empty record in the beginning
+        self.plots_opts[key] = options
+
+    def _dump_win_data(self, win):
+        content = self.drawer.get_window_data(win)
+        if content is None or len(content) == 0:
+            content = "{}"
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError:
+            print(content)
+        return content
+
+    def dump_raw_data(self):
+        """Dumps all raw data."""
+
+        data = []
+        for _, win in self.plots.items():
+            data.append(_dump_win_data(win))
+        return data
+
+
+DRAWING_KEY_AND_CONDITION = {
+data.StatisticsDimension.COMBINED_ENTITY: [
+    (data.MEAN_RANK_FEATURE_KEY, data.LinkPredictionStatistics.MEAN_RANK),
+    (data.MEAN_FILTERED_RANK_FEATURE_KEY, data.LinkPredictionStatistics.MEAN_FILTERED_RANK),
+    (data.MEAN_RECIPROCAL_RANK_FEATURE_KEY, data.LinkPredictionStatistics.MEAN_RECIPROCAL_RANK),
+    (data.MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY, data.LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK),
+    (data.HITS_1_FEATURE_KEY, data.LinkPredictionStatistics.HITS_1),
+    (data.HITS_3_FEATURE_KEY, data.LinkPredictionStatistics.HITS_3),
+    (data.HITS_5_FEATURE_KEY, data.LinkPredictionStatistics.HITS_5),
+    (data.HITS_10_FEATURE_KEY, data.LinkPredictionStatistics.HITS_10),
+    (data.HITS_1_FILTERED_FEATURE_KEY, data.LinkPredictionStatistics.HITS_1_FILTERED),
+    (data.HITS_3_FILTERED_FEATURE_KEY, data.LinkPredictionStatistics.HITS_3_FILTERED),
+    (data.HITS_5_FILTERED_FEATURE_KEY, data.LinkPredictionStatistics.HITS_5_FILTERED),
+    (data.HITS_10_FILTERED_FEATURE_KEY, data.LinkPredictionStatistics.HITS_10_FILTERED),
+],
+data.StatisticsDimension.SEPERATE_ENTITY: [
+    (data.dict_key_gen(data.HEAD_KEY, data.MEAN_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_RANK),
+    (data.dict_key_gen(data.HEAD_KEY, data.MEAN_FILTERED_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_FILTERED_RANK),
+    (data.dict_key_gen(data.HEAD_KEY, data.MEAN_RECIPROCAL_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_RECIPROCAL_RANK),
+    (data.dict_key_gen(data.HEAD_KEY, data.MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK),
+    (data.dict_key_gen(data.HEAD_KEY, data.HITS_1_FEATURE_KEY), data.LinkPredictionStatistics.HITS_1),
+    (data.dict_key_gen(data.HEAD_KEY, data.HITS_3_FEATURE_KEY), data.LinkPredictionStatistics.HITS_3),
+    (data.dict_key_gen(data.HEAD_KEY, data.HITS_5_FEATURE_KEY), data.LinkPredictionStatistics.HITS_5),
+    (data.dict_key_gen(data.HEAD_KEY, data.HITS_10_FEATURE_KEY), data.LinkPredictionStatistics.HITS_10),
+    (data.dict_key_gen(data.HEAD_KEY, data.HITS_1_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_1_FILTERED),
+    (data.dict_key_gen(data.HEAD_KEY, data.HITS_3_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_3_FILTERED),
+    (data.dict_key_gen(data.HEAD_KEY, data.HITS_5_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_5_FILTERED),
+    (data.dict_key_gen(data.HEAD_KEY, data.HITS_10_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_10_FILTERED),
+
+    (data.dict_key_gen(data.TAIL_KEY, data.MEAN_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_RANK),
+    (data.dict_key_gen(data.TAIL_KEY, data.MEAN_FILTERED_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_FILTERED_RANK),
+    (data.dict_key_gen(data.TAIL_KEY, data.MEAN_RECIPROCAL_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_RECIPROCAL_RANK),
+    (data.dict_key_gen(data.TAIL_KEY, data.MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK),
+    (data.dict_key_gen(data.TAIL_KEY, data.HITS_1_FEATURE_KEY), data.LinkPredictionStatistics.HITS_1),
+    (data.dict_key_gen(data.TAIL_KEY, data.HITS_3_FEATURE_KEY), data.LinkPredictionStatistics.HITS_3),
+    (data.dict_key_gen(data.TAIL_KEY, data.HITS_5_FEATURE_KEY), data.LinkPredictionStatistics.HITS_5),
+    (data.dict_key_gen(data.TAIL_KEY, data.HITS_10_FEATURE_KEY), data.LinkPredictionStatistics.HITS_10),
+    (data.dict_key_gen(data.TAIL_KEY, data.HITS_1_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_1_FILTERED),
+    (data.dict_key_gen(data.TAIL_KEY, data.HITS_3_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_3_FILTERED),
+    (data.dict_key_gen(data.TAIL_KEY, data.HITS_5_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_5_FILTERED),
+    (data.dict_key_gen(data.TAIL_KEY, data.HITS_10_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_10_FILTERED),
+],
+data.StatisticsDimension.RELATION: [
+    (data.dict_key_gen(data.RELATION_KEY, data.MEAN_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_RANK),
+    (data.dict_key_gen(data.RELATION_KEY, data.MEAN_FILTERED_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_FILTERED_RANK),
+    (data.dict_key_gen(data.RELATION_KEY, data.MEAN_RECIPROCAL_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_RECIPROCAL_RANK),
+    (data.dict_key_gen(data.RELATION_KEY, data.MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK),
+    (data.dict_key_gen(data.RELATION_KEY, data.HITS_1_FEATURE_KEY), data.LinkPredictionStatistics.HITS_1),
+    (data.dict_key_gen(data.RELATION_KEY, data.HITS_3_FEATURE_KEY), data.LinkPredictionStatistics.HITS_3),
+    (data.dict_key_gen(data.RELATION_KEY, data.HITS_5_FEATURE_KEY), data.LinkPredictionStatistics.HITS_5),
+    (data.dict_key_gen(data.RELATION_KEY, data.HITS_10_FEATURE_KEY), data.LinkPredictionStatistics.HITS_10),
+    (data.dict_key_gen(data.RELATION_KEY, data.HITS_1_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_1_FILTERED),
+    (data.dict_key_gen(data.RELATION_KEY, data.HITS_3_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_3_FILTERED),
+    (data.dict_key_gen(data.RELATION_KEY, data.HITS_5_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_5_FILTERED),
+    (data.dict_key_gen(data.RELATION_KEY, data.HITS_10_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_10_FILTERED),
+]
+}
 
 def prepare_plot_validation_result(drawer, config):
-    drawers = {}
     if config.report_dimension & data.StatisticsDimension.COMBINED_ENTITY:
-        _add_rank_plot_maker(config, drawers, drawer, data.MEAN_RANK_FEATURE_KEY, config.report_features & data.LinkPredictionStatistics.MEAN_RANK)
-        _add_rank_plot_maker(config, drawers, drawer, data.MEAN_FILTERED_RANK_FEATURE_KEY, config.report_features & data.LinkPredictionStatistics.MEAN_FILTERED_RANK)
-        _add_rank_plot_maker(config, drawers, drawer, data.MEAN_RECIPROCAL_RANK_FEATURE_KEY, config.report_features & data.LinkPredictionStatistics.MEAN_RECIPROCAL_RANK)
-        _add_rank_plot_maker(config, drawers, drawer, data.MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY, config.report_features & data.LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK)
-        _add_rank_plot_maker(config, drawers, drawer, data.HITS_1_FEATURE_KEY, config.report_features & data.LinkPredictionStatistics.HITS_1)
-        _add_rank_plot_maker(config, drawers, drawer, data.HITS_3_FEATURE_KEY, config.report_features & data.LinkPredictionStatistics.HITS_3)
-        _add_rank_plot_maker(config, drawers, drawer, data.HITS_5_FEATURE_KEY, config.report_features & data.LinkPredictionStatistics.HITS_5)
-        _add_rank_plot_maker(config, drawers, drawer, data.HITS_10_FEATURE_KEY, config.report_features & data.LinkPredictionStatistics.HITS_10)
-        _add_rank_plot_maker(config, drawers, drawer, data.HITS_1_FILTERED_FEATURE_KEY, config.report_features & data.LinkPredictionStatistics.HITS_1_FILTERED)
-        _add_rank_plot_maker(config, drawers, drawer, data.HITS_3_FILTERED_FEATURE_KEY, config.report_features & data.LinkPredictionStatistics.HITS_3_FILTERED)
-        _add_rank_plot_maker(config, drawers, drawer, data.HITS_5_FILTERED_FEATURE_KEY, config.report_features & data.LinkPredictionStatistics.HITS_5_FILTERED)
-        _add_rank_plot_maker(config, drawers, drawer, data.HITS_10_FILTERED_FEATURE_KEY, config.report_features & data.LinkPredictionStatistics.HITS_10_FILTERED)
+        for key, condition in DRAWING_KEY_AND_CONDITION[data.StatisticsDimension.COMBINED_ENTITY]:
+            if condition & config.report_features:
+                drawer.create_plot(key)
     elif config.report_dimension & data.StatisticsDimension.SEPERATE_ENTITY:
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.HEAD_KEY, data.MEAN_RANK_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.MEAN_RANK)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.HEAD_KEY, data.MEAN_FILTERED_RANK_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.MEAN_FILTERED_RANK)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.HEAD_KEY, data.MEAN_RECIPROCAL_RANK_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.MEAN_RECIPROCAL_RANK)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.HEAD_KEY, data.MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.HEAD_KEY, data.HITS_1_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_1)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.HEAD_KEY, data.HITS_3_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_3)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.HEAD_KEY, data.HITS_5_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_5)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.HEAD_KEY, data.HITS_10_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_10)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.HEAD_KEY, data.HITS_1_FILTERED_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_1_FILTERED)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.HEAD_KEY, data.HITS_3_FILTERED_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_3_FILTERED)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.HEAD_KEY, data.HITS_5_FILTERED_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_5_FILTERED)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.HEAD_KEY, data.HITS_10_FILTERED_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_10_FILTERED)
-
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.TAIL_KEY, data.MEAN_RANK_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.MEAN_RANK)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.TAIL_KEY, data.MEAN_FILTERED_RANK_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.MEAN_FILTERED_RANK)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.TAIL_KEY, data.MEAN_RECIPROCAL_RANK_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.MEAN_RECIPROCAL_RANK)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.TAIL_KEY, data.MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.TAIL_KEY, data.HITS_1_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_1)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.TAIL_KEY, data.HITS_3_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_3)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.TAIL_KEY, data.HITS_5_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_5)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.TAIL_KEY, data.HITS_10_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_10)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.TAIL_KEY, data.HITS_1_FILTERED_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_1_FILTERED)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.TAIL_KEY, data.HITS_3_FILTERED_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_3_FILTERED)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.TAIL_KEY, data.HITS_5_FILTERED_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_5_FILTERED)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.TAIL_KEY, data.HITS_10_FILTERED_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_10_FILTERED)
-
+        for key, condition in DRAWING_KEY_AND_CONDITION[data.StatisticsDimension.SEPERATE_ENTITY]:
+            if condition & config.report_features:
+                drawer.create_plot(key)
     if config.report_dimension & data.StatisticsDimension.RELATION:
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.RELATION_KEY, data.MEAN_RANK_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.MEAN_RANK)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.RELATION_KEY, data.MEAN_FILTERED_RANK_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.MEAN_FILTERED_RANK)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.RELATION_KEY, data.MEAN_RECIPROCAL_RANK_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.MEAN_RECIPROCAL_RANK)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.RELATION_KEY, data.MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.RELATION_KEY, data.HITS_1_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_1)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.RELATION_KEY, data.HITS_3_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_3)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.RELATION_KEY, data.HITS_5_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_5)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.RELATION_KEY, data.HITS_10_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_10)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.RELATION_KEY, data.HITS_1_FILTERED_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_1_FILTERED)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.RELATION_KEY, data.HITS_3_FILTERED_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_3_FILTERED)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.RELATION_KEY, data.HITS_5_FILTERED_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_5_FILTERED)
-        _add_rank_plot_maker(config, drawers, drawer, data.dict_key_gen(data.RELATION_KEY, data.HITS_10_FILTERED_FEATURE_KEY), config.report_features & data.LinkPredictionStatistics.HITS_10_FILTERED)
+        for key, condition in DRAWING_KEY_AND_CONDITION[data.StatisticsDimension.RELATION]:
+            if condition & config.report_features:
+                drawer.create_plot(key, condition)
 
-    return drawers
+    return drawer

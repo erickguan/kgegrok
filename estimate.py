@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 from utils import save_checkpoint, load_checkpoint, write_logging_data
-from stats import evaulate_prediction, report_prediction_result, prepare_plot_validation_result, gen_drawer_key
+import stats
 
 
 def create_optimizer(optimizer_class, config, parameters):
@@ -35,12 +35,9 @@ def train_and_validate(config, model_class, optimizer_class, drawer=None):
     if torch.cuda.is_available():
         model.cuda()
 
-    if drawer != None:
-        loss_values_drawer = drawer.line(
-            X=np.array([0.], dtype='f'),
-            Y=np.array([0.], dtype='f'),
-            opts=gen_drawer_key(config, "Loss value"))
-        validation_results_drawer = prepare_plot_validation_result(drawer, config)
+    if drawer is not None:
+        drawer.create_plot(data.LOSS_FEATURE_KEY, stats.gen_drawer_option(config, "Loss value"))
+        stats.prepare_plot_validation_result(drawer, config)
 
     INDEX_OFFSET = 1
     for i_epoch in range(INDEX_OFFSET, config.epoches+INDEX_OFFSET, 1):
@@ -61,18 +58,19 @@ def train_and_validate(config, model_class, optimizer_class, drawer=None):
             optimizer.step()
             loss_epoch += loss_sum.data[0]
 
-        drawer.line(X=np.array([i_epoch], dtype='f'), Y=np.array([loss_epoch], dtype='f'), win=loss_values_drawer, update='append')
+        drawer.append(data.LOSS_FEATURE_KEY, X=np.array([i_epoch], dtype='f'), Y=np.array([loss_epoch], dtype='f'))
         logging.info("Epoch " + str(i_epoch) + ": loss " + str(loss_epoch))
 
         logging.info('Evaluation for epoch ' + str(i_epoch))
-        result = evaulate_prediction(model, triple_source, config, ranker, valid_data_loader)
-        report_prediction_result(i_epoch, result, config, drawer, validation_results_drawer, triple_source)
+        result = stats.evaulate_prediction(model, triple_source, config, ranker, valid_data_loader)
+
+        stats.report_prediction_result(i_epoch, result, config, drawer, triple_source)
         save_checkpoint({
             'epoch': i_epoch,
             'state_dict': model.state_dict(),
             'optimizer' : optimizer.state_dict(),
         }, "model_states/" + config.name + "/checkpoint.pth.tar", postfix_num=i_epoch)
-        drawing_wins = list(validation_results_drawer.values()) + [loss_values_drawer]
-    write_logging_data(drawer, drawing_wins, config)
+
+    write_logging_data(drawer.dump_raw_data(), config)
 
     return model

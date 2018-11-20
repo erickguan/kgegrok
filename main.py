@@ -10,6 +10,7 @@ import sys
 import argparse
 from itertools import filterfalse
 from utils import report_gpu_info
+from stats import ReportDrawer
 
 class Config(object):
     data_dir = "data/YAGO3-10"
@@ -61,7 +62,7 @@ class Config(object):
                 self.__dict__[k] = v
 
 def cli_train(config):
-    drawer = visdom.Visdom(port=6006) if config.plot_graph else None
+    drawer = ReportDrawer(visdom.Visdom(port=6006), config) if config.plot_graph else None
     model = train_and_validate(config, models.TransE, optim.Adam, drawer)
 
 def cli_test(config):
