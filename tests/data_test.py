@@ -7,6 +7,7 @@ import torch
 import pytest
 
 class Config(object):
+    """Mocked implementation of config"""
     data_dir = "tests/fixtures/triples"
     triple_order = "hrt"
     triple_delimiter = ' '
@@ -90,7 +91,7 @@ class DataTest(unittest.TestCase):
         negative_sampler = kgekit.LCWANoThrowSampler(self.source.train_set, self.source.num_entity, self.source.num_relation, 1, 1, kgekit.LCWANoThrowSamplerStrategy.Hash)
         batch, negatives = data.LCWANoThrowCollate(self.source, negative_sampler, transform=data.OrderedTripleListTransform("hrt"))(self.samples, 0)
 
-        h, r, t = data.get_negative_samples_from_batch(negatives)
+        h, r, t = data.get_triples_from_batch(negatives)
         self.assertEqual(h.shape, (2, 2))
         self.assertEqual(r.shape, (2, 2))
         self.assertEqual(t.shape, (2, 2))
@@ -107,59 +108,70 @@ class DataTest(unittest.TestCase):
             [2, 2],
         ], dtype=np.int64))
 
-    def test_get_all_instances_from_batch(self):
+    def test_get_labels_from_batch(self):
         np.random.seed(0)
         negative_sampler = kgekit.LCWANoThrowSampler(self.source.train_set, self.source.num_entity, self.source.num_relation, 1, 1, kgekit.LCWANoThrowSamplerStrategy.Hash)
-        batch, negatives = data.LCWANoThrowCollate(self.source, negative_sampler, transform=data.OrderedTripleListTransform("hrt"))(self.samples, 0)
+        batch_sampled = data.LCWANoThrowCollate(self.source, negative_sampler, transform=data.OrderedTripleListTransform("hrt"))(self.samples, 0)
+        batch, negatives = data.label_collate(batch_sampled)
 
-        h, r, t = data.get_all_instances_from_batch(batch, negatives)
-        self.assertEqual(h.shape, (3, 2))
-        self.assertEqual(r.shape, (3, 2))
-        self.assertEqual(t.shape, (3, 2))
+        h, r, t, y = data.get_triples_from_batch(batch)
+        np.testing.assert_equal(h, np.array([0, 1], dtype=np.int64))
+        np.testing.assert_equal(r, np.array([0, 1], dtype=np.int64))
+        np.testing.assert_equal(t, np.array([1, 2], dtype=np.int64))
+        np.testing.assert_equal(y, np.array([1, 1], dtype=np.int64))
+
+        h, r, t, y = data.get_triples_from_batch(negatives)
         np.testing.assert_equal(h, np.array([
-            [0, 1],
             [0, 0],
             [0, 1],
         ], dtype=np.int64))
         np.testing.assert_equal(r, np.array([
-            [0, 1],
             [0, 2],
             [1, 0],
         ], dtype=np.int64))
         np.testing.assert_equal(t, np.array([
-            [1, 2],
             [3, 1],
             [2, 2],
+        ], dtype=np.int64))
+        np.testing.assert_equal(y, np.array([
+            [-1, -1],
+            [-1, -1],
         ], dtype=np.int64))
 
     def test_data_loader(self):
         np.random.seed(0)
         config = Config()
-        data_loader = data.create_dataloader(self.source, config, data.DatasetType.TRAINING)
+        data_loader = data.create_dataloader(self.source, config, False, data.DatasetType.TRAINING)
         _, sample_batched = next(enumerate(data_loader))
-        np.testing.assert_equal(sample_batched[0], np.array([
+        batch, negatives = sample_batched
+        np.testing.assert_equal(batch, np.array([
             [[0, 0, 1]],
             [[0, 1, 2]],
             [[1, 2, 3]],
             [[3, 1, 2]]
         ], dtype=np.int64))
-        negatives = sample_batched[1]
-        print(sample_batched)
-        self.assertEqual(negatives[0, 0, 1], 0) # 0 0 1
-        self.assertEqual(negatives[0, 1, 0], 0)
-        self.assertEqual(negatives[0, 1, 2], 1)
+        np.testing.assert_equal(negatives[0, :, :], np.array([
+            [0, 0, 1],
+            [0, 1, 1],
+        ], dtype=np.int64))
 
-        self.assertEqual(negatives[1, 0, 1], 1) # 0 1 2
-        self.assertEqual(negatives[1, 1, 0], 0)
-        self.assertEqual(negatives[1, 1, 2], 2)
-
-        self.assertEqual(negatives[2, 0, 1], 2) # 1 2 3
-        self.assertEqual(negatives[2, 1, 0], 1)
-        self.assertEqual(negatives[2, 1, 2], 3)
-
-        self.assertEqual(negatives[3, 0, 1], 1) # 3 1 2
-        self.assertEqual(negatives[3, 1, 0], 3)
-        self.assertEqual(negatives[3, 1, 2], 2)
+    def test_data_loader_with_label(self):
+        np.random.seed(0)
+        config = Config()
+        data_loader = data.create_dataloader(self.source, config, True, data.DatasetType.TRAINING)
+        _, sample_batched = next(enumerate(data_loader))
+        batch, negatives = sample_batched
+        np.testing.assert_equal(batch, np.array([
+            [[0, 0, 1, 1]],
+            [[0, 1, 2, 1]],
+            [[1, 2, 3, 1]],
+            [[3, 1, 2, 1]]
+        ], dtype=np.int64))
+        self.assertEqual(negatives.shape, (4, 2, 4))
+        np.testing.assert_equal(negatives[0, :, :], np.array([
+            [0, 0, 1, -1],
+            [0, 1, 1, -1],
+        ], dtype=np.int64))
 
     def test_expand_triple_to_sets(self):
         h, r, t = data.expand_triple_to_sets((1, 2, 3), 10, data.TripleElement.HEAD)

@@ -12,6 +12,9 @@ import random
 from enum import Enum, Flag, auto
 from torchvision import transforms
 import functools
+from typing import List
+
+TripleIndexList = List[kgekit.TripleIndex]
 
 TRIPLE_LENGTH = 3
 NUM_POSITIVE_INSTANCE = 1
@@ -209,7 +212,7 @@ class BernoulliCorruptionCollate(object):
         self.train_set = triple_source.train_set
         self.bernoulli_corruptor = bernoulli_corruptor
 
-    def __call__(self, batch):
+    def __call__(self, batch: TripleIndexList):
         """return corruption flag and actual batch"""
         if isinstance(batch[0], list):
             probabilities = [_round_probablities(self.bernoulli_corruptor.getProbablityRelation(t[1])) for t in batch]
@@ -221,7 +224,8 @@ class UniformCorruptionCollate(object):
     """Generates corrupted head/tail decision in uniform distribution.
     True means we will corrupt head."""
 
-    def __call__(self, batch):
+    def __call__(self, batch: TripleIndexList):
+        """batch is a list"""
         return _make_random_choice(len(batch), [0.5, 0.5]), batch
 
 class NumpyCollate(object):
@@ -233,7 +237,7 @@ class NumpyCollate(object):
     def __init__(self, transform=None):
         self.transform = transform
 
-    def __call__(self, batch):
+    def __call__(self, batch: TripleIndexList):
         """process a mini-batch."""
         batch_size = len(batch)
         if self.transform:
@@ -256,7 +260,7 @@ class TripleTileCollate(object):
         self.config = config
         self.triple_source = triple_source
 
-    def __call__(self, batch):
+    def __call__(self, batch: TripleIndexList):
         """process a mini-batch."""
         sampled, splits = kgekit.expand_triple_batch(batch,
             self.triple_source.num_entity,
@@ -268,6 +272,25 @@ class TripleTileCollate(object):
         return (sampled, batch, splits)
 
 
+def label_collate(sample):
+    """Add data label for (batch, negative_batch).
+    positive batch shape: (batch_size, 1, 4)
+    negative batch shape: (batch_size, negative_samples, 4).
+    """
+    batch, negative_batch = sample
+
+    pos_shape = list(batch.shape)
+    pos_shape[2] = 1
+    pos_y = np.ones(pos_shape, dtype=np.int64)
+    neg_shape = list(negative_batch.shape)
+    neg_shape[2] = 1
+    neg_y = np.empty(neg_shape, dtype=np.int64)
+    neg_y.fill(-1)
+
+    batch = np.concatenate((batch, pos_y), axis=2)
+    negative_batch = np.concatenate((negative_batch, neg_y), axis=2)
+    return batch, negative_batch
+
 class LCWANoThrowCollate(object):
     """Process and sample an negative batch. Supports multiprocess from pytorch.
     We don't throw if |set(subject, predict)| is empty.
@@ -278,7 +301,6 @@ class LCWANoThrowCollate(object):
 
     def __init__(self, triple_source, negative_sampler, transform=None):
         self.sampler = negative_sampler
-        self.train_set = triple_source.train_set
         self.transform = transform
 
     def __call__(self, batch_set, sample_seed=None):
@@ -287,43 +309,28 @@ class LCWANoThrowCollate(object):
         else:
             raise RuntimeError("Wrong parameter type. Need a tuple (corrupt_head, batch). Got " + str(type(batch_set)))
         batch_size = len(batch)
-        arr = np.empty((batch_size, self.sampler.numNegativeSamples(), TRIPLE_LENGTH), dtype=np.int64)
+        negative_batch = np.empty((batch_size, self.sampler.numNegativeSamples(), TRIPLE_LENGTH), dtype=np.int64)
         if sample_seed is None:
             sample_seed = np.random.randint(0, 10000000000)
 
         assert isinstance(sample_seed, int)
-        self.sampler.sample(arr, corrupt_head, batch, sample_seed)
+        self.sampler.sample(negative_batch, corrupt_head, batch, sample_seed)
 
+        # We don't want to waste memory here. so batch was passed as a list
         if self.transform:
             batch = self.transform(batch)
-        return batch, arr
+        return batch, negative_batch
 
 
 def get_triples_from_batch(batch):
-    """Returns h, r, t from batch."""
+    """Returns h, r, t and possible label from batch."""
 
-    NUM_TRIPLE_ELEMENT = 3
-
-    batch_size = len(batch) if isinstance(batch, list) else batch.shape[0]
-    h, r, t = np.split(batch, NUM_TRIPLE_ELEMENT, axis=2)
-    return h.reshape(batch_size), r.reshape(batch_size), t.reshape(batch_size)
-
-def get_negative_samples_from_batch(batch):
-    """Returns h, r, t from batch."""
-
-    NUM_TRIPLE_ELEMENT = 3
-
-    batch_size, num_negative_samples, _ = batch.shape
-    h, r, t = np.split(batch, NUM_TRIPLE_ELEMENT, axis=2)
-    return h.reshape(batch_size, num_negative_samples), r.reshape(batch_size, num_negative_samples), t.reshape(batch_size, num_negative_samples)
-
-def get_all_instances_from_batch(batch, negative_batch):
-    """Returns h, r, t from batch and negatives."""
-
-    pos_h, pos_r, pos_t = get_triples_from_batch(batch)
-    neg_h, neg_r, neg_t = get_negative_samples_from_batch(negative_batch)
-
-    return np.vstack((pos_h, neg_h)), np.vstack((pos_r, neg_r)), np.vstack((pos_t, neg_t))
+    batch_size, num_samples, num_element = batch.shape
+    elements = np.split(batch, num_element, axis=2)
+    if num_samples <= 1:
+        return (e.reshape(batch_size) for e in elements)
+    else:
+        return (e.reshape(batch_size, num_samples) for e in elements)
 
 class _BatchElementConverter(object):
     def __init__(self, cuda_enabled=False):
@@ -367,7 +374,7 @@ def expand_triple_to_sets(triple, num_expands, arange_target):
 
 _SAFE_MINIMAL_BATCH_SIZE = 1
 
-def create_dataloader(triple_source, config, dataset_type=DatasetType.TRAINING):
+def create_dataloader(triple_source, config, collates_label=False, dataset_type=DatasetType.TRAINING):
     """Creates dataloader with certain types"""
     dataset = TripleIndexesDataset(triple_source, dataset_type)
 
@@ -383,22 +390,23 @@ def create_dataloader(triple_source, config, dataset_type=DatasetType.TRAINING):
         )
         corruptor = kgekit.BernoulliCorruptor(triple_source.train_set)
 
-        data_loader = torch.utils.data.DataLoader(dataset,
-            batch_size=config.batch_size,
-            num_workers=config.num_workers,
-            pin_memory=True, # May cause system froze because of non-preemption
-            collate_fn=transforms.Compose([
-                BernoulliCorruptionCollate(triple_source, corruptor),
-                LCWANoThrowCollate(triple_source, negative_sampler, transform=OrderedTripleListTransform(config.triple_order)),
-            ])
-        )
+        collates = [
+            BernoulliCorruptionCollate(triple_source, corruptor),
+            LCWANoThrowCollate(triple_source, negative_sampler, transform=OrderedTripleListTransform(config.triple_order)),
+        ]
+        if collates_label:
+            collates.append(label_collate)
+        collate_fn = transforms.Compose(collates)
     else: # Validation and Test
-        data_loader = torch.utils.data.DataLoader(dataset,
-            batch_size=min(_SAFE_MINIMAL_BATCH_SIZE, int(config.batch_size*config.evaluation_load_factor)),
-            num_workers=config.num_workers,
-            pin_memory=True, # May cause system froze because of of non-preemption
-            collate_fn=TripleTileCollate(config, triple_source),
-        )
+        batch_size = min(_SAFE_MINIMAL_BATCH_SIZE, int(config.batch_size*config.evaluation_load_factor))
+        collate_fn = TripleTileCollate(config, triple_source)
+
+    data_loader = torch.utils.data.DataLoader(dataset,
+        batch_size=batch_size,
+        num_workers=config.num_workers,
+        pin_memory=True, # May cause system froze because of of non-preemption
+        collate_fn=collate_fn,
+    )
     return data_loader
 
 def reciprocal_rank_fn(rank):

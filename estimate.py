@@ -23,10 +23,10 @@ def create_optimizer(optimizer_class, config, parameters):
 
 
 def train_and_validate(config, model_class, optimizer_class, drawer=None):
-    # Data loaders have many processes. Here it's a main program.
+    # Data loaders have many processes. Here it's main process.
     triple_source = data.TripleSource(config.data_dir, config.triple_order, config.triple_delimiter)
-    data_loader = data.create_dataloader(triple_source, config)
-    valid_data_loader = data.create_dataloader(triple_source, config, data.DatasetType.VALIDATION)
+    data_loader = data.create_dataloader(triple_source, config, model_class.require_labels())
+    valid_data_loader = data.create_dataloader(triple_source, config, collates_label=False, dataset_type=data.DatasetType.VALIDATION)
     model = nn.DataParallel(model_class(triple_source, config))
     optimizer = create_optimizer(optimizer_class, config, model.parameters())
     load_checkpoint(model, optimizer, config)
@@ -54,7 +54,7 @@ def train_and_validate(config, model_class, optimizer_class, drawer=None):
             logging.info('Training batch ' + str(i_batch+INDEX_OFFSET) + "/" + str(len(data_loader)))
             batch, negative_batch = sample_batched
             batch = data.convert_triple_tuple_to_torch(data.get_triples_from_batch(batch), config)
-            negative_batch = data.convert_triple_tuple_to_torch(data.get_negative_samples_from_batch(negative_batch), config)
+            negative_batch = data.convert_triple_tuple_to_torch(data.get_triples_from_batch(negative_batch), config)
             loss = model.forward(batch, negative_batch)
             loss_sum = loss.sum()
             loss_sum.backward()
