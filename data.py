@@ -448,10 +448,10 @@ class _StatisticsGathering(object):
         self.result = {}
 
     def _calc_rank(self, ranks, num_ranks):
-    return sum(ranks) / num_ranks
+        return sum(ranks) / num_ranks
 
     def _calc_reciprocal_rank(self, ranks, num_ranks):
-    return sum(map(reciprocal_rank_fn, ranks)) / num_ranks
+        return sum(map(reciprocal_rank_fn, ranks)) / num_ranks
 
     def _calc_hits(self, target, ranks, num_entry):
         return functools.reduce(HitsReducer(target), ranks) / num_entry
