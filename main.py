@@ -7,6 +7,7 @@ import torch.optim as optim
 import visdom
 import numpy as np
 import sys
+import select
 import argparse
 from itertools import filterfalse
 from utils import report_gpu_info
@@ -78,7 +79,8 @@ def cli(args):
     config = Config(parsed_args)
     config.enable_cuda = True if torch.cuda.is_available() and config.enable_cuda else False
     print(config.__dict__)
-    input("Continue? [Ctrl-C] to stop.")
+    print("Continue? Starts in 10s. [Ctrl-C] to stop.")
+    select.select([sys.stdin], [], [], 10)
 
     np.random.seed(10000)
     torch.manual_seed(20000)
