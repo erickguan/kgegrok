@@ -29,7 +29,7 @@ def _evaluate_prediction_view(result_view, triple_index, rank_fn, ranks_list, fi
 def gen_drawer_option(config, title=None):
     if title is not None:
         title = "{}/{}".format(config.name, title)
-    return dict(fillarea=True, title=title)
+    return dict(fillarea=True, xlabel="Epoch", width=800, height=800, title=title)
 
 def _report_prediction_element(element):
     pprint.pprint(element)
