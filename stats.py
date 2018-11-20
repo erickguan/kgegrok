@@ -31,7 +31,8 @@ def gen_drawer_option(config, title=None):
         title = "{}/{}".format(config.name, title)
     return dict(fillarea=True, xlabel="Epoch", width=600, height=600, title=title)
 
-def _report_prediction_element(element):
+def _report_prediction_element(element, epoch):
+    pprint.pprint(epoch)
     pprint.pprint(element)
 
 def _common_entries(*dcts):
@@ -53,8 +54,8 @@ def report_prediction_result(triple_source, config, result, printing=True, epoch
         tail_result = data.get_evaluation_statistics(*tails, config.report_features, triple_source.num_entity)
         ret_values[data.HEAD_KEY] = head_result
         ret_values[data.TAIL_KEY] = tail_result
-        _report_prediction_element(head_result)
-        _report_prediction_element(tail_result)
+        _report_prediction_element(head_result, epoch)
+        _report_prediction_element(tail_result, epoch)
         if drawer is not None:
             _append_drawer(drawer, epoch, head_result, data.HEAD_KEY)
             _append_drawer(drawer, epoch, tail_result, data.TAIL_KEY)
@@ -62,16 +63,17 @@ def report_prediction_result(triple_source, config, result, printing=True, epoch
     elif config.report_dimension & data.StatisticsDimension.COMBINED_ENTITY:
         combined = {k: (h + t) / 2.0 for k, h, t in _common_entries(data.get_evaluation_statistics(*heads, config.report_features, triple_source.num_entity), data.get_evaluation_statistics(*tails, config.report_features, triple_source.num_entity))}
         ret_values[data.ENTITY_KEY] = combined
-        _report_prediction_element(combined)
+        _report_prediction_element(combined, epoch)
         if drawer is not None:
             _append_drawer(drawer, epoch, combined)
 
     if config.report_dimension & data.StatisticsDimension.RELATION:
         relation_result = data.get_evaluation_statistics(*relations, config.report_features, triple_source.num_relation)
         ret_values[data.RELATION_KEY] = relation_result
-        _report_prediction_element(relation_result)
+        _report_prediction_element(relation_result, epoch)
         if drawer is not None:
             _append_drawer(drawer, epoch, relation_result, data.RELATION_KEY)
+
     return ret_values
 
 def evaulate_prediction(model, triple_source, config, ranker, data_loader):
