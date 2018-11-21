@@ -7,19 +7,21 @@ import logging
 def _evaluate_prediction_view(output, result_view, triple_index, rank_fn, datatype):
     """Evaluation on a view of batch."""
     rank, filtered_rank = rank_fn(result_view, triple_index)
-    output.put((datatype, rank, filtered_rank))
+    return (datatype, rank, filtered_rank)
 
 def _evaluation_worker_loop(resource, input, output):
     ranker = resource.ranker
     try:
         for batch_tensor, triple_index, splits in iter(input.get, 'STOP'):
             batch = batch_tensor.data.numpy()
+            result = []
             for triple_index, split in zip(batch, splits):
                 if split[0] != split[1] and split[1] != split[2]:
-                    _evaluate_prediction_view(output, predicted_batch[split[0]:split[1]], triple_index, ranker.rankHead, data.HEAD_KEY)
-                    _evaluate_prediction_view(output, predicted_batch[split[1]:split[2]], triple_index, ranker.rankTail, data.TAIL_KEY)
+                    result.append(_evaluate_prediction_view(predicted_batch[split[0]:split[1]], triple_index, ranker.rankHead, data.HEAD_KEY))
+                    result.append(_evaluate_prediction_view(predicted_batch[split[1]:split[2]], triple_index, ranker.rankTail, data.TAIL_KEY))
                 if split[2] != split[3]:
-                    _evaluate_prediction_view(output, predicted_batch[split[2]:split[3]], triple_index, ranker.rankRelation, data.RELATION_KEY)
+                    result.append(_evaluate_prediction_view(predicted_batch[split[2]:split[3]], triple_index, ranker.rankRelation, data.RELATION_KEY))
+            output.put(result)
     except StopIteration:
         print("Evaluation worker {} stops.".format(mp.current_process().name))
 
@@ -56,9 +58,9 @@ class EvaluationProcessPool(object):
 
     def evaluate_batch(self, test_package):
         """Batch is a Tensor."""
-        logging.debug("Putting a new batch for evaluation")
         self._input.put(test_package)
         self._counter += 1
+        logging.debug("Putting a new batch for evaluation. Now we have sent {} batches.".format(self._counter))
 
     def wait_evaluation_results(self, hr, fhr, tr, ftr, rr, frr):
         RESULTS_LIST = {
@@ -68,12 +70,13 @@ class EvaluationProcessPool(object):
         }
 
         while self._counter <= 0:
-            datatype, rank, filtered_rank = self.output.get()
-            logging.debug("Working on a new batch of result")
+            results = self.output.get()
             self._counter -= 1
-            rank_list, filtered_rank_list = RESULTS_LIST[datatype]
-            rank_list.append(rank)
-            filtered_rank_list.append(filtered_rank)
+            logging.debug("Working on a new batch of result. Now we have received {} results.".format(self._counter))
+            for datatype, rank, filtered_rank in results:
+                rank_list, filtered_rank_list = RESULTS_LIST[datatype]
+                rank_list.append(rank)
+                filtered_rank_list.append(filtered_rank)
 
         self._counter = 0
 
@@ -90,7 +93,7 @@ def predict_links(model, triple_source, config, data_loader, pool):
     for i_batch, sample_batched in enumerate(data_loader):
         sampled, batch, splits = sample_batched
         sampled = data.convert_triple_tuple_to_torch(data.get_triples_from_batch(sampled), config)
-        logging.debug("Current batch shape")
+        logging.debug("Current batch shape {}.".format(sampled.shape))
         predicted_batch = model.forward(sampled).cpu()
 
         pool.evaluate_batch((predicted_batch, batch, splits))
