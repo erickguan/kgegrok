@@ -55,6 +55,7 @@ class EvaluationProcessPool(object):
 
     def evaluate_batch(self, batch):
         """Batch is a Tensor."""
+        logging.debug("Putting a new batch for evaluation")
         self._input.put(batch)
         self._counter += 1
 
@@ -67,6 +68,7 @@ class EvaluationProcessPool(object):
 
         while self._counter <= 0:
             datatype, rank, filtered_rank = self.output.get()
+            logging.debug("Working on a new batch of result")
             self._counter -= 1
             rank_list, filtered_rank_list = RESULTS_LIST[datatype]
             rank_list.append(rank)
