@@ -72,6 +72,7 @@ class EvaluationProcessPool(object):
             rank_list.append(rank)
             filtered_rank_list.append(filtered_rank)
 
+        self._counter = 0
 
 def predict_links(model, triple_source, config, data_loader, pool):
     model.eval()
