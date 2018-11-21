@@ -54,7 +54,7 @@ class TransE(Model):
     def loss_func(self, p_score, n_score):
         criterion = nn.MarginRankingLoss(self.config.margin, False).cuda()
         y = Variable(torch.Tensor([-1]))
-        if torch.cuda.is_available():
+        if self.config.enable_cuda:
             y = y.cuda()
         loss = criterion(p_score, n_score, y)
         return loss
@@ -102,7 +102,7 @@ class ComplEx(Model):
         self.rel_re_embeddings = nn.Embedding(self.triple_source.num_relation, self.embedding_dimension)
         self.rel_im_embeddings = nn.Embedding(self.triple_source.num_relation, self.embedding_dimension)
         self.softplus = nn.Softplus()
-        if torch.cuda.is_available():
+        if self.config.enable_cuda:
             self.softplus = self.softplus.cuda()
 
         nn.init.xavier_uniform_(self.ent_re_embeddings.weight.data)
@@ -118,8 +118,10 @@ class ComplEx(Model):
         return loss + self.config.lambda_ * regul
 
     def forward(self, batch, negative_batch):
-        pos_h, pos_r, pos_t = batch
-        y = torch.from_numpy(np.tile(np.array([-1], dtype=np.int64), pos_h.shape[0]))
+        if len(batch) == 4:
+            pos_h, pos_r, pos_t, y = batch
+        else:
+            pos_h, pos_r, pos_t = batch
         e_re_h = self.ent_re_embeddings(pos_h)
         e_im_h = self.ent_im_embeddings(pos_h)
         e_re_t = self.ent_re_embeddings(pos_t)
@@ -129,11 +131,11 @@ class ComplEx(Model):
 
         # Calculating loss to get what the framework will optimize
         if negative_batch is not None:
-            neg_h, neg_r, neg_t = negative_batch
+            neg_h, neg_r, neg_t, neg_y = negative_batch
             neg_h = neg_h.view(-1)
             neg_r = neg_r.view(-1)
             neg_t = neg_t.view(-1)
-            neg_y = torch.from_numpy(np.tile(np.array([-1], dtype=np.int64), neg_h.shape[0]))
+            neg_y = neg_y.view(-1)
             neg_e_re_h = self.ent_re_embeddings(neg_h)
             neg_e_im_h = self.ent_im_embeddings(neg_h)
             neg_e_re_t = self.ent_re_embeddings(neg_t)
@@ -151,7 +153,7 @@ class ComplEx(Model):
 
             res = self._calc(e_re_h, e_im_h, e_re_t, e_im_t, r_re, r_im)
             tmp = self.softplus(-y * res)
-            if torch.cuda.is_available():
+            if self.config.enable_cuda:
                 tmp = tmp.cuda()
 
             loss = torch.mean(tmp)
@@ -163,85 +165,87 @@ class ComplEx(Model):
             score = -self._calc(p_re_h, p_im_h, p_re_t, p_im_t, p_re_r, p_im_r)
             return score
 
-# Untested
-# class Analogy(Model):
-#     def __init__(self, triple_source, config):
-#         super(Analogy, self).__init__(triple_source, config)
-#         self.ent_re_embeddings = nn.Embedding(self.triple_source.num_entity, self.config.entity_embedding_dimension/2)
-#         self.ent_im_embeddings = nn.Embedding(self.triple_source.num_entity, self.config.entity_embedding_dimension/2)
-#         self.rel_re_embeddings = nn.Embedding(self.triple_source.num_relation, self.config.entity_embedding_dimension/2)
-#         self.rel_im_embeddings = nn.Embedding(self.triple_source.num_relation, self.config.entity_embedding_dimension/2)
-#         self.ent_embeddings = nn.Embedding(self.triple_source.num_entity, self.config.entity_embedding_dimension)
-#         self.rel_embeddings = nn.Embedding(self.triple_source.num_relation, self.config.entity_embedding_dimension)
-#         self.softplus = nn.Softplus()
-#         if torch.cuda.is_available():
-#             self.softplus = self.softplus.cuda()
-#         nn.init.xavier_uniform_(self.ent_re_embeddings.weight.data)
-#         nn.init.xavier_uniform_(self.ent_im_embeddings.weight.data)
-#         nn.init.xavier_uniform_(self.rel_re_embeddings.weight.data)
-#         nn.init.xavier_uniform_(self.rel_im_embeddings.weight.data)
-#         nn.init.xavier_uniform_(self.ent_embeddings.weight.data)
-#         nn.init.xavier_uniform_(self.rel_embeddings.weight.data)
+# TODO: Untested
+class Analogy(Model):
+    @classmethod
+    def require_labels(cls):
+        return True
 
-#     def _calc(self, e_re_h, e_im_h, e_h, e_re_t, e_im_t, e_t, r_re, r_im, r):
-#         """score function of Analogy, which is the hybrid of ComplEx and DistMult"""
-#         return torch.sum(r_re * e_re_h * e_re_t + r_re * e_im_h * e_im_t + r_im * e_re_h * e_im_t - r_im * e_im_h * e_re_t, 1 ,False) +
-#             torch.sum(e_h*e_t*r, 1, False)
+    def __init__(self, triple_source, config):
+        super(Analogy, self).__init__(triple_source, config)
+        self.ent_re_embeddings = nn.Embedding(self.triple_source.num_entity, self.config.entity_embedding_dimension/2)
+        self.ent_im_embeddings = nn.Embedding(self.triple_source.num_entity, self.config.entity_embedding_dimension/2)
+        self.rel_re_embeddings = nn.Embedding(self.triple_source.num_relation, self.config.entity_embedding_dimension/2)
+        self.rel_im_embeddings = nn.Embedding(self.triple_source.num_relation, self.config.entity_embedding_dimension/2)
+        self.ent_embeddings = nn.Embedding(self.triple_source.num_entity, self.config.entity_embedding_dimension)
+        self.rel_embeddings = nn.Embedding(self.triple_source.num_relation, self.config.entity_embedding_dimension)
+        self.softplus = nn.Softplus()
+        if self.config.enable_cuda:
+            self.softplus = self.softplus.cuda()
+        nn.init.xavier_uniform_(self.ent_re_embeddings.weight.data)
+        nn.init.xavier_uniform_(self.ent_im_embeddings.weight.data)
+        nn.init.xavier_uniform_(self.rel_re_embeddings.weight.data)
+        nn.init.xavier_uniform_(self.rel_im_embeddings.weight.data)
+        nn.init.xavier_uniform_(self.ent_embeddings.weight.data)
+        nn.init.xavier_uniform_(self.rel_embeddings.weight.data)
 
-#     def loss_func(self, loss, regul):
-#         return loss + self.config.lambda_*regul
+    def _calc(self, e_re_h, e_im_h, e_h, e_re_t, e_im_t, e_t, r_re, r_im, r):
+        """score function of Analogy, which is the hybrid of ComplEx and DistMult"""
+        return torch.sum(r_re * e_re_h * e_re_t + r_re * e_im_h * e_im_t + r_im * e_re_h * e_im_t - r_im * e_im_h * e_re_t, 1 ,False) +
+            torch.sum(e_h*e_t*r, 1, False)
 
-#     def forward(self, batch, negative_batch):
-#         pos_h, pos_r, pos_t = batch
-#         y = np.tile(np.array([-1], dtype=np.int64), pos_h.shape[0])
-#         e_re_h = self.ent_re_embeddings(pos_h)
-#         e_im_h = self.ent_im_embeddings(pos_h)
-#         e_re_t = self.ent_re_embeddings(pos_t)
-#         e_im_t = self.ent_im_embeddings(pos_t)
-#         r_re = self.rel_re_embeddings(pos_r)
-#         r_im = self.rel_im_embeddings(pos_r)
+    def loss_func(self, loss, regul):
+        return loss + self.config.lambda_*regul
 
-#         # Calculating loss to get what the framework will optimize
-#         if negative_batch is not None:
-#             neg_h, neg_r, neg_t = negative_batch
-#             neg_y = np.tile(np.array([-1], dtype=np.int64), neg_h.shape[0])
-#             neg_e_re_h = self.ent_re_embeddings(neg_h)
-#             neg_e_im_h = self.ent_im_embeddings(neg_h)
-#             neg_e_re_t = self.ent_re_embeddings(neg_t)
-#             neg_e_im_t = self.ent_im_embeddings(neg_t)
-#             neg_r_re = self.rel_re_embeddings(neg_r)
-#             neg_r_im = self.rel_im_embeddings(neg_r)
-#     def forward:
-#         batch_h, batch_t, batch_r=self.get_all_instance()
-#         batch_y=self.get_all_labels()
-#         e_re_h=self.ent_re_embeddings(batch_h)
-#         e_im_h=self.ent_im_embeddings(batch_h)
-#         e_h = self.ent_embeddings(batch_h)
-#         e_re_t=self.ent_re_embeddings(batch_t)
-#         e_im_t=self.ent_im_embeddings(batch_t)
-#         e_t=self.ent_embeddings(batch_t)
-#         r_re=self.rel_re_embeddings(batch_r)
-#         r_im=self.rel_im_embeddings(batch_r)
-#         r = self.rel_embeddings(batch_r)
-#         y=batch_y
-#         res=self._calc(e_re_h,e_im_h,e_h,e_re_t,e_im_t,e_t,r_re,r_im,r)
-#         loss = torch.mean(self.softplus(- y * res))
-#         regul= torch.mean(e_re_h**2)+torch.mean(e_im_h**2)*torch.mean(e_h**2)+torch.mean(e_re_t**2)+torch.mean(e_im_t**2)+torch.mean(e_t**2)+torch.mean(r_re**2)+torch.mean(r_im**2)+torch.mean(r**2)
-#         #Calculating loss to get what the framework will optimize
-#         loss =  self.loss_func(loss,regul)
-#         return loss
-#     def predict(self, predict_h, predict_t, predict_r):
-#         p_re_h=self.ent_re_embeddings(Variable(torch.from_numpy(predict_h)).cuda())
-#         p_re_t=self.ent_re_embeddings(Variable(torch.from_numpy(predict_t)).cuda())
-#         p_re_r=self.rel_re_embeddings(Variable(torch.from_numpy(predict_r)).cuda())
-#         p_im_h=self.ent_im_embeddings(Variable(torch.from_numpy(predict_h)).cuda())
-#         p_im_t=self.ent_im_embeddings(Variable(torch.from_numpy(predict_t)).cuda())
-#         p_im_r=self.rel_im_embeddings(Variable(torch.from_numpy(predict_r)).cuda())
-#         p_h=self.ent_im_embeddings(Variable(torch.from_numpy(predict_h)).cuda())
-#         p_t=self.ent_im_embeddings(Variable(torch.from_numpy(predict_t)).cuda())
-#         p_r=self.rel_im_embeddings(Variable(torch.from_numpy(predict_r)).cuda())
-#         p_score = -self._calc(p_re_h, p_im_h, p_h, p_re_t, p_im_t, p_t, p_re_r, p_im_r, p_r)
-#         return p_score.cpu()
+    def forward(self, batch, negative_batch):
+        if len(batch) == 4:
+            pos_h, pos_r, pos_t, y = batch
+        else:
+            pos_h, pos_r, pos_t = batch
+		e_re_h = self.ent_re_embeddings(batch_h)
+		e_re_t = self.ent_re_embeddings(batch_t)
+		r_re = self.rel_re_embeddings(batch_r)
+		e_im_t = self.ent_im_embeddings(batch_t)
+		e_im_h = self.ent_im_embeddings(batch_h)
+		r_im = self.rel_im_embeddings(batch_r)
+		e_h = self.ent_embeddings(batch_h)
+		e_t = self.ent_embeddings(batch_t)
+		r = self.rel_embeddings(batch_r)
+
+        # Calculating loss to get what the framework will optimize
+        if negative_batch is not None:
+            neg_h, neg_r, neg_t, neg_y = negative_batch
+
+            neg_e_re_h = self.ent_re_embeddings(neg_h)
+            neg_e_re_t = self.ent_re_embeddings(neg_t)
+            neg_r_re = self.rel_re_embeddings(neg_r)
+            neg_e_im_t = self.ent_im_embeddings(neg_t)
+            neg_e_im_h = self.ent_im_embeddings(neg_h)
+            neg_r_im = self.rel_im_embeddings(neg_r)
+            neg_e_h = self.ent_embeddings(neg_h)
+            neg_e_t = self.ent_embeddings(neg_t)
+            neg_r = self.rel_embeddings(neg_r)
+
+            e_re_h = torch.cat((e_re_h, neg_e_re_h))
+            e_re_t = torch.cat((e_re_t, neg_e_re_t))
+            r_re = torch.cat((r_re, neg_r_re))
+            e_im_t = torch.cat((e_im_t, neg_e_im_t))
+            e_im_h = torch.cat((e_im_h, neg_e_im_h))
+            r_im = torch.cat((r_im, neg_r_im))
+            e_h = torch.cat((e_h, neg_e_h))
+            e_t = torch.cat((e_t, neg_e_t))
+            r = torch.cat((r, neg_r))
+            y = torch.cat((y, neg_y))
+
+            res=self._calc(e_re_h,e_im_h,e_h,e_re_t,e_im_t,e_t,r_re,r_im,r)
+            loss = torch.mean(self.softplus(- y * res))
+            regul = torch.mean(e_re_h**2)+torch.mean(e_im_h**2)*torch.mean(e_h**2)+torch.mean(e_re_t**2)+torch.mean(e_im_t**2)+torch.mean(e_t**2)+torch.mean(r_re**2)+torch.mean(r_im**2)+torch.mean(r**2)
+            loss =  self.loss_func(loss, regul)
+            return loss
+        else:
+            p_score = -self._calc(e_re_h, e_im_h, e_h, e_re_t, e_im_t, e_t, r_re, r_im, r)
+            return p_score
+
 
 class DistMult(Model):
     '''DistMult is based on the bilinear model where each relation is represented by a diagonal rather than a full matrix.
@@ -268,70 +272,37 @@ class DistMult(Model):
         return loss + self.config.lambda_*regul
 
     def forward(self, batch, negative_batch=None):
-        pos_h, pos_r, pos_t = batch
+        if len(batch) == 4:
+            pos_h, pos_r, pos_t, y = batch
+        else:
+            pos_h, pos_r, pos_t = batch
+
+		e_h = self.entity_embeddings(pos_h)
+		e_t = self.entity_embeddings(pos_t)
+		e_r = self.relation_embeddings(pos_r)
 
         if negative_batch is not None:
-            neg_h, neg_r, neg_t = negative_batch
+            neg_h, neg_r, neg_t, neg_y = negative_batch
             neg_h = neg_h.view(-1)
             neg_r = neg_r.view(-1)
             neg_t = neg_t.view(-1)
-            neg_y = torch.from_numpy(np.tile(np.array([-1], dtype=np.int64), neg_h.shape[0]))
-            neg_e_re_h = self.ent_re_embeddings(neg_h)
-            neg_e_im_h = self.ent_im_embeddings(neg_h)
-            neg_e_re_t = self.ent_re_embeddings(neg_t)
-            neg_e_im_t = self.ent_im_embeddings(neg_t)
-            neg_r_re = self.rel_re_embeddings(neg_r)
-            neg_r_im = self.rel_im_embeddings(neg_r)
+            neg_y = neg_y.view(-1)
+            neg_e_h = self.entity_embeddings(neg_h)
+            neg_e_t = self.entity_embeddings(neg_t)
+            neg_e_r = self.relation_embeddings(neg_r)
 
-            e_re_h = torch.cat((e_re_h, neg_e_re_h))
-            e_im_h = torch.cat((e_im_h, neg_e_im_h))
-            e_re_t = torch.cat((e_re_t, neg_e_re_t))
-            e_im_t = torch.cat((e_im_t, neg_e_im_t))
-            r_re = torch.cat((r_re, neg_r_re))
-            r_im = torch.cat((r_im, neg_r_im))
-            y = torch.cat((y, neg_y))
-
-            res = self._calc(e_re_h, e_im_h, e_re_t, e_im_t, r_re, r_im)
-            tmp = self.softplus(-y * res)
-            if torch.cuda.is_available():
-                tmp = tmp.cuda()
-
+            e_h = torch.cat((e_h, neg_e_h))
+            e_t = torch.cat((e_t, neg_e_t))
+            e_r = torch.cat((e_r, neg_e_r))
+            res = self._calc(e_h, e_t, e_r)
+            tmp = self.softplus(- y * res)
             loss = torch.mean(tmp)
-            regul = torch.mean(e_re_h**2) + torch.mean(e_im_h**2) + torch.mean(e_re_t**2) + torch.mean(e_im_t**2) + torch.mean(r_re**2) + torch.mean(r_im**2)
+            regul = torch.mean(e_h ** 2) + torch.mean(e_t ** 2) + torch.mean(e_r ** 2)
             loss = self.loss_func(loss, regul)
-
             return loss
         else:
-            score = -self._calc(p_re_h, p_im_h, p_re_t, p_im_t, p_re_r, p_im_r)
+            score = -self._calc(e_h, e_t, e_r)
             return score
-
-        y = torch.from_numpy(np.tile(np.array([-1], dtype=np.int64), pos_h.shape[0]))
-        e_re_h = self.ent_re_embeddings(pos_h)
-        e_im_h = self.ent_im_embeddings(pos_h)
-        e_re_t = self.ent_re_embeddings(pos_t)
-        e_im_t = self.ent_im_embeddings(pos_t)
-        r_re = self.rel_re_embeddings(pos_r)
-        r_im = self.rel_im_embeddings(pos_r)
-        batch_h, batch_t, batch_r=self.get_all_instance()
-        batch_y=self.get_all_labels()
-        e_h=self.ent_embeddings(batch_h)
-        e_t=self.ent_embeddings(batch_t)
-        e_r=self.rel_embeddings(batch_r)
-        y=batch_y
-        res=self._calc(e_h,e_t,e_r)
-        tmp=self.softplus(- y * res)
-        loss = torch.mean(tmp)
-        regul = torch.mean(e_h ** 2) + torch.mean(e_t ** 2) + torch.mean(e_r ** 2)
-        #Calculating loss to get what the framework will optimize
-        loss =  self.loss_func(loss,regul)
-        return loss
-
-    def predict(self, predict_h, predict_t, predict_r):
-        p_e_h=self.ent_embeddings(Variable(torch.from_numpy(predict_h)).cuda())
-        p_e_t=self.ent_embeddings(Variable(torch.from_numpy(predict_t)).cuda())
-        p_e_r=self.rel_embeddings(Variable(torch.from_numpy(predict_r)).cuda())
-        p_score=-self._calc(p_e_h,p_e_t,p_e_r)
-        return p_score
 
 #         class RESCAL(Model):
 #     def __init__(self,config):
