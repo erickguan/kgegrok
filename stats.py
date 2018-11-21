@@ -47,6 +47,8 @@ def _append_drawer(drawer, epoch, result, prefix_key=None):
 
 def report_prediction_result(triple_source, config, result, printing=True, epoch=None, drawer=None):
     heads, tails, relations = result
+    assert len(heads[0]) == len(heads[1]) == len(tails[0]) == len(tails[1]) == triple_source.num_entity
+    assert len(relations[0]) == len(relations[1]) == triple_source.num_relation
     ret_values = {}
 
     if config.report_dimension & data.StatisticsDimension.SEPERATE_ENTITY:

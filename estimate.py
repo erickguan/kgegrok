@@ -80,8 +80,8 @@ def train_and_validate(triple_source, config, model_class, optimizer_class, draw
 
         logging.info('Evaluation for epoch ' + str(i_epoch))
         result = stats.evaulate_prediction(model, triple_source, config, ranker, valid_data_loader)
-
         stats.report_prediction_result(triple_source, config, result, epoch=i_epoch, drawer=drawer)
+
         save_checkpoint({
             'epoch': i_epoch,
             'state_dict': model.state_dict(),
