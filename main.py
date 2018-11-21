@@ -11,7 +11,7 @@ import select
 import argparse
 from itertools import filterfalse
 from utils import report_gpu_info
-from stats import ReportDrawer
+import stats
 import importlib
 
 class Config(object):
@@ -25,6 +25,7 @@ class Config(object):
     negative_relation = 1
     batch_size = 100
     num_workers = 2
+    evaluation_workers = 2
 
     # Model
     model = "TransE"
@@ -40,8 +41,8 @@ class Config(object):
     lambda_ = 0.001
 
     # Stats
-    report_features = data.LinkPredictionStatistics.DEFAULT
-    report_dimension = data.StatisticsDimension.DEFAULT
+    report_features = stats.LinkPredictionStatistics.DEFAULT
+    report_dimension = stats.StatisticsDimension.DEFAULT
     # due to tile in the evaluation, it's reasonable to have less batch size
     evaluation_load_factor = 0.1
     # filename to resume
@@ -76,15 +77,19 @@ class Config(object):
             if v is not None and k in self.registered_options():
                 self.__dict__[k] = v
 
-def cli_train(triple_source, config, model_class, optimizer_class):
-    drawer = ReportDrawer(visdom.Visdom(port=6006), config) if config.plot_graph else None
-    model = train_and_validate(triple_source, config, model_class, optimizer_class, drawer)
+def cli_train(triple_source, config, model_class, optimizer_class, pool):
+    drawer = stats.ReportDrawer(visdom.Visdom(port=6006), config) if config.plot_graph else None
+    model = train_and_validate(triple_source, config, model_class, optimizer_class, pool, drawer)
 
-def cli_test(triple_source, config, model_class, optimizer_class):
+def cli_test(triple_source, config, model_class, optimizer_class, pool):
     assert config.resume is not None
 
     model_class = getattr(models, config.model)
-    model = test(triple_source, config, model_class)
+    model = test(triple_source, config, model_class, pool)
+
+# class ResourceManager(m.BaseManager):
+#     """Used to registered class and resources."""
+#     pass
 
 def cli(args):
     parser = argparse.ArgumentParser()
@@ -108,11 +113,14 @@ def cli(args):
     triple_source = data.TripleSource(config.data_dir, config.triple_order, config.triple_delimiter)
     model_class = getattr(models, config.model)
     optimizer_class = getattr(optim, config.optimizer)
+    ctx = mp.get_context('spawn')
+    pool = evaluation.EvaluationProcessPool(config, triple_source, ctx)
+    pool.start()
     if parsed_args['mode'] == 'train':
-        cli_train(triple_source, config, model_class, optimizer_class)
+        cli_train(triple_source, config, model_class, optimizer_class, pool)
     else:
-        cli_test(triple_source, config, model_class, optimizer_class)
-
+        cli_test(triple_source, config, model_class, optimizer_class, pool)
+    pool.stop()
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)

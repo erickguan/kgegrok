@@ -9,49 +9,23 @@ from torch.utils.data import Dataset
 from torch.utils.data.dataloader import default_collate
 import numpy as np
 import random
-from enum import Enum, Flag, auto
+from enum import Enum, Flag
 from torchvision import transforms
-import functools
 from typing import List
+import functools
 
 TripleIndexList = List[kgekit.TripleIndex]
 
 TRIPLE_LENGTH = 3
 NUM_POSITIVE_INSTANCE = 1
 
+LOSS_FEATURE_KEY = 'loss'
+HEAD_KEY = "head"
+TAIL_KEY = "tail"
+ENTITY_KEY = "entity"
+RELATION_KEY = "relation"
+
 DatasetType = Enum('DatasetType', 'TRAINING VALIDATION TESTING')
-
-class LinkPredictionStatistics(Flag):
-    MEAN_RECIPROCAL_RANK = auto()
-    MEAN_FILTERED_RECIPROCAL_RANK = auto()
-    MEAN_RANK = auto()
-    MEAN_FILTERED_RANK = auto()
-    MEAN_RANKS = MEAN_RECIPROCAL_RANK | MEAN_RANK
-    MEAN_FILTERED_RANKS = MEAN_FILTERED_RECIPROCAL_RANK | MEAN_FILTERED_RANK
-    ALL_RANKS = MEAN_RANKS | MEAN_FILTERED_RANKS
-    HITS_1 = auto()
-    HITS_1_FILTERED = auto()
-    HITS_3 = auto()
-    HITS_3_FILTERED = auto()
-    HITS_5 = auto()
-    HITS_5_FILTERED = auto()
-    HITS_10 = auto()
-    HITS_10_FILTERED = auto()
-    MINIMAL_HITS = HITS_1 | HITS_10
-    MINIMAL_HITS_FILTERED = HITS_1_FILTERED | HITS_10_FILTERED
-    HITS = HITS_1 | HITS_3 | HITS_5 | HITS_10
-    HITS_FILTERED = HITS_1_FILTERED | HITS_3_FILTERED | HITS_5_FILTERED | HITS_10_FILTERED
-    ALL_HITS = HITS | HITS_FILTERED
-    UNFILTERED_DEFAULT = MINIMAL_HITS | MEAN_RECIPROCAL_RANK
-    DEFAULT = HITS_FILTERED | MEAN_FILTERED_RECIPROCAL_RANK
-    ALL = ALL_RANKS | ALL_HITS
-
-class StatisticsDimension(Flag):
-    SEPERATE_ENTITY = auto()
-    COMBINED_ENTITY = auto()
-    RELATION = auto()
-    DEFAULT = COMBINED_ENTITY | RELATION
-    ALL = SEPERATE_ENTITY | RELATION
 
 class TripleElement(Flag):
     HEAD = 1
@@ -246,32 +220,6 @@ class NumpyCollate(object):
         return batch
 
 
-class TripleTileCollate(object):
-    """Process triples and put them into a tiled but flat numpy array.
-    Args:
-        config: config object for reading dimension information
-        triple_source: triple source function
-    Returns:
-        Positive tensor with shape (batch_size * varied_size, 1, 3).
-        varied_size will depends on testing dimension, num_entity and num_relation.
-    """
-
-    def __init__(self, config, triple_source):
-        self.config = config
-        self.triple_source = triple_source
-
-    def __call__(self, batch: TripleIndexList):
-        """process a mini-batch."""
-        sampled, splits = kgekit.expand_triple_batch(batch,
-            self.triple_source.num_entity,
-            self.triple_source.num_relation,
-            (self.config.report_dimension & StatisticsDimension.SEPERATE_ENTITY) or (self.config.report_dimension & StatisticsDimension.COMBINED_ENTITY),
-            self.config.report_dimension & StatisticsDimension.RELATION)
-
-        sampled = sampled[:, np.newaxis, :]
-        return (sampled, batch, splits)
-
-
 def label_collate(sample):
     """Add data label for (batch, negative_batch).
     positive batch shape: (batch_size, 1, 4)
@@ -425,85 +373,47 @@ class HitsReducer(object):
 def dict_key_gen(*args):
     return "_".join(args)
 
-MEAN_RECIPROCAL_RANK_FEATURE_KEY = 'mean_reciprocal_rank'
-MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY = 'mean_filtered_reciprocal_rank'
-MEAN_RANK_FEATURE_KEY = 'mean_rank'
-MEAN_FILTERED_RANK_FEATURE_KEY = 'mean_filtered_rank'
-HITS_1_FEATURE_KEY = 'hits_1'
-HITS_1_FILTERED_FEATURE_KEY = "hits_1_filtered"
-HITS_3_FEATURE_KEY = 'hits_3'
-HITS_3_FILTERED_FEATURE_KEY = 'hits_3_filtered'
-HITS_5_FEATURE_KEY = 'hits_5'
-HITS_5_FILTERED_FEATURE_KEY = "hits_5_filtered"
-HITS_10_FEATURE_KEY = 'hits_10'
-HITS_10_FILTERED_FEATURE_KEY = "hits_10_filtered"
-LOSS_FEATURE_KEY = 'loss'
-HEAD_KEY = "head"
-TAIL_KEY = "tail"
-ENTITY_KEY = "entity"
-RELATION_KEY = "relation"
+def calc_rank(ranks, num_ranks):
+    if len(ranks) != num_ranks:
+        raise RuntimeError("Rank are not enough for num_ranks. len(ranks): {}, num_ranks: {}".format(len(ranks), num_ranks))
+    return sum(ranks) / float(num_ranks)
 
-class _StatisticsGathering(object):
-    def __init__(self):
-        self.result = {}
+def calc_reciprocal_rank(ranks, num_ranks):
+    if len(ranks) != num_ranks:
+        raise RuntimeError("Rank are not enough for num_ranks. len(ranks): {}, num_ranks: {}".format(len(ranks), num_ranks))
+    return sum(map(reciprocal_rank_fn, ranks)) / float(num_ranks)
 
-    def _calc_rank(self, ranks, num_ranks):
-        if len(ranks) != num_ranks:
-            raise RuntimeError("Rank are not enough for num_ranks. len(ranks): {}, num_ranks: {}".format(len(ranks), num_ranks))
-        return sum(ranks) / num_ranks
+def calc_hits(target, ranks, num_ranks):
+    if len(ranks) != num_ranks:
+        raise RuntimeError("Rank are not enough for num_entry. len(ranks): {}, num_ranks: {}".format(len(ranks), num_ranks))
+    return functools.reduce(HitsReducer(target), ranks) / float(num_ranks)
 
-    def _calc_reciprocal_rank(self, ranks, num_ranks):
-        if len(ranks) != num_ranks:
-            raise RuntimeError("Rank are not enough for num_ranks. len(ranks): {}, num_ranks: {}".format(len(ranks), num_ranks))
-        return sum(map(reciprocal_rank_fn, ranks)) / num_ranks
-
-    def _calc_hits(self, target, ranks, num_ranks):
-        if len(ranks) != num_ranks:
-            raise RuntimeError("Rank are not enough for num_entry. len(ranks): {}, num_ranks: {}".format(len(ranks), num_ranks))
-        return functools.reduce(HitsReducer(target), ranks) / num_ranks
-
-    def add_rank(self, key, ranks, num_ranks):
-        self.result[key] = self._calc_rank(ranks, num_ranks)
-
-    def add_reciprocal_rank(self, key, ranks, num_ranks):
-        self.result[key] = self._calc_reciprocal_rank(ranks, num_ranks)
-
-    def add_hit(self, key, ranks, target, num_ranks):
-        self.result[key] = self._calc_hits(target, ranks, num_ranks)
-
-    def get_result(self):
-        return self.result
+# Avoid cyclic dependency
+from stats import StatisticsDimension
 
 
-def get_evaluation_statistics(rank_list, filtered_rank_list, features):
-    num_ranks = len(rank_list)
-    assert isinstance(rank_list, list) and isinstance(filtered_rank_list, list) and num_ranks == len(filtered_rank_list)
+class TripleTileCollate(object):
+    """Process triples and put them into a tiled but flat numpy array.
+    Args:
+        config: config object for reading dimension information
+        triple_source: triple source function
+    Returns:
+        Positive tensor with shape (batch_size * varied_size, 1, 3).
+        varied_size will depends on testing dimension, num_entity and num_relation.
+    """
 
-    gathering = _StatisticsGathering()
-    if LinkPredictionStatistics.MEAN_RECIPROCAL_RANK & features:
-        gathering.add_reciprocal_rank(MEAN_RECIPROCAL_RANK_FEATURE_KEY, rank_list, num_ranks)
-    if LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK & features:
-        gathering.add_reciprocal_rank(MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY, filtered_rank_list, num_ranks)
-    if LinkPredictionStatistics.MEAN_RANK & features:
-        gathering.add_rank(MEAN_RANK_FEATURE_KEY, rank_list, num_ranks)
-    if LinkPredictionStatistics.MEAN_FILTERED_RANK & features:
-        gathering.add_rank(MEAN_FILTERED_RANK_FEATURE_KEY, filtered_rank_list, num_ranks)
-    if LinkPredictionStatistics.HITS_1 & features:
-        gathering.add_hit(HITS_1_FEATURE_KEY, rank_list, 1, num_ranks)
-    if LinkPredictionStatistics.HITS_3 & features:
-        gathering.add_hit(HITS_3_FEATURE_KEY, rank_list, 3, num_ranks)
-    if LinkPredictionStatistics.HITS_5 & features:
-        gathering.add_hit(HITS_5_FEATURE_KEY, rank_list, 5, num_ranks)
-    if LinkPredictionStatistics.HITS_10 & features:
-        gathering.add_hit(HITS_10_FEATURE_KEY, rank_list, 10, num_ranks)
-    if LinkPredictionStatistics.HITS_1_FILTERED & features:
-        gathering.add_hit(HITS_1_FILTERED_FEATURE_KEY, filtered_rank_list, 1, num_ranks)
-    if LinkPredictionStatistics.HITS_3_FILTERED & features:
-        gathering.add_hit(HITS_3_FILTERED_FEATURE_KEY, filtered_rank_list, 3, num_ranks)
-    if LinkPredictionStatistics.HITS_5_FILTERED & features:
-        gathering.add_hit(HITS_5_FILTERED_FEATURE_KEY, filtered_rank_list, 5, num_ranks)
-    if LinkPredictionStatistics.HITS_10_FILTERED & features:
-        gathering.add_hit(HITS_10_FILTERED_FEATURE_KEY, filtered_rank_list, 10, num_ranks)
-    return gathering.get_result()
+    def __init__(self, config, triple_source):
+        self.config = config
+        self.triple_source = triple_source
 
+    def __call__(self, batch: TripleIndexList):
+        """process a mini-batch."""
+        sampled, splits = kgekit.expand_triple_batch(batch,
+            self.triple_source.num_entity,
+            self.triple_source.num_relation,
+            (self.config.report_dimension & StatisticsDimension.SEPERATE_ENTITY) or (self.config.report_dimension & StatisticsDimension.COMBINED_ENTITY),
+            self.config.report_dimension & StatisticsDimension.RELATION)
+
+        sampled = sampled[:, np.newaxis, :]
+        return (sampled, batch, splits)
 

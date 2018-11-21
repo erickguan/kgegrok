@@ -5,26 +5,102 @@ import numpy as np
 import logging
 from collections import defaultdict
 import json
+from enum import Flag, auto
 
 
-def _evaluate_predict_element(model, config, triple_index, num_expands, element_type, rank_fn, ranks_list, filtered_ranks_list):
-    """Evaluation a single triple with expanded sets."""
-    batch = data.expand_triple_to_sets(kgekit.data.unpack(triple_index), num_expands, element_type)
-    batch = data.convert_triple_tuple_to_torch(batch, config)
-    logging.debug(element_type)
-    logging.debug("Batch len: " + str(len(batch)) + "; batch sample: " + str(batch[0]))
-    predicted_batch = model.forward(batch).cpu()
-    logging.debug("Predicted batch len" + str(len(predicted_batch)) + "; batch sample: " + str(predicted_batch[0]))
-    rank, filtered_rank = rank_fn(predicted_batch.data.numpy(), triple_index)
-    logging.debug("Rank :" + str(rank) + "; Filtered rank length :" + str(filtered_rank))
-    ranks_list.append(rank)
-    filtered_ranks_list.append(filtered_rank)
+MEAN_RECIPROCAL_RANK_FEATURE_KEY = 'mean_reciprocal_rank'
+MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY = 'mean_filtered_reciprocal_rank'
+MEAN_RANK_FEATURE_KEY = 'mean_rank'
+MEAN_FILTERED_RANK_FEATURE_KEY = 'mean_filtered_rank'
+HITS_1_FEATURE_KEY = 'hits_1'
+HITS_1_FILTERED_FEATURE_KEY = "hits_1_filtered"
+HITS_3_FEATURE_KEY = 'hits_3'
+HITS_3_FILTERED_FEATURE_KEY = 'hits_3_filtered'
+HITS_5_FEATURE_KEY = 'hits_5'
+HITS_5_FILTERED_FEATURE_KEY = "hits_5_filtered"
+HITS_10_FEATURE_KEY = 'hits_10'
+HITS_10_FILTERED_FEATURE_KEY = "hits_10_filtered"
 
-def _evaluate_prediction_view(result_view, triple_index, rank_fn, ranks_list, filtered_ranks_list):
-    """Evaluation on a view of batch."""
-    rank, filtered_rank = rank_fn(result_view, triple_index)
-    ranks_list.append(rank)
-    filtered_ranks_list.append(filtered_rank)
+class LinkPredictionStatistics(Flag):
+    MEAN_RECIPROCAL_RANK = auto()
+    MEAN_FILTERED_RECIPROCAL_RANK = auto()
+    MEAN_RANK = auto()
+    MEAN_FILTERED_RANK = auto()
+    MEAN_RANKS = MEAN_RECIPROCAL_RANK | MEAN_RANK
+    MEAN_FILTERED_RANKS = MEAN_FILTERED_RECIPROCAL_RANK | MEAN_FILTERED_RANK
+    ALL_RANKS = MEAN_RANKS | MEAN_FILTERED_RANKS
+    HITS_1 = auto()
+    HITS_1_FILTERED = auto()
+    HITS_3 = auto()
+    HITS_3_FILTERED = auto()
+    HITS_5 = auto()
+    HITS_5_FILTERED = auto()
+    HITS_10 = auto()
+    HITS_10_FILTERED = auto()
+    MINIMAL_HITS = HITS_1 | HITS_10
+    MINIMAL_HITS_FILTERED = HITS_1_FILTERED | HITS_10_FILTERED
+    HITS = HITS_1 | HITS_3 | HITS_5 | HITS_10
+    HITS_FILTERED = HITS_1_FILTERED | HITS_3_FILTERED | HITS_5_FILTERED | HITS_10_FILTERED
+    ALL_HITS = HITS | HITS_FILTERED
+    UNFILTERED_DEFAULT = MINIMAL_HITS | MEAN_RECIPROCAL_RANK
+    DEFAULT = HITS_FILTERED | MEAN_FILTERED_RECIPROCAL_RANK
+    ALL = ALL_RANKS | ALL_HITS
+
+class StatisticsDimension(Flag):
+    SEPERATE_ENTITY = auto()
+    COMBINED_ENTITY = auto()
+    RELATION = auto()
+    DEFAULT = COMBINED_ENTITY | RELATION
+    ALL = SEPERATE_ENTITY | RELATION
+
+class _StatisticsGathering(object):
+    def __init__(self):
+        self.result = {}
+
+    def add_rank(self, key, ranks, num_ranks):
+        self.result[key] = data.calc_rank(ranks, num_ranks)
+
+    def add_reciprocal_rank(self, key, ranks, num_ranks):
+        self.result[key] = data.calc_reciprocal_rank(ranks, num_ranks)
+
+    def add_hit(self, key, ranks, target, num_ranks):
+        self.result[key] = data.calc_hits(target, ranks, num_ranks)
+
+    def get_result(self):
+        return self.result
+
+
+def get_evaluation_statistics(rank_list, filtered_rank_list, features):
+    num_ranks = len(rank_list)
+    assert isinstance(rank_list, list) and isinstance(filtered_rank_list, list) and num_ranks == len(filtered_rank_list)
+
+    gathering = _StatisticsGathering()
+    if LinkPredictionStatistics.MEAN_RECIPROCAL_RANK & features:
+        gathering.add_reciprocal_rank(MEAN_RECIPROCAL_RANK_FEATURE_KEY, rank_list, num_ranks)
+    if LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK & features:
+        gathering.add_reciprocal_rank(MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY, filtered_rank_list, num_ranks)
+    if LinkPredictionStatistics.MEAN_RANK & features:
+        gathering.add_rank(MEAN_RANK_FEATURE_KEY, rank_list, num_ranks)
+    if LinkPredictionStatistics.MEAN_FILTERED_RANK & features:
+        gathering.add_rank(MEAN_FILTERED_RANK_FEATURE_KEY, filtered_rank_list, num_ranks)
+    if LinkPredictionStatistics.HITS_1 & features:
+        gathering.add_hit(HITS_1_FEATURE_KEY, rank_list, 1, num_ranks)
+    if LinkPredictionStatistics.HITS_3 & features:
+        gathering.add_hit(HITS_3_FEATURE_KEY, rank_list, 3, num_ranks)
+    if LinkPredictionStatistics.HITS_5 & features:
+        gathering.add_hit(HITS_5_FEATURE_KEY, rank_list, 5, num_ranks)
+    if LinkPredictionStatistics.HITS_10 & features:
+        gathering.add_hit(HITS_10_FEATURE_KEY, rank_list, 10, num_ranks)
+    if LinkPredictionStatistics.HITS_1_FILTERED & features:
+        gathering.add_hit(HITS_1_FILTERED_FEATURE_KEY, filtered_rank_list, 1, num_ranks)
+    if LinkPredictionStatistics.HITS_3_FILTERED & features:
+        gathering.add_hit(HITS_3_FILTERED_FEATURE_KEY, filtered_rank_list, 3, num_ranks)
+    if LinkPredictionStatistics.HITS_5_FILTERED & features:
+        gathering.add_hit(HITS_5_FILTERED_FEATURE_KEY, filtered_rank_list, 5, num_ranks)
+    if LinkPredictionStatistics.HITS_10_FILTERED & features:
+        gathering.add_hit(HITS_10_FILTERED_FEATURE_KEY, filtered_rank_list, 10, num_ranks)
+    return gathering.get_result()
+
 
 def gen_drawer_option(config, title=None):
     if title is not None:
@@ -45,9 +121,9 @@ def report_prediction_result(config, result, printing=True, epoch=None, drawer=N
     heads, tails, relations = result
     ret_values = {}
 
-    if config.report_dimension & data.StatisticsDimension.SEPERATE_ENTITY:
-        head_result = data.get_evaluation_statistics(*heads, config.report_features)
-        tail_result = data.get_evaluation_statistics(*tails, config.report_features)
+    if config.report_dimension & StatisticsDimension.SEPERATE_ENTITY:
+        head_result = get_evaluation_statistics(*heads, config.report_features)
+        tail_result = get_evaluation_statistics(*tails, config.report_features)
         ret_values[data.HEAD_KEY] = head_result
         ret_values[data.TAIL_KEY] = tail_result
         _report_prediction_element(head_result, epoch)
@@ -56,72 +132,23 @@ def report_prediction_result(config, result, printing=True, epoch=None, drawer=N
             _append_drawer(drawer, epoch, head_result, data.HEAD_KEY)
             _append_drawer(drawer, epoch, tail_result, data.TAIL_KEY)
 
-    elif config.report_dimension & data.StatisticsDimension.COMBINED_ENTITY:
-        head_result = data.get_evaluation_statistics(*heads, config.report_features)
-        tail_result = data.get_evaluation_statistics(*tails, config.report_features)
+    elif config.report_dimension & StatisticsDimension.COMBINED_ENTITY:
+        head_result = get_evaluation_statistics(*heads, config.report_features)
+        tail_result = get_evaluation_statistics(*tails, config.report_features)
         combined = {k: (h + tail_result[k]) / 2.0 for k, h in head_result.items()}
         ret_values[data.ENTITY_KEY] = combined
         _report_prediction_element(combined, epoch)
         if drawer is not None:
             _append_drawer(drawer, epoch, combined)
 
-    if config.report_dimension & data.StatisticsDimension.RELATION:
-        relation_result = data.get_evaluation_statistics(*relations, config.report_features)
+    if config.report_dimension & StatisticsDimension.RELATION:
+        relation_result = get_evaluation_statistics(*relations, config.report_features)
         ret_values[data.RELATION_KEY] = relation_result
         _report_prediction_element(relation_result, epoch)
         if drawer is not None:
             _append_drawer(drawer, epoch, relation_result, data.RELATION_KEY)
 
     return ret_values
-
-def evaulate_prediction(model, triple_source, config, ranker, data_loader):
-    model.eval()
-
-    head_ranks = []
-    filtered_head_ranks = []
-    tail_ranks = []
-    filtered_tail_ranks = []
-    relation_ranks = []
-    filtered_relation_ranks = []
-
-    for i_batch, sample_batched in enumerate(data_loader):
-        sampled, batch, splits = sample_batched
-        sampled = data.convert_triple_tuple_to_torch(data.get_triples_from_batch(sampled), config)
-        predicted_batch = model.forward(sampled).cpu().data.numpy()
-
-        # TODO: ranker can be extended to multiprocessing for more performance.
-        for triple_index, split in zip(batch, splits):
-            if split[0] != split[1] and split[1] != split[2]:
-                _evaluate_prediction_view(predicted_batch[split[0]:split[1]], triple_index, ranker.rankHead, head_ranks, filtered_head_ranks)
-                _evaluate_prediction_view(predicted_batch[split[1]:split[2]], triple_index, ranker.rankTail, tail_ranks, filtered_tail_ranks)
-            if split[2] != split[3]:
-                _evaluate_prediction_view(predicted_batch[split[2]:split[3]], triple_index, ranker.rankRelation, relation_ranks, filtered_relation_ranks)
-
-    return (head_ranks, filtered_head_ranks), (tail_ranks, filtered_tail_ranks), (relation_ranks, filtered_relation_ranks)
-
-def evaulate_prediction_np_collate(model, triple_source, config, ranker, data_loader):
-    """use with NumpyCollate."""
-    model.eval()
-
-    head_ranks = []
-    filtered_head_ranks = []
-    tail_ranks = []
-    filtered_tail_ranks = []
-    relation_ranks = []
-    filtered_relation_ranks = []
-
-    for i_batch, sample_batched in enumerate(data_loader):
-        # sample_batched is a list of triple. triple has shape (1, 3). We need to tile it for the test.
-        for triple in sample_batched:
-            triple_index = kgekit.TripleIndex(*triple[0, :])
-
-            if (config.report_dimension & data.StatisticsDimension.SEPERATE_ENTITY) or (config.report_dimension & data.StatisticsDimension.COMBINED_ENTITY):
-                _evaluate_predict_element(model, config, triple_index, triple_source.num_entity, data.TripleElement.HEAD, ranker.rankHead, head_ranks, filtered_head_ranks)
-                _evaluate_predict_element(model, config, triple_index, triple_source.num_entity, data.TripleElement.TAIL, ranker.rankTail, tail_ranks, filtered_tail_ranks)
-            if config.report_dimension & data.StatisticsDimension.RELATION:
-                _evaluate_predict_element(model, config, triple_index, triple_source.num_relation, data.TripleElement.RELATION, ranker.rankRelation, relation_ranks, filtered_relation_ranks)
-
-    return (head_ranks, filtered_head_ranks), (tail_ranks, filtered_tail_ranks), (relation_ranks, filtered_relation_ranks)
 
 class ReportDrawer(object):
     """It's actually expecting Visdom drawer."""
@@ -168,81 +195,81 @@ class ReportDrawer(object):
     def dump_raw_data(self):
         """Dumps all raw data."""
 
-        data = []
+        raw_data = []
         for _, win in self.plots.items():
-            data.append(_dump_win_data(win))
-        return data
+            raw_data.append(_dump_win_data(win))
+        return raw_data
 
 
 DRAWING_KEY_AND_CONDITION = {
-data.StatisticsDimension.COMBINED_ENTITY: [
-    (data.MEAN_RANK_FEATURE_KEY, data.LinkPredictionStatistics.MEAN_RANK),
-    (data.MEAN_FILTERED_RANK_FEATURE_KEY, data.LinkPredictionStatistics.MEAN_FILTERED_RANK),
-    (data.MEAN_RECIPROCAL_RANK_FEATURE_KEY, data.LinkPredictionStatistics.MEAN_RECIPROCAL_RANK),
-    (data.MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY, data.LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK),
-    (data.HITS_1_FEATURE_KEY, data.LinkPredictionStatistics.HITS_1),
-    (data.HITS_3_FEATURE_KEY, data.LinkPredictionStatistics.HITS_3),
-    (data.HITS_5_FEATURE_KEY, data.LinkPredictionStatistics.HITS_5),
-    (data.HITS_10_FEATURE_KEY, data.LinkPredictionStatistics.HITS_10),
-    (data.HITS_1_FILTERED_FEATURE_KEY, data.LinkPredictionStatistics.HITS_1_FILTERED),
-    (data.HITS_3_FILTERED_FEATURE_KEY, data.LinkPredictionStatistics.HITS_3_FILTERED),
-    (data.HITS_5_FILTERED_FEATURE_KEY, data.LinkPredictionStatistics.HITS_5_FILTERED),
-    (data.HITS_10_FILTERED_FEATURE_KEY, data.LinkPredictionStatistics.HITS_10_FILTERED),
+StatisticsDimension.COMBINED_ENTITY: [
+    (MEAN_RANK_FEATURE_KEY, LinkPredictionStatistics.MEAN_RANK),
+    (MEAN_FILTERED_RANK_FEATURE_KEY, LinkPredictionStatistics.MEAN_FILTERED_RANK),
+    (MEAN_RECIPROCAL_RANK_FEATURE_KEY, LinkPredictionStatistics.MEAN_RECIPROCAL_RANK),
+    (MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY, LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK),
+    (HITS_1_FEATURE_KEY, LinkPredictionStatistics.HITS_1),
+    (HITS_3_FEATURE_KEY, LinkPredictionStatistics.HITS_3),
+    (HITS_5_FEATURE_KEY, LinkPredictionStatistics.HITS_5),
+    (HITS_10_FEATURE_KEY, LinkPredictionStatistics.HITS_10),
+    (HITS_1_FILTERED_FEATURE_KEY, LinkPredictionStatistics.HITS_1_FILTERED),
+    (HITS_3_FILTERED_FEATURE_KEY, LinkPredictionStatistics.HITS_3_FILTERED),
+    (HITS_5_FILTERED_FEATURE_KEY, LinkPredictionStatistics.HITS_5_FILTERED),
+    (HITS_10_FILTERED_FEATURE_KEY, LinkPredictionStatistics.HITS_10_FILTERED),
 ],
-data.StatisticsDimension.SEPERATE_ENTITY: [
-    (data.dict_key_gen(data.HEAD_KEY, data.MEAN_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_RANK),
-    (data.dict_key_gen(data.HEAD_KEY, data.MEAN_FILTERED_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_FILTERED_RANK),
-    (data.dict_key_gen(data.HEAD_KEY, data.MEAN_RECIPROCAL_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_RECIPROCAL_RANK),
-    (data.dict_key_gen(data.HEAD_KEY, data.MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK),
-    (data.dict_key_gen(data.HEAD_KEY, data.HITS_1_FEATURE_KEY), data.LinkPredictionStatistics.HITS_1),
-    (data.dict_key_gen(data.HEAD_KEY, data.HITS_3_FEATURE_KEY), data.LinkPredictionStatistics.HITS_3),
-    (data.dict_key_gen(data.HEAD_KEY, data.HITS_5_FEATURE_KEY), data.LinkPredictionStatistics.HITS_5),
-    (data.dict_key_gen(data.HEAD_KEY, data.HITS_10_FEATURE_KEY), data.LinkPredictionStatistics.HITS_10),
-    (data.dict_key_gen(data.HEAD_KEY, data.HITS_1_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_1_FILTERED),
-    (data.dict_key_gen(data.HEAD_KEY, data.HITS_3_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_3_FILTERED),
-    (data.dict_key_gen(data.HEAD_KEY, data.HITS_5_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_5_FILTERED),
-    (data.dict_key_gen(data.HEAD_KEY, data.HITS_10_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_10_FILTERED),
+StatisticsDimension.SEPERATE_ENTITY: [
+    (data.dict_key_gen(data.HEAD_KEY, MEAN_RANK_FEATURE_KEY), LinkPredictionStatistics.MEAN_RANK),
+    (data.dict_key_gen(data.HEAD_KEY, MEAN_FILTERED_RANK_FEATURE_KEY), LinkPredictionStatistics.MEAN_FILTERED_RANK),
+    (data.dict_key_gen(data.HEAD_KEY, MEAN_RECIPROCAL_RANK_FEATURE_KEY), LinkPredictionStatistics.MEAN_RECIPROCAL_RANK),
+    (data.dict_key_gen(data.HEAD_KEY, MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY), LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK),
+    (data.dict_key_gen(data.HEAD_KEY, HITS_1_FEATURE_KEY), LinkPredictionStatistics.HITS_1),
+    (data.dict_key_gen(data.HEAD_KEY, HITS_3_FEATURE_KEY), LinkPredictionStatistics.HITS_3),
+    (data.dict_key_gen(data.HEAD_KEY, HITS_5_FEATURE_KEY), LinkPredictionStatistics.HITS_5),
+    (data.dict_key_gen(data.HEAD_KEY, HITS_10_FEATURE_KEY), LinkPredictionStatistics.HITS_10),
+    (data.dict_key_gen(data.HEAD_KEY, HITS_1_FILTERED_FEATURE_KEY), LinkPredictionStatistics.HITS_1_FILTERED),
+    (data.dict_key_gen(data.HEAD_KEY, HITS_3_FILTERED_FEATURE_KEY), LinkPredictionStatistics.HITS_3_FILTERED),
+    (data.dict_key_gen(data.HEAD_KEY, HITS_5_FILTERED_FEATURE_KEY), LinkPredictionStatistics.HITS_5_FILTERED),
+    (data.dict_key_gen(data.HEAD_KEY, HITS_10_FILTERED_FEATURE_KEY), LinkPredictionStatistics.HITS_10_FILTERED),
 
-    (data.dict_key_gen(data.TAIL_KEY, data.MEAN_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_RANK),
-    (data.dict_key_gen(data.TAIL_KEY, data.MEAN_FILTERED_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_FILTERED_RANK),
-    (data.dict_key_gen(data.TAIL_KEY, data.MEAN_RECIPROCAL_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_RECIPROCAL_RANK),
-    (data.dict_key_gen(data.TAIL_KEY, data.MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK),
-    (data.dict_key_gen(data.TAIL_KEY, data.HITS_1_FEATURE_KEY), data.LinkPredictionStatistics.HITS_1),
-    (data.dict_key_gen(data.TAIL_KEY, data.HITS_3_FEATURE_KEY), data.LinkPredictionStatistics.HITS_3),
-    (data.dict_key_gen(data.TAIL_KEY, data.HITS_5_FEATURE_KEY), data.LinkPredictionStatistics.HITS_5),
-    (data.dict_key_gen(data.TAIL_KEY, data.HITS_10_FEATURE_KEY), data.LinkPredictionStatistics.HITS_10),
-    (data.dict_key_gen(data.TAIL_KEY, data.HITS_1_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_1_FILTERED),
-    (data.dict_key_gen(data.TAIL_KEY, data.HITS_3_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_3_FILTERED),
-    (data.dict_key_gen(data.TAIL_KEY, data.HITS_5_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_5_FILTERED),
-    (data.dict_key_gen(data.TAIL_KEY, data.HITS_10_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_10_FILTERED),
+    (data.dict_key_gen(data.TAIL_KEY, MEAN_RANK_FEATURE_KEY), LinkPredictionStatistics.MEAN_RANK),
+    (data.dict_key_gen(data.TAIL_KEY, MEAN_FILTERED_RANK_FEATURE_KEY), LinkPredictionStatistics.MEAN_FILTERED_RANK),
+    (data.dict_key_gen(data.TAIL_KEY, MEAN_RECIPROCAL_RANK_FEATURE_KEY), LinkPredictionStatistics.MEAN_RECIPROCAL_RANK),
+    (data.dict_key_gen(data.TAIL_KEY, MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY), LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK),
+    (data.dict_key_gen(data.TAIL_KEY, HITS_1_FEATURE_KEY), LinkPredictionStatistics.HITS_1),
+    (data.dict_key_gen(data.TAIL_KEY, HITS_3_FEATURE_KEY), LinkPredictionStatistics.HITS_3),
+    (data.dict_key_gen(data.TAIL_KEY, HITS_5_FEATURE_KEY), LinkPredictionStatistics.HITS_5),
+    (data.dict_key_gen(data.TAIL_KEY, HITS_10_FEATURE_KEY), LinkPredictionStatistics.HITS_10),
+    (data.dict_key_gen(data.TAIL_KEY, HITS_1_FILTERED_FEATURE_KEY), LinkPredictionStatistics.HITS_1_FILTERED),
+    (data.dict_key_gen(data.TAIL_KEY, HITS_3_FILTERED_FEATURE_KEY), LinkPredictionStatistics.HITS_3_FILTERED),
+    (data.dict_key_gen(data.TAIL_KEY, HITS_5_FILTERED_FEATURE_KEY), LinkPredictionStatistics.HITS_5_FILTERED),
+    (data.dict_key_gen(data.TAIL_KEY, HITS_10_FILTERED_FEATURE_KEY), LinkPredictionStatistics.HITS_10_FILTERED),
 ],
-data.StatisticsDimension.RELATION: [
-    (data.dict_key_gen(data.RELATION_KEY, data.MEAN_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_RANK),
-    (data.dict_key_gen(data.RELATION_KEY, data.MEAN_FILTERED_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_FILTERED_RANK),
-    (data.dict_key_gen(data.RELATION_KEY, data.MEAN_RECIPROCAL_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_RECIPROCAL_RANK),
-    (data.dict_key_gen(data.RELATION_KEY, data.MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY), data.LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK),
-    (data.dict_key_gen(data.RELATION_KEY, data.HITS_1_FEATURE_KEY), data.LinkPredictionStatistics.HITS_1),
-    (data.dict_key_gen(data.RELATION_KEY, data.HITS_3_FEATURE_KEY), data.LinkPredictionStatistics.HITS_3),
-    (data.dict_key_gen(data.RELATION_KEY, data.HITS_5_FEATURE_KEY), data.LinkPredictionStatistics.HITS_5),
-    (data.dict_key_gen(data.RELATION_KEY, data.HITS_10_FEATURE_KEY), data.LinkPredictionStatistics.HITS_10),
-    (data.dict_key_gen(data.RELATION_KEY, data.HITS_1_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_1_FILTERED),
-    (data.dict_key_gen(data.RELATION_KEY, data.HITS_3_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_3_FILTERED),
-    (data.dict_key_gen(data.RELATION_KEY, data.HITS_5_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_5_FILTERED),
-    (data.dict_key_gen(data.RELATION_KEY, data.HITS_10_FILTERED_FEATURE_KEY), data.LinkPredictionStatistics.HITS_10_FILTERED),
+StatisticsDimension.RELATION: [
+    (data.dict_key_gen(data.RELATION_KEY, MEAN_RANK_FEATURE_KEY), LinkPredictionStatistics.MEAN_RANK),
+    (data.dict_key_gen(data.RELATION_KEY, MEAN_FILTERED_RANK_FEATURE_KEY), LinkPredictionStatistics.MEAN_FILTERED_RANK),
+    (data.dict_key_gen(data.RELATION_KEY, MEAN_RECIPROCAL_RANK_FEATURE_KEY), LinkPredictionStatistics.MEAN_RECIPROCAL_RANK),
+    (data.dict_key_gen(data.RELATION_KEY, MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY), LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK),
+    (data.dict_key_gen(data.RELATION_KEY, HITS_1_FEATURE_KEY), LinkPredictionStatistics.HITS_1),
+    (data.dict_key_gen(data.RELATION_KEY, HITS_3_FEATURE_KEY), LinkPredictionStatistics.HITS_3),
+    (data.dict_key_gen(data.RELATION_KEY, HITS_5_FEATURE_KEY), LinkPredictionStatistics.HITS_5),
+    (data.dict_key_gen(data.RELATION_KEY, HITS_10_FEATURE_KEY), LinkPredictionStatistics.HITS_10),
+    (data.dict_key_gen(data.RELATION_KEY, HITS_1_FILTERED_FEATURE_KEY), LinkPredictionStatistics.HITS_1_FILTERED),
+    (data.dict_key_gen(data.RELATION_KEY, HITS_3_FILTERED_FEATURE_KEY), LinkPredictionStatistics.HITS_3_FILTERED),
+    (data.dict_key_gen(data.RELATION_KEY, HITS_5_FILTERED_FEATURE_KEY), LinkPredictionStatistics.HITS_5_FILTERED),
+    (data.dict_key_gen(data.RELATION_KEY, HITS_10_FILTERED_FEATURE_KEY), LinkPredictionStatistics.HITS_10_FILTERED),
 ]
 }
 
 def prepare_plot_validation_result(drawer, config):
-    if config.report_dimension & data.StatisticsDimension.COMBINED_ENTITY:
-        for key, condition in DRAWING_KEY_AND_CONDITION[data.StatisticsDimension.COMBINED_ENTITY]:
+    if config.report_dimension & StatisticsDimension.COMBINED_ENTITY:
+        for key, condition in DRAWING_KEY_AND_CONDITION[StatisticsDimension.COMBINED_ENTITY]:
             if condition & config.report_features:
                 drawer.create_plot(key, gen_drawer_option(config, key))
-    elif config.report_dimension & data.StatisticsDimension.SEPERATE_ENTITY:
-        for key, condition in DRAWING_KEY_AND_CONDITION[data.StatisticsDimension.SEPERATE_ENTITY]:
+    elif config.report_dimension & StatisticsDimension.SEPERATE_ENTITY:
+        for key, condition in DRAWING_KEY_AND_CONDITION[StatisticsDimension.SEPERATE_ENTITY]:
             if condition & config.report_features:
                 drawer.create_plot(key, gen_drawer_option(config, key))
-    if config.report_dimension & data.StatisticsDimension.RELATION:
-        for key, condition in DRAWING_KEY_AND_CONDITION[data.StatisticsDimension.RELATION]:
+    if config.report_dimension & StatisticsDimension.RELATION:
+        for key, condition in DRAWING_KEY_AND_CONDITION[StatisticsDimension.RELATION]:
             if condition & config.report_features:
                 drawer.create_plot(key, gen_drawer_option(config, key))
 

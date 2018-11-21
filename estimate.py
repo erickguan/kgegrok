@@ -9,6 +9,7 @@ import torch.optim as optim
 import numpy as np
 from utils import save_checkpoint, load_checkpoint, write_logging_data
 import stats
+import evaluation
 
 
 def create_optimizer(optimizer_class, config, parameters):
@@ -22,7 +23,7 @@ def create_optimizer(optimizer_class, config, parameters):
     else:
         return optimizer_class(parameters, lr=config.alpha)
 
-def test(triple_source, config, model_class):
+def test(triple_source, config, model_class, pool):
     """Test config.resume model."""
     data_loader = data.create_dataloader(triple_source, config, collates_label=False, dataset_type=data.DatasetType.TESTING)
     model = nn.DataParallel(model_class(triple_source, config))
@@ -33,13 +34,13 @@ def test(triple_source, config, model_class):
         model.cuda()
 
     logging.info('Testing starts')
-    result = stats.evaulate_prediction(model, triple_source, config, ranker, data_loader)
+    result = evaluation.predict_links(model, triple_source, config, data_loader, pool)
 
     stats.report_prediction_result(config, result, epoch=i_epoch, drawer=drawer)
 
     return model
 
-def train_and_validate(triple_source, config, model_class, optimizer_class, drawer=None):
+def train_and_validate(triple_source, config, model_class, optimizer_class, pool, drawer=None):
     """Train and validates the dataset."""
     # Data loaders have many processes. Here it's main process.
     data_loader = data.create_dataloader(triple_source, config, model_class.require_labels())
@@ -47,7 +48,6 @@ def train_and_validate(triple_source, config, model_class, optimizer_class, draw
     model = nn.DataParallel(model_class(triple_source, config))
     optimizer = create_optimizer(optimizer_class, config, model.parameters())
     load_checkpoint(config, model, optimizer)
-    ranker = kgekit.Ranker(triple_source.train_set, triple_source.valid_set, triple_source.test_set)
 
     if config.enable_cuda:
         model.cuda()
@@ -79,7 +79,7 @@ def train_and_validate(triple_source, config, model_class, optimizer_class, draw
         logging.info("Epoch " + str(i_epoch) + ": loss " + str(loss_epoch))
 
         logging.info('Evaluation for epoch ' + str(i_epoch))
-        result = stats.evaulate_prediction(model, triple_source, config, ranker, valid_data_loader)
+        result = evaluation.predict_links(model, triple_source, config, valid_data_loader, pool)
         stats.report_prediction_result(config, result, epoch=i_epoch, drawer=drawer)
 
         save_checkpoint({
