@@ -13,6 +13,7 @@ def _evaluation_worker_loop(resource, input, output):
     ranker = resource.ranker
     try:
         for batch_tensor, triple_index, splits in iter(input.get, 'STOP'):
+            logging.debug("[Evaluation Worker {}] receives a new batch.".format(mp.current_process().name))
             batch = batch_tensor.data.numpy()
             result = []
             for triple_index, split in zip(batch, splits):
@@ -23,7 +24,7 @@ def _evaluation_worker_loop(resource, input, output):
                     result.append(_evaluate_prediction_view(predicted_batch[split[2]:split[3]], triple_index, ranker.rankRelation, data.RELATION_KEY))
             output.put(result)
     except StopIteration:
-        print("Evaluation worker {} stops.".format(mp.current_process().name))
+        print("[Evaluation Worker {}] stops.".format(mp.current_process().name))
 
 class EvaluationProcessPool(object):
     def __init__(self, config, triple_source, context):
@@ -69,6 +70,7 @@ class EvaluationProcessPool(object):
             data.RELATION_KEY: (rr, frr)
         }
 
+        logging.debug("Starts to wait for result batches.")
         while self._counter <= 0:
             results = self.output.get()
             self._counter -= 1
