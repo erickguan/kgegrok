@@ -191,8 +191,7 @@ class Analogy(Model):
 
     def _calc(self, e_re_h, e_im_h, e_h, e_re_t, e_im_t, e_t, r_re, r_im, r):
         """score function of Analogy, which is the hybrid of ComplEx and DistMult"""
-        return torch.sum(r_re * e_re_h * e_re_t + r_re * e_im_h * e_im_t + r_im * e_re_h * e_im_t - r_im * e_im_h * e_re_t, 1 ,False) +
-            torch.sum(e_h*e_t*r, 1, False)
+        return torch.sum(r_re * e_re_h * e_re_t + r_re * e_im_h * e_im_t + r_im * e_re_h * e_im_t - r_im * e_im_h * e_re_t, 1 ,False) + torch.sum(e_h*e_t*r, 1, False)
 
     def loss_func(self, loss, regul):
         return loss + self.config.lambda_*regul
@@ -202,15 +201,15 @@ class Analogy(Model):
             pos_h, pos_r, pos_t, y = batch
         else:
             pos_h, pos_r, pos_t = batch
-		e_re_h = self.ent_re_embeddings(batch_h)
-		e_re_t = self.ent_re_embeddings(batch_t)
-		r_re = self.rel_re_embeddings(batch_r)
-		e_im_t = self.ent_im_embeddings(batch_t)
-		e_im_h = self.ent_im_embeddings(batch_h)
-		r_im = self.rel_im_embeddings(batch_r)
-		e_h = self.ent_embeddings(batch_h)
-		e_t = self.ent_embeddings(batch_t)
-		r = self.rel_embeddings(batch_r)
+        e_re_h = self.ent_re_embeddings(batch_h)
+        e_re_t = self.ent_re_embeddings(batch_t)
+        r_re = self.rel_re_embeddings(batch_r)
+        e_im_t = self.ent_im_embeddings(batch_t)
+        e_im_h = self.ent_im_embeddings(batch_h)
+        r_im = self.rel_im_embeddings(batch_r)
+        e_h = self.ent_embeddings(batch_h)
+        e_t = self.ent_embeddings(batch_t)
+        r = self.rel_embeddings(batch_r)
 
         # Calculating loss to get what the framework will optimize
         if negative_batch is not None:
@@ -277,9 +276,9 @@ class DistMult(Model):
         else:
             pos_h, pos_r, pos_t = batch
 
-		e_h = self.entity_embeddings(pos_h)
-		e_t = self.entity_embeddings(pos_t)
-		e_r = self.relation_embeddings(pos_r)
+        e_h = self.entity_embeddings(pos_h)
+        e_t = self.entity_embeddings(pos_t)
+        e_r = self.relation_embeddings(pos_r)
 
         if negative_batch is not None:
             neg_h, neg_r, neg_t, neg_y = negative_batch
