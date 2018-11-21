@@ -28,7 +28,7 @@ class Config(object):
     negative_relation = 1
     batch_size = 100
     num_workers = 2
-    evaluation_workers = 2
+    num_evaluation_workers = 2
 
     # Model
     model = "TransE"

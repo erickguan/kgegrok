@@ -39,7 +39,7 @@ class EvaluationProcessPool(object):
                 target=_evaluation_worker_loop,
                 args=(self._ns, self._input, self._output)
             )
-            for _ in range(self._config.evaluation_workers)
+            for _ in range(self._config.num_evaluation_workers)
         ]
         for p in self._processes:
             p.start()
