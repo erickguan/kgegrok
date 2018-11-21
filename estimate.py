@@ -75,7 +75,8 @@ def train_and_validate(triple_source, config, model_class, optimizer_class, pool
             optimizer.step()
             loss_epoch += loss_sum.data[0]
 
-        drawer.append(data.LOSS_FEATURE_KEY, X=np.array([i_epoch], dtype='f'), Y=np.array([loss_epoch], dtype='f'))
+        if drawer is not None:
+            drawer.append(data.LOSS_FEATURE_KEY, X=np.array([i_epoch], dtype='f'), Y=np.array([loss_epoch], dtype='f'))
         logging.info("Epoch " + str(i_epoch) + ": loss " + str(loss_epoch))
 
         logging.info('Evaluation for epoch ' + str(i_epoch))
