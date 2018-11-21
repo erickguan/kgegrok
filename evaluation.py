@@ -2,6 +2,7 @@ import torch.multiprocessing as mp
 import kgekit
 import data
 import stats
+import logging
 
 def _evaluate_prediction_view(output, result_view, triple_index, rank_fn, datatype):
     """Evaluation on a view of batch."""
@@ -53,10 +54,10 @@ class EvaluationProcessPool(object):
         for p in self._processes:
             p.join()
 
-    def evaluate_batch(self, batch):
+    def evaluate_batch(self, test_package):
         """Batch is a Tensor."""
         logging.debug("Putting a new batch for evaluation")
-        self._input.put(batch)
+        self._input.put(test_package)
         self._counter += 1
 
     def wait_evaluation_results(self, hr, fhr, tr, ftr, rr, frr):
@@ -89,9 +90,10 @@ def predict_links(model, triple_source, config, data_loader, pool):
     for i_batch, sample_batched in enumerate(data_loader):
         sampled, batch, splits = sample_batched
         sampled = data.convert_triple_tuple_to_torch(data.get_triples_from_batch(sampled), config)
+        logging.debug("Current batch shape")
         predicted_batch = model.forward(sampled).cpu()
 
-        pool.evaluate_batch(predicted_batch)
+        pool.evaluate_batch((predicted_batch, batch, splits))
 
     # Synchonized point. We want all our results back.
     pool.wait_evaluation_results(head_ranks, filtered_head_ranks, tail_ranks, filtered_tail_ranks, relation_ranks, filtered_relation_ranks)
