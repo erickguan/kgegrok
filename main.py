@@ -105,7 +105,9 @@ def cli(args):
     config.enable_cuda = True if torch.cuda.is_available() and config.enable_cuda else False
     print(config.__dict__)
     print("Continue? Starts in 10s. [Ctrl-C] to stop.")
-    select.select([sys.stdin], [], [], 10)
+
+    # let's save some seconds
+    select.select([sys.stdin], [], [], 3)
 
     np.random.seed(10000)
     torch.manual_seed(20000)
@@ -119,6 +121,10 @@ def cli(args):
     ctx = mp.get_context('spawn')
     pool = evaluation.EvaluationProcessPool(config, triple_source, ctx)
     pool.start()
+
+    # maybe roughly 10s now
+    select.select([sys.stdin], [], [], 5)
+
     if parsed_args['mode'] == 'train':
         cli_train(triple_source, config, model_class, optimizer_class, pool)
     else:

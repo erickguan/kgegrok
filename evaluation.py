@@ -3,17 +3,17 @@ import kgekit
 import data
 import stats
 import logging
+import sys
 
 def _evaluate_prediction_view(output, result_view, triple_index, rank_fn, datatype):
     """Evaluation on a view of batch."""
     rank, filtered_rank = rank_fn(result_view, triple_index)
     return (datatype, rank, filtered_rank)
 
-def _evaluation_worker_loop(resource, input, output):
+def _evaluation_worker_loop(resource, input_q, output):
     ranker = resource.ranker
     try:
-        for batch_tensor, triple_index, splits in iter(input.get, 'STOP'):
-            logging.debug("[Evaluation Worker {}] receives a new batch.".format(mp.current_process().name))
+        for batch_tensor, triple_index, splits in iter(input_q.get, 'STOP'):
             batch = batch_tensor.data.numpy()
             result = []
             for triple_index, split in zip(batch, splits):
@@ -25,6 +25,7 @@ def _evaluation_worker_loop(resource, input, output):
             output.put(result)
     except StopIteration:
         print("[Evaluation Worker {}] stops.".format(mp.current_process().name))
+        sys.stdout.flush()
 
 class EvaluationProcessPool(object):
     def __init__(self, config, triple_source, context):
