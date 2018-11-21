@@ -457,10 +457,10 @@ class _StatisticsGathering(object):
             raise RuntimeError("Rank are not enough for num_ranks. len(ranks): {}, num_ranks: {}".format(len(ranks), num_ranks))
         return sum(map(reciprocal_rank_fn, ranks)) / num_ranks
 
-    def _calc_hits(self, target, ranks, num_entry):
-        if len(ranks) != num_entry:
-            raise RuntimeError("Rank are not enough for num_entry. len(ranks): {}, num_entry: {}".format(len(ranks), num_entry))
-        return functools.reduce(HitsReducer(target), ranks) / num_entry
+    def _calc_hits(self, target, ranks, num_ranks):
+        if len(ranks) != num_ranks:
+            raise RuntimeError("Rank are not enough for num_entry. len(ranks): {}, num_ranks: {}".format(len(ranks), num_ranks))
+        return functools.reduce(HitsReducer(target), ranks) / num_ranks
 
     def add_rank(self, key, ranks, num_ranks):
         self.result[key] = self._calc_rank(ranks, num_ranks)
@@ -468,14 +468,14 @@ class _StatisticsGathering(object):
     def add_reciprocal_rank(self, key, ranks, num_ranks):
         self.result[key] = self._calc_reciprocal_rank(ranks, num_ranks)
 
-    def add_hit(self, key, ranks, target, num_entry):
-        self.result[key] = self._calc_hits(target, ranks, num_entry)
+    def add_hit(self, key, ranks, target, num_ranks):
+        self.result[key] = self._calc_hits(target, ranks, num_ranks)
 
     def get_result(self):
         return self.result
 
 
-def get_evaluation_statistics(rank_list, filtered_rank_list, features, num_entry):
+def get_evaluation_statistics(rank_list, filtered_rank_list, features):
     num_ranks = len(rank_list)
     assert isinstance(rank_list, list) and isinstance(filtered_rank_list, list) and num_ranks == len(filtered_rank_list)
 
@@ -489,21 +489,21 @@ def get_evaluation_statistics(rank_list, filtered_rank_list, features, num_entry
     if LinkPredictionStatistics.MEAN_FILTERED_RANK & features:
         gathering.add_rank(MEAN_FILTERED_RANK_FEATURE_KEY, filtered_rank_list, num_ranks)
     if LinkPredictionStatistics.HITS_1 & features:
-        gathering.add_hit(HITS_1_FEATURE_KEY, rank_list, 1, num_entry)
+        gathering.add_hit(HITS_1_FEATURE_KEY, rank_list, 1, num_ranks)
     if LinkPredictionStatistics.HITS_3 & features:
-        gathering.add_hit(HITS_3_FEATURE_KEY, rank_list, 3, num_entry)
+        gathering.add_hit(HITS_3_FEATURE_KEY, rank_list, 3, num_ranks)
     if LinkPredictionStatistics.HITS_5 & features:
-        gathering.add_hit(HITS_5_FEATURE_KEY, rank_list, 5, num_entry)
+        gathering.add_hit(HITS_5_FEATURE_KEY, rank_list, 5, num_ranks)
     if LinkPredictionStatistics.HITS_10 & features:
-        gathering.add_hit(HITS_10_FEATURE_KEY, rank_list, 10, num_entry)
+        gathering.add_hit(HITS_10_FEATURE_KEY, rank_list, 10, num_ranks)
     if LinkPredictionStatistics.HITS_1_FILTERED & features:
-        gathering.add_hit(HITS_1_FILTERED_FEATURE_KEY, filtered_rank_list, 1, num_entry)
+        gathering.add_hit(HITS_1_FILTERED_FEATURE_KEY, filtered_rank_list, 1, num_ranks)
     if LinkPredictionStatistics.HITS_3_FILTERED & features:
-        gathering.add_hit(HITS_3_FILTERED_FEATURE_KEY, filtered_rank_list, 3, num_entry)
+        gathering.add_hit(HITS_3_FILTERED_FEATURE_KEY, filtered_rank_list, 3, num_ranks)
     if LinkPredictionStatistics.HITS_5_FILTERED & features:
-        gathering.add_hit(HITS_5_FILTERED_FEATURE_KEY, filtered_rank_list, 5, num_entry)
+        gathering.add_hit(HITS_5_FILTERED_FEATURE_KEY, filtered_rank_list, 5, num_ranks)
     if LinkPredictionStatistics.HITS_10_FILTERED & features:
-        gathering.add_hit(HITS_10_FILTERED_FEATURE_KEY, filtered_rank_list, 10, num_entry)
+        gathering.add_hit(HITS_10_FILTERED_FEATURE_KEY, filtered_rank_list, 10, num_ranks)
     return gathering.get_result()
 
 

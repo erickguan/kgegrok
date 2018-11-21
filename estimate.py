@@ -35,7 +35,7 @@ def test(triple_source, config, model_class):
     logging.info('Testing starts')
     result = stats.evaulate_prediction(model, triple_source, config, ranker, data_loader)
 
-    stats.report_prediction_result(config, result, len(triple_source.test_set), epoch=i_epoch, drawer=drawer)
+    stats.report_prediction_result(config, result, epoch=i_epoch, drawer=drawer)
 
     return model
 
@@ -80,7 +80,7 @@ def train_and_validate(triple_source, config, model_class, optimizer_class, draw
 
         logging.info('Evaluation for epoch ' + str(i_epoch))
         result = stats.evaulate_prediction(model, triple_source, config, ranker, valid_data_loader)
-        stats.report_prediction_result(config, result, len(triple_source.valid_set), epoch=i_epoch, drawer=drawer)
+        stats.report_prediction_result(config, result, epoch=i_epoch, drawer=drawer)
 
         save_checkpoint({
             'epoch': i_epoch,
