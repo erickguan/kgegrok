@@ -5,7 +5,7 @@ import stats
 import logging
 import sys
 
-def _evaluate_prediction_view(output, result_view, triple_index, rank_fn, datatype):
+def _evaluate_prediction_view(result_view, triple_index, rank_fn, datatype):
     """Evaluation on a view of batch."""
     rank, filtered_rank = rank_fn(result_view, triple_index)
     return (datatype, rank, filtered_rank)
@@ -13,7 +13,8 @@ def _evaluate_prediction_view(output, result_view, triple_index, rank_fn, dataty
 def _evaluation_worker_loop(resource, input_q, output):
     ranker = resource.ranker
     try:
-        for batch_tensor, triple_index, splits in iter(input_q.get, 'STOP'):
+        for p in iter(input_q.get, None):
+            batch_tensor, triple_index, splits = p
             batch = batch_tensor.data.numpy()
             result = []
             for triple_index, split in zip(batch, splits):
@@ -42,7 +43,7 @@ class EvaluationProcessPool(object):
         self._processes = [
             self._context.Process(
                 target=_evaluation_worker_loop,
-                args=(self._ns, self._input, self._output)
+                args=(self._ns, self._input, self._output,)
             )
             for _ in range(self._config.num_evaluation_workers)
         ]
@@ -54,7 +55,7 @@ class EvaluationProcessPool(object):
             p.close()
         # Put as many as stop markers for workers to stop.
         for i in range(self._config.evaluation_workers * 2):
-            self._input.put('STOP')
+            self._input.put(None)
         for p in self._processes:
             p.join()
 
@@ -73,7 +74,7 @@ class EvaluationProcessPool(object):
 
         logging.debug("Starts to wait for result batches.")
         while self._counter <= 0:
-            results = self.output.get()
+            results = self._output.get()
             self._counter -= 1
             logging.debug("Working on a new batch of result. Now we have received {} results.".format(self._counter))
             for datatype, rank, filtered_rank in results:
