@@ -26,7 +26,7 @@ class EvaluationProcessPool(object):
     def __init__(self, config, triple_source, context):
         self._config = config
         self._context = context
-        self._manager = mp.SyncManager()
+        self._manager = mp.Manager()
         self._ns = self._manager.Namespace()
         self._ns.ranker = kgekit.Ranker(triple_source.train_set, triple_source.valid_set, triple_source.test_set)
         self._input = mp.SimpleQueue()
