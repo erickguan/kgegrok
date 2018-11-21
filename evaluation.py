@@ -95,8 +95,8 @@ def predict_links(model, triple_source, config, data_loader, pool):
     for i_batch, sample_batched in enumerate(data_loader):
         sampled, batch, splits = sample_batched
         sampled = data.convert_triple_tuple_to_torch(data.get_triples_from_batch(sampled), config)
-        logging.debug("Current batch's h shape {}.".format(sampled[0].shape))
         predicted_batch = model.forward(sampled).cpu()
+        logging.debug("Current batch's shape {}.".format(predicted_batch.shape))
 
         pool.evaluate_batch((predicted_batch, batch, splits))
 
