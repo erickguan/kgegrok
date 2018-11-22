@@ -2,6 +2,7 @@ import torch
 import os.path
 import json
 from pathlib import Path
+import importlib
 
 
 def report_gpu_info():
@@ -33,3 +34,12 @@ def write_logging_data(raw_data, config):
     """writes the logging data."""
     with open(os.path.join(config.logging_path, config.name), 'w') as f:
         f.write(json.dumps(raw_data))
+
+def load_class_from_module(class_name, *modules):
+    for module in modules:
+        mod = importlib.import_module(module)
+        try:
+            return getattr(mod, class_name)
+        except:
+            pass
+    raise RuntimeError("Can't find the {} from {}".format(class_name, modules))

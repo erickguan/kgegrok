@@ -1,6 +1,5 @@
 import torch
 import data
-import models
 from estimate import train_and_validate, test
 import logging
 import torch.optim as optim
@@ -10,7 +9,7 @@ import sys
 import select
 import argparse
 from itertools import filterfalse
-from utils import report_gpu_info
+from utils import report_gpu_info, load_class_from_module
 import stats
 import importlib
 import evaluation
@@ -86,8 +85,6 @@ def cli_train(triple_source, config, model_class, optimizer_class, pool):
 
 def cli_test(triple_source, config, model_class, optimizer_class, pool):
     assert config.resume is not None
-
-    model_class = getattr(models, config.model)
     model = test(triple_source, config, model_class, pool)
 
 # class ResourceManager(m.BaseManager):
@@ -116,8 +113,9 @@ def cli(args):
     torch.backends.cudnn.benchmark = config.cudnn_benchmark
 
     triple_source = data.TripleSource(config.data_dir, config.triple_order, config.triple_delimiter)
-    model_class = getattr(models, config.model)
-    optimizer_class = getattr(optim, config.optimizer)
+    model_class = load_class_from_module(config.model, 'models')
+    optimizer_class = load_class_from_module(config.optimizer, 'torch.optim')
+
     ctx = mp.get_context('spawn')
     pool = evaluation.EvaluationProcessPool(config, triple_source, ctx)
     pool.start()
