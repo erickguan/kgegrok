@@ -347,7 +347,7 @@ def create_dataloader(triple_source, config, collates_label=False, dataset_type=
         collate_fn = transforms.Compose(collates)
         batch_size = config.batch_size
     else: # Validation and Test
-        batch_size = min(_SAFE_MINIMAL_BATCH_SIZE, int(config.batch_size*config.evaluation_load_factor))
+        batch_size = max(_SAFE_MINIMAL_BATCH_SIZE, int(config.batch_size*config.evaluation_load_factor))
         collate_fn = TripleTileCollate(config, triple_source)
 
     data_loader = torch.utils.data.DataLoader(dataset,
