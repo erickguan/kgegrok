@@ -108,7 +108,7 @@ class EvaluationProcessPool(object):
         """Batch is a Tensor."""
         self._input.put(test_package)
         self._counter += 1
-        logging.debug("Putting a new batch for evaluation. Now we have sent {} batches.".format(self._ns.counter.value))
+        logging.debug("Putting a new batch for evaluation. Now we have sent {} batches.".format(self._counter))
 
     def wait_evaluation_results(self):
         logging.debug("Starts to wait for result batches.")
