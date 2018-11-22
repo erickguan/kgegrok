@@ -47,11 +47,11 @@ def train_and_validate(triple_source, config, model_class, optimizer_class, pool
     if enable_validation:
         valid_data_loader = data.create_dataloader(triple_source, config, collates_label=False, dataset_type=data.DatasetType.VALIDATION)
     model = nn.DataParallel(model_class(triple_source, config))
-    optimizer = create_optimizer(optimizer_class, config, model.parameters())
-    load_checkpoint(config, model, optimizer)
-
+    # has to be here because https://discuss.pytorch.org/t/effect-of-calling-model-cuda-after-constructing-an-optimizer/15165/7
     if config.enable_cuda:
         model.cuda()
+    optimizer = create_optimizer(optimizer_class, config, model.parameters())
+    load_checkpoint(config, model, optimizer)
 
     if drawer is not None:
         drawer.create_plot(data.LOSS_FEATURE_KEY, stats.gen_drawer_option(config, "Loss value"))
