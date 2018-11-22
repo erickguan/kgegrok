@@ -157,13 +157,13 @@ class EvaluationProcessPool(object):
             logging.debug("counter is now at {}.".format(self._counter.value))
             continue
         else:
-            logging.debug("results list {}", self._results_list)
+            logging.debug("results list {}".format(self._results_list))
             # deep copy that before we destroyed them
             results = tuple([copy.deepcopy(r) for r in self._results_list])
 
         # Reset
         self._prepare_list()
-        logging.debug("results list copied {}", results)
+        logging.debug("results list[0] copied {}".format(results))
 
         return results
 
