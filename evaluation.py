@@ -157,7 +157,8 @@ class EvaluationProcessPool(object):
             continue
         else:
             logging.debug("results list {}", self._results_list)
-            results = (r.copy() for r in self._results_list)
+            # deep copy that before we destroyed them
+            results = (list(r) for r in self._results_list)
 
         # Reset
         self._prepare_list()
