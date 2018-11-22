@@ -113,7 +113,7 @@ def cli(args):
     torch.backends.cudnn.benchmark = config.cudnn_benchmark
 
     triple_source = data.TripleSource(config.data_dir, config.triple_order, config.triple_delimiter)
-    model_class = load_class_from_module(config.model, 'models')
+    model_class = load_class_from_module(config.model, 'models', 'text_models')
     optimizer_class = load_class_from_module(config.optimizer, 'torch.optim')
 
     ctx = mp.get_context('spawn')
