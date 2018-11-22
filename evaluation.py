@@ -5,17 +5,22 @@ import stats
 import logging
 import sys
 import threading
+import contextlib
 
 
 class AtomicCounter(object):
-    """An atomic, thread-safe incrementing counter.
-    Not needed because of GIL. but used for passing counter.
+    """An atomic, thread-safe incrementing counter. Used for passing counter.
     """
 
     def __init__(self, initial=0):
         """Initialize a new atomic counter to given initial value (default 0)."""
         self.value = initial
-        self._lock = threading.Lock()
+        # Not needed because of GIL.
+        try:
+            nc = getattr(contextlib, 'nullcontext')
+        except AttributeError:
+            nc = contextlib.suppress()
+        self._lock = nc # threading.Lock()
 
     def increment(self, num=1):
         """Atomically increment the counter by num (default 1) and return the
@@ -151,6 +156,7 @@ class EvaluationProcessPool(object):
             logging.debug("counter is now at {}.".format(self._counter.value))
             continue
         else:
+            logging.debug("results list {}", self._results_list)
             results = (r.copy() for r in self._results_list)
 
         # Reset
