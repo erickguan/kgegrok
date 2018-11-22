@@ -47,7 +47,7 @@ class Config(object):
     report_features = stats.LinkPredictionStatistics.DEFAULT
     report_dimension = stats.StatisticsDimension.DEFAULT
     # due to tile in the evaluation, it's reasonable to have less batch size
-    evaluation_load_factor = 0.1
+    evaluation_load_factor = 0.0001
     # filename to resume
     resume = None
     # Introduce underministic behaviour but allow cudnn find best algoritm

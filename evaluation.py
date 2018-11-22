@@ -96,6 +96,7 @@ def _evaluation_result_thread_loop(resource, output, results_list, counter):
         print("[Result Worker {}] stops.".format(mp.current_process().name))
         sys.stdout.flush()
 
+RESULT_LIST_SIZE = 6
 
 class EvaluationProcessPool(object):
     def __init__(self, config, triple_source, context):
@@ -106,14 +107,13 @@ class EvaluationProcessPool(object):
         self._ns.ranker = kgekit.Ranker(triple_source.train_set, triple_source.valid_set, triple_source.test_set)
         self._input = self._context.SimpleQueue()
         self._output = self._context.SimpleQueue()
-        self._results_list = []
+        self._results_list = [list() for _ in range(RESULT_LIST_SIZE)]
         self._counter = AtomicCounter()
 
     def _prepare_list(self):
-        self._results_list.clear()
         self._counter.reset()
-        for _ in range(6):
-            self._results_list.append(list())
+        for i in range(RESULT_LIST_SIZE):
+            self._results_list[i].clear()
 
     def start(self):
         self._prepare_list()
