@@ -19,8 +19,8 @@ def _evaluation_worker_loop(resource, input_q, output):
                 continue
             if isinstance(p, str) and p == 'STOP':
                 raise StopIteration
-            batch_tensor, triple_index, splits = p
-            batch = batch_tensor.data.numpy()
+            batch_tensor, batch, splits = p
+            predicted_batch = batch_tensor.data.numpy()
             result = []
             for triple_index, split in zip(batch, splits):
                 if split[0] != split[1] and split[1] != split[2]:
