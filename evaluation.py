@@ -113,7 +113,7 @@ class EvaluationProcessPool(object):
     def wait_evaluation_results(self):
         logging.debug("Starts to wait for result batches.")
         # Protected by GIL
-        for self._counter > 0:
+        while self._counter > 0:
             continue
         else:
             results = (r.copy() for r in self._results_list)
