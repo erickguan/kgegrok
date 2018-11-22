@@ -6,6 +6,7 @@ import logging
 import sys
 import threading
 import contextlib
+import copy
 
 
 class AtomicCounter(object):
@@ -158,7 +159,7 @@ class EvaluationProcessPool(object):
         else:
             logging.debug("results list {}", self._results_list)
             # deep copy that before we destroyed them
-            results = (list(r) for r in self._results_list)
+            results = tuple([copy.deepcopy(r) for r in self._results_list])
 
         # Reset
         self._prepare_list()

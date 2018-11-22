@@ -132,7 +132,7 @@ def cli(args):
     pool.stop()
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     report_gpu_info()
 
     cli(sys.argv)
