@@ -36,15 +36,16 @@ def test(triple_source, config, model_class, pool):
     logging.info('Testing starts')
     result = evaluation.predict_links(model, triple_source, config, data_loader, pool)
 
-    stats.report_prediction_result(config, result, epoch=i_epoch, drawer=drawer)
+    stats.report_prediction_result(config, result, epoch=i_epoch, drawer=None)
 
     return model
 
-def train_and_validate(triple_source, config, model_class, optimizer_class, pool, drawer=None):
+def train_and_validate(triple_source, config, model_class, optimizer_class, pool, drawer=None, enable_validation=True):
     """Train and validates the dataset."""
     # Data loaders have many processes. Here it's main process.
     data_loader = data.create_dataloader(triple_source, config, model_class.require_labels())
-    valid_data_loader = data.create_dataloader(triple_source, config, collates_label=False, dataset_type=data.DatasetType.VALIDATION)
+    if enable_validation:
+        valid_data_loader = data.create_dataloader(triple_source, config, collates_label=False, dataset_type=data.DatasetType.VALIDATION)
     model = nn.DataParallel(model_class(triple_source, config))
     optimizer = create_optimizer(optimizer_class, config, model.parameters())
     load_checkpoint(config, model, optimizer)
@@ -54,7 +55,8 @@ def train_and_validate(triple_source, config, model_class, optimizer_class, pool
 
     if drawer is not None:
         drawer.create_plot(data.LOSS_FEATURE_KEY, stats.gen_drawer_option(config, "Loss value"))
-        stats.prepare_plot_validation_result(drawer, config)
+        if enable_validation:
+            stats.prepare_plot_validation_result(drawer, config)
 
     INDEX_OFFSET = 1
     for i_epoch in range(INDEX_OFFSET, config.epoches+INDEX_OFFSET, 1):
@@ -79,9 +81,10 @@ def train_and_validate(triple_source, config, model_class, optimizer_class, pool
             drawer.append(data.LOSS_FEATURE_KEY, X=np.array([i_epoch], dtype='f'), Y=np.array([loss_epoch], dtype='f'))
         logging.info("Epoch " + str(i_epoch) + ": loss " + str(loss_epoch))
 
-        logging.info('Evaluation for epoch ' + str(i_epoch))
-        result = evaluation.predict_links(model, triple_source, config, valid_data_loader, pool)
-        stats.report_prediction_result(config, result, epoch=i_epoch, drawer=drawer)
+        if enable_validation:
+            logging.info('Evaluation for epoch ' + str(i_epoch))
+            result = evaluation.predict_links(model, triple_source, config, valid_data_loader, pool)
+            stats.report_prediction_result(config, result, epoch=i_epoch, drawer=drawer)
 
         save_checkpoint({
             'epoch': i_epoch,
@@ -89,6 +92,11 @@ def train_and_validate(triple_source, config, model_class, optimizer_class, pool
             'optimizer' : optimizer.state_dict(),
         }, "model_states/" + config.name + "/checkpoint.pth.tar", postfix_num=i_epoch)
 
-    write_logging_data(drawer.dump_raw_data(), config)
+    if drawer is not None:
+        write_logging_data(drawer.dump_raw_data(), config)
 
     return model
+
+def train(triple_source, config, model_class, optimizer_class, drawer):
+    """Train the dataset."""
+    train_and_validate(triple_source, config, model_class, optimizer_class, drawer, enable_validation=False)
