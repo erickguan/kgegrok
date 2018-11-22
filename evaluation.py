@@ -87,7 +87,7 @@ class EvaluationProcessPool(object):
         self._processes.append(
             threading.Thread(
                 target=_evaluation_result_thread_loop,
-                args=(self._ns, self._output, self._counter,)
+                args=(self._ns, self._output, self._results_list, self._counter,)
             )
         )
         for p in self._processes:
