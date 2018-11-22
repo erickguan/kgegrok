@@ -4,6 +4,7 @@ import data
 import stats
 import logging
 import sys
+import threading
 
 def _evaluate_prediction_view(result_view, triple_index, rank_fn, datatype):
     """Evaluation on a view of batch."""
@@ -33,18 +34,49 @@ def _evaluation_worker_loop(resource, input_q, output):
         print("[Evaluation Worker {}] stops.".format(mp.current_process().name))
         sys.stdout.flush()
 
+def _evaluation_result_thread_loop(resource, output, results_list, counter):
+    hr, fhr, tr, ftr, rr, frr = results_list
+    RESULTS_LIST = {
+        data.HEAD_KEY: (hr, fhr),
+        data.TAIL_KEY: (tr, ftr),
+        data.RELATION_KEY: (rr, frr)
+    }
+
+    try:
+        while True:
+            results = output.get()
+            if results is None:
+                continue
+            if isinstance(results, str) and results == 'STOP':
+                raise StopIteration
+            for datatype, rank, filtered_rank in results:
+                rank_list, filtered_rank_list = RESULTS_LIST[datatype]
+                rank_list.append(rank)
+                filtered_rank_list.append(filtered_rank)
+    except StopIteration:
+        print("[Result Worker {}] stops.".format(mp.current_process().name))
+        sys.stdout.flush()
+
 class EvaluationProcessPool(object):
     def __init__(self, config, triple_source, context):
         self._config = config
         self._context = context
-        self._manager = mp.Manager()
+        self._manager = self._context.Manager()
         self._ns = self._manager.Namespace()
         self._ns.ranker = kgekit.Ranker(triple_source.train_set, triple_source.valid_set, triple_source.test_set)
-        self._input = self._context.Queue(200)
-        self._output = self._context.Queue(200)
+        self._input = self._context.SimpleQueue()
+        self._output = self._context.SimpleQueue()
+        self._results_list = []
         self._counter = 0
 
+    def _prepare_list(self):
+        self._results_list.clear()
+        self._counter = 0
+        for _ in range(6):
+            self._results_list.append(list())
+
     def start(self):
+        self._prepare_list()
         self._processes = [
             self._context.Process(
                 target=_evaluation_worker_loop,
@@ -52,6 +84,12 @@ class EvaluationProcessPool(object):
             )
             for _ in range(self._config.num_evaluation_workers)
         ]
+        self._processes.append(
+            threading.Thread(
+                target=_evaluation_result_thread_loop,
+                args=(self._ns, self._output, self._counter,)
+            )
+        )
         for p in self._processes:
             p.start()
 
@@ -61,6 +99,8 @@ class EvaluationProcessPool(object):
         # Put as many as stop markers for workers to stop.
         for i in range(self._config.evaluation_workers * 2):
             self._input.put('STOP')
+        self._output.put('STOP')
+        self._output.put('STOP')
         for p in self._processes:
             p.join()
 
@@ -68,38 +108,23 @@ class EvaluationProcessPool(object):
         """Batch is a Tensor."""
         self._input.put(test_package)
         self._counter += 1
-        logging.debug("Putting a new batch for evaluation. Now we have sent {} batches.".format(self._counter))
+        logging.debug("Putting a new batch for evaluation. Now we have sent {} batches.".format(self._ns.counter.value))
 
-    def wait_evaluation_results(self, hr, fhr, tr, ftr, rr, frr):
-        RESULTS_LIST = {
-            data.HEAD_KEY: (hr, fhr),
-            data.TAIL_KEY: (tr, ftr),
-            data.RELATION_KEY: (rr, frr)
-        }
-
+    def wait_evaluation_results(self):
         logging.debug("Starts to wait for result batches.")
-        while self._counter <= 0:
-            results = self._output.get()
-            if results is None:
-                continue
-            self._counter -= 1
-            logging.debug("Working on a new batch of result. Now we have received {} results.".format(self._counter))
-            for datatype, rank, filtered_rank in results:
-                rank_list, filtered_rank_list = RESULTS_LIST[datatype]
-                rank_list.append(rank)
-                filtered_rank_list.append(filtered_rank)
+        # Protected by GIL
+        for self._counter > 0:
+            continue
+        else:
+            results = (r.copy() for r in self._results_list)
 
-        self._counter = 0
+        # Reset
+        self._prepare_list()
+        return results
+
 
 def predict_links(model, triple_source, config, data_loader, pool):
     model.eval()
-
-    head_ranks = []
-    filtered_head_ranks = []
-    tail_ranks = []
-    filtered_tail_ranks = []
-    relation_ranks = []
-    filtered_relation_ranks = []
 
     for i_batch, sample_batched in enumerate(data_loader):
         sampled, batch, splits = sample_batched
@@ -110,7 +135,7 @@ def predict_links(model, triple_source, config, data_loader, pool):
         pool.evaluate_batch((predicted_batch, batch, splits))
 
     # Synchonized point. We want all our results back.
-    pool.wait_evaluation_results(head_ranks, filtered_head_ranks, tail_ranks, filtered_tail_ranks, relation_ranks, filtered_relation_ranks)
+    head_ranks, filtered_head_ranks, tail_ranks, filtered_tail_ranks, relation_ranks, filtered_relation_ranks = pool.wait_evaluation_results()
     logger.info("Batch size of rank lists (hr, frr, tr, ftr, rr, frr): {}, {}, {}, {}, {}, {}".format(
         len(head_ranks),
         len(filtered_head_ranks),
