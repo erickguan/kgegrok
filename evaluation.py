@@ -6,6 +6,38 @@ import logging
 import sys
 import threading
 
+
+class AtomicCounter(object):
+    """An atomic, thread-safe incrementing counter.
+    Not needed because of GIL. but used for passing counter.
+    """
+
+    def __init__(self, initial=0):
+        """Initialize a new atomic counter to given initial value (default 0)."""
+        self.value = initial
+        self._lock = threading.Lock()
+
+    def increment(self, num=1):
+        """Atomically increment the counter by num (default 1) and return the
+        new value.
+        """
+        with self._lock:
+            self.value += num
+            return self.value
+
+    def decrement(self, num=1):
+        """Atomically increment the counter by num (default 1) and return the
+        new value.
+        """
+        with self._lock:
+            self.value -= num
+            return self.value
+
+    def reset(self):
+        with self._lock:
+            self.value = 0
+
+
 def _evaluate_prediction_view(result_view, triple_index, rank_fn, datatype):
     """Evaluation on a view of batch."""
     rank, filtered_rank = rank_fn(result_view, triple_index)
@@ -53,10 +85,11 @@ def _evaluation_result_thread_loop(resource, output, results_list, counter):
                 rank_list, filtered_rank_list = RESULTS_LIST[datatype]
                 rank_list.append(rank)
                 filtered_rank_list.append(filtered_rank)
-            counter -= 1
+            counter.decrement()
     except StopIteration:
         print("[Result Worker {}] stops.".format(mp.current_process().name))
         sys.stdout.flush()
+
 
 class EvaluationProcessPool(object):
     def __init__(self, config, triple_source, context):
@@ -68,11 +101,11 @@ class EvaluationProcessPool(object):
         self._input = self._context.SimpleQueue()
         self._output = self._context.SimpleQueue()
         self._results_list = []
-        self._counter = 0
+        self._counter = AtomicCounter()
 
     def _prepare_list(self):
         self._results_list.clear()
-        self._counter = 0
+        self._counter.reset()
         for _ in range(6):
             self._results_list.append(list())
 
@@ -108,14 +141,14 @@ class EvaluationProcessPool(object):
     def evaluate_batch(self, test_package):
         """Batch is a Tensor."""
         self._input.put(test_package)
-        self._counter += 1
-        logging.debug("Putting a new batch for evaluation. Now we have sent {} batches.".format(self._counter))
+        self._counter.increment()
+        logging.debug("Putting a new batch for evaluation. Now we have sent {} batches.".format(self._counter.value))
 
     def wait_evaluation_results(self):
         logging.debug("Starts to wait for result batches.")
         # Protected by GIL
-        while self._counter > 0:
-            logging.debug("counter is now at {}.".format(self._counter))
+        while self._counter.value > 0:
+            logging.debug("counter is now at {}.".format(self._counter.value))
             continue
         else:
             results = (r.copy() for r in self._results_list)
