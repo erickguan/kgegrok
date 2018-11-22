@@ -53,6 +53,7 @@ def _evaluation_result_thread_loop(resource, output, results_list, counter):
                 rank_list, filtered_rank_list = RESULTS_LIST[datatype]
                 rank_list.append(rank)
                 filtered_rank_list.append(filtered_rank)
+            counter -= 1
     except StopIteration:
         print("[Result Worker {}] stops.".format(mp.current_process().name))
         sys.stdout.flush()
@@ -114,6 +115,7 @@ class EvaluationProcessPool(object):
         logging.debug("Starts to wait for result batches.")
         # Protected by GIL
         while self._counter > 0:
+            logging.debug("counter is now at {}.".format(self._counter))
             continue
         else:
             results = (r.copy() for r in self._results_list)
