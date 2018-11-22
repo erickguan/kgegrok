@@ -40,8 +40,8 @@ class EvaluationProcessPool(object):
         self._manager = mp.Manager()
         self._ns = self._manager.Namespace()
         self._ns.ranker = kgekit.Ranker(triple_source.train_set, triple_source.valid_set, triple_source.test_set)
-        self._input = mp.Queue(200)
-        self._output = mp.Queue(200)
+        self._input = self._context.Queue(200)
+        self._output = self._context.Queue(200)
         self._counter = 0
 
     def start(self):
