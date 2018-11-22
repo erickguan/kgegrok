@@ -171,7 +171,7 @@ def predict_links(model, triple_source, config, data_loader, pool):
 
     # Synchonized point. We want all our results back.
     head_ranks, filtered_head_ranks, tail_ranks, filtered_tail_ranks, relation_ranks, filtered_relation_ranks = pool.wait_evaluation_results()
-    logger.info("Batch size of rank lists (hr, frr, tr, ftr, rr, frr): {}, {}, {}, {}, {}, {}".format(
+    logging.info("Batch size of rank lists (hr, frr, tr, ftr, rr, frr): {}, {}, {}, {}, {}, {}".format(
         len(head_ranks),
         len(filtered_head_ranks),
         len(tail_ranks),
