@@ -161,6 +161,8 @@ class EvaluationProcessPool(object):
 
         # Reset
         self._prepare_list()
+        logging.debug("results list copied {}", results)
+
         return results
 
 
