@@ -10,6 +10,7 @@ import torch.multiprocessing as mp
 import kgekit
 from kgexpr.data import constants
 from kgexpr import stats
+from kgexpr import data
 
 
 class AtomicCounter(object):
