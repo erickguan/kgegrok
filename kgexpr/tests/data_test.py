@@ -25,6 +25,7 @@ class Config(object):
 
 @pytest.mark.numpyfile
 class DataTest(unittest.TestCase):
+
     @classmethod
     def setUp(cls):
         cls.triple_dir = 'kgexpr/tests/fixtures/triples'
@@ -70,9 +71,9 @@ class DataTest(unittest.TestCase):
 
         batch_size = batch.shape[0]
         h, r, t = data.get_triples_from_batch(batch)
-        self.assertEqual(h.shape, (2, ))
-        self.assertEqual(r.shape, (2, ))
-        self.assertEqual(t.shape, (2, ))
+        self.assertEqual(h.shape, (2,))
+        self.assertEqual(r.shape, (2,))
+        self.assertEqual(t.shape, (2,))
         np.testing.assert_equal(h, np.array([0, 1], dtype=np.int64))
         np.testing.assert_equal(r, np.array([0, 1], dtype=np.int64))
         np.testing.assert_equal(t, np.array([1, 2], dtype=np.int64))
@@ -136,11 +137,11 @@ class DataTest(unittest.TestCase):
             [3, 1],
             [2, 2],
         ], dtype=np.int64))
-        np.testing.assert_equal(
-            y, np.array([
-                [-1, -1],
-                [-1, -1],
-            ], dtype=np.int64))
+        np.testing.assert_equal(y,
+                                np.array([
+                                    [-1, -1],
+                                    [-1, -1],
+                                ], dtype=np.int64))
 
     def test_data_loader(self):
         np.random.seed(0)
@@ -154,11 +155,11 @@ class DataTest(unittest.TestCase):
             np.array([[[0, 0, 1]], [[0, 1, 2]], [[1, 2, 3]], [[3, 1, 2]]],
                      dtype=np.int64))
         np.testing.assert_equal(
-            negatives[0, :, :],
-            np.array([
+            negatives[0, :, :], np.array([
                 [0, 0, 1],
                 [0, 1, 1],
-            ], dtype=np.int64))
+            ],
+                                         dtype=np.int64))
 
     def test_data_loader_with_label(self):
         np.random.seed(0)

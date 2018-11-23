@@ -181,6 +181,7 @@ def get_triples_from_batch(batch):
 
 
 class _BatchElementConverter(object):
+
     def __init__(self, cuda_enabled=False):
         self.cuda_enabled = cuda_enabled
 
@@ -257,9 +258,8 @@ def create_dataloader(triple_source,
         collate_fn = transforms.Compose(collates)
         batch_size = config.batch_size
     else:  # Validation and Test
-        batch_size = max(
-            _SAFE_MINIMAL_BATCH_SIZE,
-            int(config.batch_size * config.evaluation_load_factor))
+        batch_size = max(_SAFE_MINIMAL_BATCH_SIZE,
+                         int(config.batch_size * config.evaluation_load_factor))
         collate_fn = collators.TripleTileCollate(config, triple_source)
 
     data_loader = torch.utils.data.DataLoader(

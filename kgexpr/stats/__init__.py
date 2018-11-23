@@ -10,6 +10,7 @@ from kgexpr.stats.constants import *
 
 
 class _StatisticsGathering(object):
+
     def __init__(self):
         self.result = {}
 
@@ -36,9 +37,8 @@ def get_evaluation_statistics(rank_list, filtered_rank_list, features):
         gathering.add_reciprocal_rank(MEAN_RECIPROCAL_RANK_FEATURE_KEY,
                                       rank_list, num_ranks)
     if LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK & features:
-        gathering.add_reciprocal_rank(
-            MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY, filtered_rank_list,
-            num_ranks)
+        gathering.add_reciprocal_rank(MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY,
+                                      filtered_rank_list, num_ranks)
     if LinkPredictionStatistics.MEAN_RANK & features:
         gathering.add_rank(MEAN_RANK_FEATURE_KEY, rank_list, num_ranks)
     if LinkPredictionStatistics.MEAN_FILTERED_RANK & features:
@@ -113,8 +113,7 @@ def report_prediction_result(config,
         head_result = get_evaluation_statistics(*heads, config.report_features)
         tail_result = get_evaluation_statistics(*tails, config.report_features)
         combined = {
-            k: (h + tail_result[k]) / 2.0
-            for k, h in head_result.items()
+            k: (h + tail_result[k]) / 2.0 for k, h in head_result.items()
         }
         ret_values[constants.ENTITY_KEY] = combined
         _report_prediction_element(combined, epoch)
@@ -181,7 +180,7 @@ class ReportDrawer(object):
 
         raw_data = []
         for _, win in self.plots.items():
-            raw_data.append(_dump_win_data(win))
+            raw_data.append(self._dump_win_data(win))
         return raw_data
 
 

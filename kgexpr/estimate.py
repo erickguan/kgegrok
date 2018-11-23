@@ -46,8 +46,8 @@ def test(triple_source, config, model_class, pool):
         model.cuda()
 
     logging.info('Testing starts')
-    result = evaluation.predict_links(model, triple_source, config,
-                                      data_loader, pool)
+    result = evaluation.predict_links(model, triple_source, config, data_loader,
+                                      pool)
 
     stats.report_prediction_result(config, result, epoch=i_epoch, drawer=None)
 
@@ -93,8 +93,8 @@ def train_and_validate(triple_source,
 
         loss_epoch = 0.0
         for i_batch, sample_batched in enumerate(data_loader):
-            logging.info('Training batch ' + str(i_batch + INDEX_OFFSET) +
-                         "/" + str(len(data_loader)))
+            logging.info('Training batch ' + str(i_batch + INDEX_OFFSET) + "/" +
+                         str(len(data_loader)))
             batch, negative_batch = sample_batched
             batch = data.convert_triple_tuple_to_torch(
                 data.get_triples_from_batch(batch), config)

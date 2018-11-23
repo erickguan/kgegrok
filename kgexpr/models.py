@@ -44,8 +44,8 @@ class TransE(Model):
         self.embedding_dimension = self.config.entity_embedding_dimension
         self.entity_embeddings = nn.Embedding(self.triple_source.num_entity,
                                               self.embedding_dimension)
-        self.relation_embeddings = nn.Embedding(
-            self.triple_source.num_relation, self.embedding_dimension)
+        self.relation_embeddings = nn.Embedding(self.triple_source.num_relation,
+                                                self.embedding_dimension)
 
         nn.init.xavier_uniform_(self.entity_embeddings.weight.data)
         nn.init.xavier_uniform_(self.relation_embeddings.weight.data)
@@ -78,8 +78,7 @@ class TransE(Model):
             n_r = self.relation_embeddings(neg_r)
             _n_score = self._calc(n_h, n_t, n_r)
             _n_score = _n_score.view(
-                -1,
-                self.config.negative_entity + self.config.negative_relation,
+                -1, self.config.negative_entity + self.config.negative_relation,
                 self.embedding_dimension)
             n_score = torch.sum(torch.mean(_n_score, 1), 1)
 
@@ -182,6 +181,7 @@ class ComplEx(Model):
 
 # TODO: Untested
 class Analogy(Model):
+
     @classmethod
     def require_labels(cls):
         return True
@@ -295,8 +295,8 @@ class DistMult(Model):
         self.embedding_dimension = self.config.entity_embedding_dimension
         self.entity_embeddings = nn.Embedding(self.triple_source.num_entity,
                                               self.embedding_dimension)
-        self.relation_embeddings = nn.Embedding(
-            self.triple_source.num_relation, self.embedding_dimension)
+        self.relation_embeddings = nn.Embedding(self.triple_source.num_relation,
+                                                self.embedding_dimension)
 
         nn.init.xavier_uniform_(self.entity_embeddings.weight.data)
         nn.init.xavier_uniform_(self.relation_embeddings.weight.data)
@@ -333,8 +333,7 @@ class DistMult(Model):
             res = self._calc(e_h, e_t, e_r)
             tmp = self.softplus(-y * res)
             loss = torch.mean(tmp)
-            regul = torch.mean(e_h**2) + torch.mean(e_t**2) + torch.mean(e_r**
-                                                                         2)
+            regul = torch.mean(e_h**2) + torch.mean(e_t**2) + torch.mean(e_r**2)
             loss = self.loss_func(loss, regul)
             return loss
         else:

@@ -24,6 +24,7 @@ class Config(object):
 
 @pytest.mark.numpyfile
 class DataTest(unittest.TestCase):
+
     @classmethod
     def setUp(cls):
         cls.triple_dir = 'kgexpr/tests/fixtures/triples'

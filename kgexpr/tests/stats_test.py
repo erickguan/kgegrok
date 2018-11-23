@@ -5,6 +5,7 @@ from kgexpr.stats.constants import *
 
 
 class StatsTest(unittest.TestCase):
+
     def test_rank_stats(self):
         res = stats.get_evaluation_statistics(
             [1, 6, 11, 9, 12], [1, 5, 10, 9, 12], LinkPredictionStatistics.ALL)

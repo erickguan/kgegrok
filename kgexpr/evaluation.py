@@ -104,8 +104,7 @@ def _evaluation_worker_loop(resource, input_q, output):
                             ranker.rankRelation, constants.RELATION_KEY))
             output.put(result)
     except StopIteration:
-        print("[Evaluation Worker {}] stops.".format(
-            mp.current_process().name))
+        print("[Evaluation Worker {}] stops.".format(mp.current_process().name))
         sys.stdout.flush()
 
 
@@ -138,6 +137,7 @@ RESULT_LIST_SIZE = 6
 
 
 class EvaluationProcessPool(object):
+
     def __init__(self, config, triple_source, context):
         self._config = config
         self._context = context
@@ -224,8 +224,7 @@ def predict_links(model, triple_source, config, data_loader, pool):
         sampled = data.convert_triple_tuple_to_torch(
             data.get_triples_from_batch(sampled), config)
         predicted_batch = model.forward(sampled).cpu()
-        logging.debug("Current batch's shape {}.".format(
-            predicted_batch.shape))
+        logging.debug("Current batch's shape {}.".format(predicted_batch.shape))
 
         pool.evaluate_batch((predicted_batch, batch, splits))
 

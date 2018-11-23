@@ -151,8 +151,7 @@ class TripleTileCollate(object):
         sampled, splits = kgekit.expand_triple_batch(
             batch, self.triple_source.num_entity,
             self.triple_source.num_relation,
-            (self.config.report_dimension &
-             StatisticsDimension.SEPERATE_ENTITY)
+            (self.config.report_dimension & StatisticsDimension.SEPERATE_ENTITY)
             or (self.config.report_dimension &
                 StatisticsDimension.COMBINED_ENTITY),
             self.config.report_dimension & StatisticsDimension.RELATION)
