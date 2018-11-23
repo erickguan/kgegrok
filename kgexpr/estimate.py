@@ -120,13 +120,23 @@ def train_and_validate(triple_source,
             stats.report_prediction_result(
                 config, result, epoch=i_epoch, drawer=drawer)
 
+        if config.save_per_epoch != 0 and i_epoch % config.save_per_epoch:
+            save_checkpoint({
+                'epoch': i_epoch,
+                'state_dict': model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+            },
+                            config,
+                            postfix_num=i_epoch)
+
+    if config.save_after_train:
         save_checkpoint({
-            'epoch': i_epoch,
+            'epoch': config.epoches,
             'state_dict': model.state_dict(),
             'optimizer': optimizer.state_dict(),
         },
-                        "model_states/" + config.name + "/checkpoint.pth.tar",
-                        postfix_num=i_epoch)
+                        config,
+                        postfix_num=config.epoches)
 
     if drawer is not None:
         write_logging_data(drawer.dump_raw_data(), config)

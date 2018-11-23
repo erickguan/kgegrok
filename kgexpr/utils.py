@@ -17,10 +17,12 @@ def report_gpu_info():
 
 
 def save_checkpoint(state,
-                    filename='model_states/checkpoint.pth.tar',
+                    config,
+                    filename='checkpoint.pth.tar',
                     postfix_num=None):
-    path = "{}_{}".format(filename,
-                          postfix_num) if postfix_num is not None else filename
+    path = "model_states/{}/{}_{}".format(
+        config.name, filename,
+        postfix_num) if postfix_num is not None else filename
     dirname = os.path.dirname(path)
     Path(dirname).mkdir(parents=True, exist_ok=True)
     torch.save(state, path)
@@ -42,7 +44,9 @@ def load_checkpoint(config, model, optimizer=None):
 
 def write_logging_data(raw_data, config):
     """writes the logging data."""
-    with open(os.path.join(config.logging_path, config.name), 'w') as f:
+    log_path = os.path.join(config.logging_path, config.name)
+    with open(log_path, 'w') as f:
+        logging.info("Writting data into log file at {}.".format(log_path))
         f.write(json.dumps(raw_data))
 
 
@@ -100,7 +104,10 @@ class Config(object):
     report_num_prediction_interactively = 10
 
     # filename to resume
+    save_per_epoch = 0
+    save_after_train = True
     resume = None
+
     # Introduce underministic behaviour but allow cudnn find best algoritm
     cudnn_benchmark = True
     enable_cuda = True
