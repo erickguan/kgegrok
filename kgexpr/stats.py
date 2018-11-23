@@ -1,5 +1,5 @@
 import pprint
-import data
+from kgexpr import data
 import kgekit
 import numpy as np
 import logging

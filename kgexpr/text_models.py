@@ -7,7 +7,7 @@ import torch.utils.data.dataset
 from torch.autograd import Variable
 import numpy as np
 import logging
-from models import Model
+from kgexpr.models import Model
 
 
 class ComplExText(Model):

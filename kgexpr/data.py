@@ -389,7 +389,7 @@ def calc_hits(target, ranks, num_ranks):
     return functools.reduce(HitsReducer(target), ranks) / float(num_ranks)
 
 # Avoid cyclic dependency
-from stats import StatisticsDimension
+from kgexpr.stats import StatisticsDimension
 
 
 class TripleTileCollate(object):

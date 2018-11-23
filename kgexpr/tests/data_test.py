@@ -1,5 +1,5 @@
 import unittest
-import data
+from kgexpr import data
 import kgekit
 from torchvision import transforms
 import numpy as np
@@ -8,7 +8,7 @@ import pytest
 
 class Config(object):
     """Mocked implementation of config"""
-    data_dir = "tests/fixtures/triples"
+    data_dir = "kgexpr/tests/fixtures/triples"
     triple_order = "hrt"
     triple_delimiter = ' '
     negative_entity = 1
@@ -23,7 +23,7 @@ class Config(object):
 class DataTest(unittest.TestCase):
     @classmethod
     def setUp(cls):
-        cls.triple_dir = 'tests/fixtures/triples'
+        cls.triple_dir = 'kgexpr/tests/fixtures/triples'
         cls.source = data.TripleSource(cls.triple_dir, 'hrt', ' ')
         cls.dataset = data.TripleIndexesDataset(cls.source)
         cls.small_triple_list = [kgekit.TripleIndex(0, 0, 1), kgekit.TripleIndex(1, 1, 2)]

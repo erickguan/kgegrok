@@ -1,6 +1,6 @@
 import unittest
 import pytest
-import stats
+from kgexpr import stats
 
 class StatsTest(unittest.TestCase):
     def test_rank_stats(self):

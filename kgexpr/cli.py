@@ -1,5 +1,5 @@
 import torch
-import data
+from kgexpr import data
 from estimate import train_and_validate, test, train, interactive_prediction
 import logging
 import torch.optim as optim
@@ -9,12 +9,11 @@ import sys
 import select
 import argparse
 from itertools import filterfalse
-from utils import report_gpu_info, load_class_from_module, read_triple_translation
-import stats
-import importlib
-import evaluation
+from kgexpr.utils import report_gpu_info, load_class_from_module, read_triple_translation
+from kgexpr import stats
+from kgexpr import evaluation
 import torch.multiprocessing as mp
-from utils import Config
+from kgexpr.utils import Config
 
 
 def cli_train(triple_source, config, model_class, optimizer_class, pool):
@@ -67,7 +66,10 @@ def seed_modules(numpy_seed, torch_seed, torcu_cuda_seed_all, cuda_deterministic
     torch.backends.cudnn.benchmark = cuda_benchmark
 
 def cli(args):
-    config, parsed_args = cli_config_and_parse_args
+    logging.basicConfig(level=logging.INFO)
+    report_gpu_info()
+
+    config, parsed_args = cli_config_and_parse_args(args)
     print(config.__dict__)
     print("Continue? Starts in 10s. [Ctrl-C] to stop.")
 
@@ -107,8 +109,5 @@ def cli(args):
         pool.stop()
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
-    report_gpu_info()
-
     cli(sys.argv)
 

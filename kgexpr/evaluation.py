@@ -1,6 +1,6 @@
 import torch.multiprocessing as mp
 import kgekit
-import data
+from kgexpr import data
 import stats
 import logging
 import sys

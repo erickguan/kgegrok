@@ -1,14 +1,14 @@
 """Training function module."""
 
-import data
+from kgexpr import data
 import kgekit.data
 import logging
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-from utils import save_checkpoint, load_checkpoint, write_logging_data
-import stats
+from kgexpr.utils import save_checkpoint, load_checkpoint, write_logging_data
+from kgexpr import stats
 import evaluation
 
 
