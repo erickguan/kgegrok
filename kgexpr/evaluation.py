@@ -167,24 +167,24 @@ class EvaluationProcessPool(object):
                     self._output,
                 )) for _ in range(self._config.num_evaluation_workers)
         ]
-        self._processes.append(
-            threading.Thread(
-                target=_evaluation_result_thread_loop,
-                args=(
-                    self._ns,
-                    self._output,
-                    self._results_list,
-                    self._counter,
-                )))
+        self._result_thread = threading.Thread(
+            target=_evaluation_result_thread_loop,
+            args=(
+                self._ns,
+                self._output,
+                self._results_list,
+                self._counter,
+            ))
         for p in self._processes:
             p.start()
+        self._result_thread.start()
 
     def stop(self):
         for p in self._processes:
             try:
                 p.close()
             except AttributeError:
-                p.terminate() # close() added in 3.7
+                p.terminate()  # close() added in 3.7
         # Put as many as stop markers for workers to stop.
         for i in range(self._config.evaluation_workers * 2):
             self._input.put('STOP')
@@ -192,6 +192,7 @@ class EvaluationProcessPool(object):
         self._output.put('STOP')
         for p in self._processes:
             p.join()
+        self._result_thread.join()
 
     def evaluate_batch(self, test_package):
         """Batch is a Tensor."""
