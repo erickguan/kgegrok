@@ -186,7 +186,7 @@ class EvaluationProcessPool(object):
             except AttributeError:
                 p.terminate()  # close() added in 3.7
         # Put as many as stop markers for workers to stop.
-        for i in range(self._config.evaluation_workers * 2):
+        for i in range(self._config.num_evaluation_workers * 2):
             self._input.put('STOP')
         self._output.put('STOP')
         self._output.put('STOP')
