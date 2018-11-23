@@ -417,3 +417,42 @@ class TripleTileCollate(object):
         sampled = sampled[:, np.newaxis, :]
         return (sampled, batch, splits)
 
+def sieve_and_expand_triple(triple_source, entities, relations, head, relation, tail):
+    """Tile on a unknown element. returns a tuple of size 3 with h, r, t."""
+
+    batch_size, num_samples, num_element = batch.shape
+    elements = np.split(batch, num_element, axis=2)
+    # return (e.reshape(batch_size) for e in elements)
+
+    if head == '?':
+        r = relations[relation]
+        t = entities[tail]
+        triple_index = kgekit.TripleIndex(-1, r, t)
+
+        h = np.arange(triple_source.num_entity, dtype=np.int64)
+        r = np.tile(np.array([r], dtype=np.int64), triple_source.num_entity)
+        t = np.tile(np.array([t], dtype=np.int64), triple_source.num_entity)
+        prediction_type = HEAD_KEY
+    elif relation == '?':
+        h = entities[head]
+        t = entities[tail]
+        triple_index = kgekit.TripleIndex(h, -1, t)
+
+        h = np.tile(np.array([h], dtype=np.int64), triple_source.num_relation)
+        r = np.arange(triple_source.num_relation, dtype=np.int64)
+        t = np.tile(np.array([t], dtype=np.int64), triple_source.num_relation)
+        prediction_type = RELATION_KEY
+    elif tail == '?':
+        r = relations[relation]
+        h = entities[head]
+        triple_index = kgekit.TripleIndex(h, r, -1)
+
+        h = np.tile(np.array([h], dtype=np.int64), triple_source.num_entity)
+        r = np.tile(np.array([r], dtype=np.int64), triple_source.num_entity)
+        t = np.arange(triple_source.num_entity, dtype=np.int64)
+        prediction_type = TAIL_KEY
+    else:
+        raise RuntimeError("head, relation, tail are known.")
+
+    return (h, r, t), prediction_type, triple_index
+

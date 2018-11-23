@@ -100,3 +100,26 @@ def train_and_validate(triple_source, config, model_class, optimizer_class, pool
 def train(triple_source, config, model_class, optimizer_class, drawer):
     """Train the dataset."""
     train_and_validate(triple_source, config, model_class, optimizer_class, drawer, enable_validation=False)
+
+def interactive_prediction(triple_source, entities, relations, config, model_class, generator):
+    """prints prediction results according to config and generator inputs."""
+    model = model_class(triple_source, config)
+    load_checkpoint(config, model)
+    model.eval()
+
+    logging.info('Interactive prediction starts')
+    for head, relation, tail in generator:
+        logging.info('--------------------')
+        logging.info('Prediction input ({}, {}, {})'.format(head, relation, tail))
+        logging.info('--------------------')
+
+        # determines which element to predict
+        batch, prediction_type, triple_index = data.sieve_and_expand_triple(triple_source, entities, relations, head, relation, tail)
+        batch = data.convert_triple_tuple_to_torch(batch, config)
+        predicted = model.forward(batch)
+
+        logging.info('Predicting {} for ({}, {}, {})'.format(repr(prediction_type), head, relation, tail))
+        prediction_list = evaluation.evaluate_single_triple(predicted, prediction_type, triple_index, config, entities, relations)
+        logging.info('Top {} predicted elements are:'.format(rank, filtered_rank, len(prediction_list)))
+        for idx, prediction in prediction_list:
+            logging.info('{}: {}'.format(idx, prediction))

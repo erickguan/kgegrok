@@ -3,6 +3,7 @@ import os.path
 import json
 from pathlib import Path
 import importlib
+import kgekit.io
 
 
 def report_gpu_info():
@@ -43,3 +44,8 @@ def load_class_from_module(class_name, *modules):
         except:
             pass
     raise RuntimeError("Can't find the {} from {}".format(class_name, modules))
+
+def read_triple_translation(config):
+    translation_path = os.path.join(config.data_dir, config.translation_filename)
+    entities, relations = kgekit.io.read_translation(translation_path)
+    return dict(entities), dict(relations)

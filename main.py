@@ -1,6 +1,6 @@
 import torch
 import data
-from estimate import train_and_validate, test
+from estimate import train_and_validate, test, train, interactive_prediction
 import logging
 import torch.optim as optim
 import visdom
@@ -9,7 +9,7 @@ import sys
 import select
 import argparse
 from itertools import filterfalse
-from utils import report_gpu_info, load_class_from_module
+from utils import report_gpu_info, load_class_from_module, read_triple_translation
 import stats
 import importlib
 import evaluation
@@ -21,6 +21,7 @@ class Config(object):
     data_dir = "data/YAGO3-10"
     triple_order = "hrt"
     triple_delimiter = ' '
+    translation_filename = "translation.protobuf"
 
     # Data processing
     negative_entity = 5
@@ -28,6 +29,8 @@ class Config(object):
     batch_size = 100
     num_workers = 2
     num_evaluation_workers = 2
+    # due to tile in the evaluation, it's reasonable to have less batch size
+    evaluation_load_factor = 0.0001
 
     # Model
     model = "TransE"
@@ -45,8 +48,10 @@ class Config(object):
     # Stats
     report_features = stats.LinkPredictionStatistics.DEFAULT
     report_dimension = stats.StatisticsDimension.DEFAULT
-    # due to tile in the evaluation, it's reasonable to have less batch size
-    evaluation_load_factor = 0.0001
+
+    # Interactive response control
+    report_num_prediction_interactively = 10
+
     # filename to resume
     resume = None
     # Introduce underministic behaviour but allow cudnn find best algoritm
@@ -83,13 +88,31 @@ def cli_train(triple_source, config, model_class, optimizer_class, pool):
     drawer = stats.ReportDrawer(visdom.Visdom(port=6006), config) if config.plot_graph else None
     model = train_and_validate(triple_source, config, model_class, optimizer_class, pool, drawer)
 
-def cli_test(triple_source, config, model_class, optimizer_class, pool):
+def cli_test(triple_source, config, model_class, pool):
     assert config.resume is not None
     model = test(triple_source, config, model_class, pool)
 
-# class ResourceManager(m.BaseManager):
-#     """Used to registered class and resources."""
-#     pass
+def _get_and_validate_input(entities, relations):
+    head = input("Head:")
+    relation = input("Relation:")
+    tail = input("Tail:")
+
+    tokens = frozenset([head, relation, tail])
+    if '?' not in tokens and len(tokens) == 3:
+        raise RuntimeError("Which one to predict? Got ({}, {}, {})".format(head, relation, tail))
+    if head not in entities or tail not in entities:
+        raise RuntimeError("Head {} or tail {} not in entities tokens.".format(head, tail))
+    if relation not in relations:
+        raise RuntimeError("Relation {} not in entities tokens.".format(relation))
+    yield head, relation, tail
+
+def cli_demo_prediction(triple_source, config, model_class):
+    """Iterative demo"""
+    assert config.resume is not None
+    config.enable_cuda = False
+    entities, relations = read_triple_translation(config)
+    generator = _get_and_validate_input(entities, relations)
+    interactive_prediction(triple_source, entities, relations, config, model_class, generator)
 
 def cli(args):
     parser = argparse.ArgumentParser()
@@ -114,20 +137,27 @@ def cli(args):
 
     triple_source = data.TripleSource(config.data_dir, config.triple_order, config.triple_delimiter)
     model_class = load_class_from_module(config.model, 'models', 'text_models')
-    optimizer_class = load_class_from_module(config.optimizer, 'torch.optim')
 
-    ctx = mp.get_context('spawn')
-    pool = evaluation.EvaluationProcessPool(config, triple_source, ctx)
-    pool.start()
+    # TODO: DRY
+    if parsed_args['moe'] in ['train', 'test']:
+        ctx = mp.get_context('spawn')
+        pool = evaluation.EvaluationProcessPool(config, triple_source, ctx)
+        pool.start()
 
     # maybe roughly 10s now
-    select.select([sys.stdin], [], [], 5)
+    select.select([sys.stdin], [], [], 4)
 
     if parsed_args['mode'] == 'train':
+        optimizer_class = load_class_from_module(config.optimizer, 'torch.optim')
         cli_train(triple_source, config, model_class, optimizer_class, pool)
-    else:
-        cli_test(triple_source, config, model_class, optimizer_class, pool)
-    pool.stop()
+    elif parsed_args['mode'] == 'test':
+        cli_test(triple_source, config, model_class, pool)
+    elif parsed_args['mode'] == 'demo_prediction':
+        cli_demo_prediction(triple_source, config, model_class)
+
+    # TODO: DRY
+    if parsed_args['moe'] in ['train', 'test']:
+        pool.stop()
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)

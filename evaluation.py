@@ -7,6 +7,7 @@ import sys
 import threading
 import contextlib
 import copy
+import torch
 
 
 class AtomicCounter(object):
@@ -43,6 +44,23 @@ class AtomicCounter(object):
         with self._lock:
             self.value = 0
 
+def evaluate_single_triple(prediction, prediction_type, triple_index, config, entities, relations):
+    """Returns a list of top `config.report_num_preiction_interactively` results by name."""
+    sorted_prediction, indices = torch.sort(prediction)
+    prediction_list = []
+    if prediction_type == data.HEAD_KEY or prediction_type == data.TAIL_KEY:
+        for i in range(config.report_num_prediction_interactively):
+            if i < len(indices):
+                index = indices[i]
+                prediction_list.append((index, entities[index]))
+    elif prediction_type == data.RELATION_KEY:
+        for i in range(config.report_num_prediction_interactively):
+            if i < len(indices):
+                prediction_list.append((index, relations[index]))
+    else:
+        raise RuntimeError("Unknown prediction type {}.".format(prediction_type))
+
+    return predict_links
 
 def _evaluate_prediction_view(result_view, triple_index, rank_fn, datatype):
     """Evaluation on a view of batch."""
