@@ -1,10 +1,13 @@
 import unittest
 from kgexpr import data
+from kgexpr.data import constants
+from kgexpr.data import collators
 import kgekit
 from torchvision import transforms
 import numpy as np
 import torch
 import pytest
+
 
 class Config(object):
     """Mocked implementation of config"""
@@ -19,6 +22,7 @@ class Config(object):
     margin = 0.01
     epoches = 1
 
+
 @pytest.mark.numpyfile
 class DataTest(unittest.TestCase):
     @classmethod
@@ -26,7 +30,10 @@ class DataTest(unittest.TestCase):
         cls.triple_dir = 'kgexpr/tests/fixtures/triples'
         cls.source = data.TripleSource(cls.triple_dir, 'hrt', ' ')
         cls.dataset = data.TripleIndexesDataset(cls.source)
-        cls.small_triple_list = [kgekit.TripleIndex(0, 0, 1), kgekit.TripleIndex(1, 1, 2)]
+        cls.small_triple_list = [
+            kgekit.TripleIndex(0, 0, 1),
+            kgekit.TripleIndex(1, 1, 2)
+        ]
         cls.samples = ([True, False], cls.small_triple_list)
 
     def test_triple_source(self):
@@ -40,56 +47,46 @@ class DataTest(unittest.TestCase):
         self.assertEqual(len(self.dataset), 4)
         self.assertEqual(self.dataset[0], kgekit.TripleIndex(0, 0, 1))
 
-        valid_dataset = data.TripleIndexesDataset(self.source, data.DatasetType.VALIDATION)
+        valid_dataset = data.TripleIndexesDataset(
+            self.source, constants.DatasetType.VALIDATION)
         self.assertEqual(len(valid_dataset), 1)
 
     def test_ordered_triple_transform(self):
-        transform_dataset = data.TripleIndexesDataset(self.source, transform=transforms.Compose([
-            data.OrderedTripleTransform("hrt")
-        ]))
+        transform_dataset = data.TripleIndexesDataset(
+            self.source,
+            transform=transforms.Compose([data.OrderedTripleTransform("hrt")]))
         self.assertEqual(transform_dataset[0], [0, 0, 1])
-
-    def test_uniform_collate(self):
-        np.random.seed(0)
-        self.assertEqual(data.UniformCorruptionCollate()(self.small_triple_list), ([False, False], self.small_triple_list))
-
-    def test_bernoulli_corruption_collate(self):
-        np.random.seed(0)
-        corruptor = kgekit.BernoulliCorruptor(self.source.train_set)
-        self.assertEqual(data.BernoulliCorruptionCollate(self.source, corruptor)(self.small_triple_list),
-            ([False, False], self.small_triple_list))
-
-    def test_lcwa_no_throw_collate(self):
-        np.random.seed(0)
-        negative_sampler = kgekit.LCWANoThrowSampler(self.source.train_set, self.source.num_entity, self.source.num_relation, 1, 1, kgekit.LCWANoThrowSamplerStrategy.Hash)
-        batch, negatives = data.LCWANoThrowCollate(self.source, negative_sampler, transform=data.OrderedTripleListTransform("hrt"))(self.samples, 0)
-        np.testing.assert_equal(batch, np.array([
-            [[0, 0, 1]],
-            [[1, 1, 2]],
-        ], dtype=np.int64))
-        np.testing.assert_equal(negatives, np.array([
-            [[0, 0, 3], [0, 2, 1]],
-            [[0, 1, 2], [1, 0, 2]],
-        ], dtype=np.int64))
 
     def test_get_triples_from_batch(self):
         np.random.seed(0)
-        negative_sampler = kgekit.LCWANoThrowSampler(self.source.train_set, self.source.num_entity, self.source.num_relation, 1, 1, kgekit.LCWANoThrowSamplerStrategy.Hash)
-        batch, negatives = data.LCWANoThrowCollate(self.source, negative_sampler, transform=data.OrderedTripleListTransform("hrt"))(self.samples, 0)
+        negative_sampler = kgekit.LCWANoThrowSampler(
+            self.source.train_set, self.source.num_entity,
+            self.source.num_relation, 1, 1,
+            kgekit.LCWANoThrowSamplerStrategy.Hash)
+        batch, negatives = collators.LCWANoThrowCollate(
+            self.source,
+            negative_sampler,
+            transform=data.OrderedTripleListTransform("hrt"))(self.samples, 0)
 
         batch_size = batch.shape[0]
         h, r, t = data.get_triples_from_batch(batch)
-        self.assertEqual(h.shape, (2,))
-        self.assertEqual(r.shape, (2,))
-        self.assertEqual(t.shape, (2,))
+        self.assertEqual(h.shape, (2, ))
+        self.assertEqual(r.shape, (2, ))
+        self.assertEqual(t.shape, (2, ))
         np.testing.assert_equal(h, np.array([0, 1], dtype=np.int64))
         np.testing.assert_equal(r, np.array([0, 1], dtype=np.int64))
         np.testing.assert_equal(t, np.array([1, 2], dtype=np.int64))
 
     def test_get_negative_samples_from_batch(self):
         np.random.seed(0)
-        negative_sampler = kgekit.LCWANoThrowSampler(self.source.train_set, self.source.num_entity, self.source.num_relation, 1, 1, kgekit.LCWANoThrowSamplerStrategy.Hash)
-        batch, negatives = data.LCWANoThrowCollate(self.source, negative_sampler, transform=data.OrderedTripleListTransform("hrt"))(self.samples, 0)
+        negative_sampler = kgekit.LCWANoThrowSampler(
+            self.source.train_set, self.source.num_entity,
+            self.source.num_relation, 1, 1,
+            kgekit.LCWANoThrowSamplerStrategy.Hash)
+        batch, negatives = collators.LCWANoThrowCollate(
+            self.source,
+            negative_sampler,
+            transform=data.OrderedTripleListTransform("hrt"))(self.samples, 0)
 
         h, r, t = data.get_triples_from_batch(negatives)
         self.assertEqual(h.shape, (2, 2))
@@ -110,9 +107,15 @@ class DataTest(unittest.TestCase):
 
     def test_get_labels_from_batch(self):
         np.random.seed(0)
-        negative_sampler = kgekit.LCWANoThrowSampler(self.source.train_set, self.source.num_entity, self.source.num_relation, 1, 1, kgekit.LCWANoThrowSamplerStrategy.Hash)
-        batch_sampled = data.LCWANoThrowCollate(self.source, negative_sampler, transform=data.OrderedTripleListTransform("hrt"))(self.samples, 0)
-        batch, negatives = data.label_collate(batch_sampled)
+        negative_sampler = kgekit.LCWANoThrowSampler(
+            self.source.train_set, self.source.num_entity,
+            self.source.num_relation, 1, 1,
+            kgekit.LCWANoThrowSamplerStrategy.Hash)
+        batch_sampled = collators.LCWANoThrowCollate(
+            self.source,
+            negative_sampler,
+            transform=data.OrderedTripleListTransform("hrt"))(self.samples, 0)
+        batch, negatives = collators.label_collate(batch_sampled)
 
         h, r, t, y = data.get_triples_from_batch(batch)
         np.testing.assert_equal(h, np.array([0, 1], dtype=np.int64))
@@ -133,78 +136,68 @@ class DataTest(unittest.TestCase):
             [3, 1],
             [2, 2],
         ], dtype=np.int64))
-        np.testing.assert_equal(y, np.array([
-            [-1, -1],
-            [-1, -1],
-        ], dtype=np.int64))
+        np.testing.assert_equal(
+            y, np.array([
+                [-1, -1],
+                [-1, -1],
+            ], dtype=np.int64))
 
     def test_data_loader(self):
         np.random.seed(0)
         config = Config()
-        data_loader = data.create_dataloader(self.source, config, False, data.DatasetType.TRAINING)
+        data_loader = data.create_dataloader(self.source, config, False,
+                                             constants.DatasetType.TRAINING)
         _, sample_batched = next(enumerate(data_loader))
         batch, negatives = sample_batched
-        np.testing.assert_equal(batch, np.array([
-            [[0, 0, 1]],
-            [[0, 1, 2]],
-            [[1, 2, 3]],
-            [[3, 1, 2]]
-        ], dtype=np.int64))
-        np.testing.assert_equal(negatives[0, :, :], np.array([
-            [0, 0, 1],
-            [0, 1, 1],
-        ], dtype=np.int64))
+        np.testing.assert_equal(
+            batch,
+            np.array([[[0, 0, 1]], [[0, 1, 2]], [[1, 2, 3]], [[3, 1, 2]]],
+                     dtype=np.int64))
+        np.testing.assert_equal(
+            negatives[0, :, :],
+            np.array([
+                [0, 0, 1],
+                [0, 1, 1],
+            ], dtype=np.int64))
 
     def test_data_loader_with_label(self):
         np.random.seed(0)
         config = Config()
-        data_loader = data.create_dataloader(self.source, config, True, data.DatasetType.TRAINING)
+        data_loader = data.create_dataloader(self.source, config, True,
+                                             constants.DatasetType.TRAINING)
         _, sample_batched = next(enumerate(data_loader))
         batch, negatives = sample_batched
-        np.testing.assert_equal(batch, np.array([
-            [[0, 0, 1, 1]],
-            [[0, 1, 2, 1]],
-            [[1, 2, 3, 1]],
-            [[3, 1, 2, 1]]
-        ], dtype=np.int64))
+        np.testing.assert_equal(
+            batch,
+            np.array([[[0, 0, 1, 1]], [[0, 1, 2, 1]], [[1, 2, 3, 1]],
+                      [[3, 1, 2, 1]]],
+                     dtype=np.int64))
         self.assertEqual(negatives.shape, (4, 2, 4))
-        np.testing.assert_equal(negatives[0, :, :], np.array([
-            [0, 0, 1, -1],
-            [0, 1, 1, -1],
-        ], dtype=np.int64))
+        np.testing.assert_equal(
+            negatives[0, :, :],
+            np.array([
+                [0, 0, 1, -1],
+                [0, 1, 1, -1],
+            ], dtype=np.int64))
 
     def test_expand_triple_to_sets(self):
-        h, r, t = data.expand_triple_to_sets((1, 2, 3), 10, data.TripleElement.HEAD)
+        h, r, t = data.expand_triple_to_sets((1, 2, 3), 10,
+                                             constants.TripleElement.HEAD)
         np.testing.assert_equal(h, np.arange(10, dtype=np.int64))
         np.testing.assert_equal(r, np.tile(np.array([2], dtype=np.int64), 10))
         np.testing.assert_equal(t, np.tile(np.array([3], dtype=np.int64), 10))
 
-        h, r, t = data.expand_triple_to_sets((1, 2, 3), 10, data.TripleElement.RELATION)
+        h, r, t = data.expand_triple_to_sets((1, 2, 3), 10,
+                                             constants.TripleElement.RELATION)
         np.testing.assert_equal(h, np.tile(np.array([1], dtype=np.int64), 10))
         np.testing.assert_equal(r, np.arange(10, dtype=np.int64))
         np.testing.assert_equal(t, np.tile(np.array([3], dtype=np.int64), 10))
 
-        h, r, t = data.expand_triple_to_sets((1, 2, 3), 10, data.TripleElement.TAIL)
+        h, r, t = data.expand_triple_to_sets((1, 2, 3), 10,
+                                             constants.TripleElement.TAIL)
         np.testing.assert_equal(h, np.tile(np.array([1], dtype=np.int64), 10))
         np.testing.assert_equal(r, np.tile(np.array([2], dtype=np.int64), 10))
         np.testing.assert_equal(t, np.arange(10, dtype=np.int64))
 
         with pytest.raises(RuntimeError):
             h, r, t = data.expand_triple_to_sets((1, 2, 3), 10, -1)
-
-    def test_reciprocal_rank_fn(self):
-        self.assertAlmostEqual(data.reciprocal_rank_fn(10), 0.1)
-
-    def test_hits_reducer(self):
-        reducer = data.HitsReducer(10)
-        self.assertEqual(reducer(0, 10), 1)
-        self.assertEqual(reducer(0, 9), 1)
-        self.assertEqual(reducer(0, 11), 0)
-
-    def test_calc_fns(self):
-        self.assertAlmostEqual(data.calc_rank([1,2,4], 3), (1+2+4)/3.0)
-        self.assertAlmostEqual(data.calc_reciprocal_rank([1,2,4], 3), (1.0 + 1/2.0 + 1/4.0) / 3.0)
-        self.assertAlmostEqual(data.calc_hits(2, [1,2,4], 3), 2/3.0)
-
-    def test_dict_key_gen(self):
-        self.assertEqual(data.dict_key_gen('a', 'b'), "a_b")

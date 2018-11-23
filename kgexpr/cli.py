@@ -1,28 +1,32 @@
-import torch
-from kgexpr import data
-from estimate import train_and_validate, test, train, interactive_prediction
 import logging
-import torch.optim as optim
-import visdom
 import numpy as np
 import sys
 import select
 import argparse
-from itertools import filterfalse
-from kgexpr.utils import report_gpu_info, load_class_from_module, read_triple_translation
+
+import torch
+import torch.optim as optim
+import torch.multiprocessing as mp
+import visdom
+
+from kgexpr import data
+from kgexpr import estimate
 from kgexpr import stats
 from kgexpr import evaluation
-import torch.multiprocessing as mp
-from kgexpr.utils import Config
+from kgexpr.utils import report_gpu_info, load_class_from_module, read_triple_translation, Config
 
 
 def cli_train(triple_source, config, model_class, optimizer_class, pool):
-    drawer = stats.ReportDrawer(visdom.Visdom(port=6006), config) if config.plot_graph else None
-    model = train_and_validate(triple_source, config, model_class, optimizer_class, pool, drawer)
+    drawer = stats.ReportDrawer(visdom.Visdom(
+        port=6006), config) if config.plot_graph else None
+    model = estimate.train_and_validate(triple_source, config, model_class,
+                                        optimizer_class, pool, drawer)
+
 
 def cli_test(triple_source, config, model_class, pool):
     assert config.resume is not None
-    model = test(triple_source, config, model_class, pool)
+    model = estimate.test(triple_source, config, model_class, pool)
+
 
 def _get_and_validate_input(entities, relations):
     head = input("Head:")
@@ -31,12 +35,16 @@ def _get_and_validate_input(entities, relations):
 
     tokens = frozenset([head, relation, tail])
     if '?' not in tokens and len(tokens) == 3:
-        raise RuntimeError("Which one to predict? Got ({}, {}, {})".format(head, relation, tail))
+        raise RuntimeError("Which one to predict? Got ({}, {}, {})".format(
+            head, relation, tail))
     if head not in entities or tail not in entities:
-        raise RuntimeError("Head {} or tail {} not in entities tokens.".format(head, tail))
+        raise RuntimeError("Head {} or tail {} not in entities tokens.".format(
+            head, tail))
     if relation not in relations:
-        raise RuntimeError("Relation {} not in entities tokens.".format(relation))
+        raise RuntimeError(
+            "Relation {} not in entities tokens.".format(relation))
     yield head, relation, tail
+
 
 def cli_demo_prediction(triple_source, config, model_class):
     """Iterative demo"""
@@ -44,7 +52,9 @@ def cli_demo_prediction(triple_source, config, model_class):
     config.enable_cuda = False
     entities, relations = read_triple_translation(config)
     generator = _get_and_validate_input(entities, relations)
-    interactive_prediction(triple_source, entities, relations, config, model_class, generator)
+    estimate.interactive_prediction(triple_source, entities, relations, config,
+                                    model_class, generator)
+
 
 def cli_config_and_parse_args(args):
     parser = argparse.ArgumentParser()
@@ -54,16 +64,20 @@ def cli_config_and_parse_args(args):
 
     parsed_args = vars(parser.parse_args(args[1:]))
     config = Config(parsed_args)
-    config.enable_cuda = True if torch.cuda.is_available() and config.enable_cuda else False
+    config.enable_cuda = True if torch.cuda.is_available(
+    ) and config.enable_cuda else False
 
     return config, parsed_args
 
-def seed_modules(numpy_seed, torch_seed, torcu_cuda_seed_all, cuda_deterministic, cuda_benchmark)
+
+def seed_modules(numpy_seed, torch_seed, torcu_cuda_seed_all,
+                 cuda_deterministic, cuda_benchmark):
     np.random.seed(numpy_seed)
     torch.manual_seed(torch_seed)
     torch.cuda.manual_seed_all(torcu_cuda_seed_all)
     torch.backends.cudnn.deterministic = cuda_deterministic
     torch.backends.cudnn.benchmark = cuda_benchmark
+
 
 def cli(args):
     logging.basicConfig(level=logging.INFO)
@@ -81,14 +95,15 @@ def cli(args):
         torch_seed=20000,
         torcu_cuda_seed_all=2192,
         cuda_deterministic=True,
-        cuda_benchmark=config.cudnn_benchmark
-    )
+        cuda_benchmark=config.cudnn_benchmark)
 
-    triple_source = data.TripleSource(config.data_dir, config.triple_order, config.triple_delimiter)
-    model_class = load_class_from_module(config.model, 'models', 'text_models')
+    triple_source = data.TripleSource(config.data_dir, config.triple_order,
+                                      config.triple_delimiter)
+    model_class = load_class_from_module(config.model, 'kgexpr.models',
+                                         'kgexpr.text_models')
 
     # TODO: DRY
-    if parsed_args['moe'] in ['train', 'test']:
+    if parsed_args['mode'] in ['train', 'test']:
         ctx = mp.get_context('spawn')
         pool = evaluation.EvaluationProcessPool(config, triple_source, ctx)
         pool.start()
@@ -97,7 +112,8 @@ def cli(args):
     select.select([sys.stdin], [], [], 4)
 
     if parsed_args['mode'] == 'train':
-        optimizer_class = load_class_from_module(config.optimizer, 'torch.optim')
+        optimizer_class = load_class_from_module(config.optimizer,
+                                                 'torch.optim')
         cli_train(triple_source, config, model_class, optimizer_class, pool)
     elif parsed_args['mode'] == 'test':
         cli_test(triple_source, config, model_class, pool)
@@ -105,9 +121,9 @@ def cli(args):
         cli_demo_prediction(triple_source, config, model_class)
 
     # TODO: DRY
-    if parsed_args['moe'] in ['train', 'test']:
+    if parsed_args['mode'] in ['train', 'test']:
         pool.stop()
+
 
 if __name__ == '__main__':
     cli(sys.argv)
-

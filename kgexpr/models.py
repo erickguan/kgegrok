@@ -1,5 +1,8 @@
 """Model module."""
 
+import logging
+import numpy as np
+
 import torch
 import torch.autograd as autograd
 import torch.nn as nn
@@ -7,8 +10,6 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torch.utils.data.dataset
 from torch.autograd import Variable
-import numpy as np
-import logging
 
 
 class Model(nn.Module):
@@ -41,13 +42,15 @@ class TransE(Model):
     def __init__(self, triple_source, config):
         super(TransE, self).__init__(triple_source, config)
         self.embedding_dimension = self.config.entity_embedding_dimension
-        self.entity_embeddings = nn.Embedding(self.triple_source.num_entity, self.embedding_dimension)
-        self.relation_embeddings = nn.Embedding(self.triple_source.num_relation, self.embedding_dimension)
+        self.entity_embeddings = nn.Embedding(self.triple_source.num_entity,
+                                              self.embedding_dimension)
+        self.relation_embeddings = nn.Embedding(
+            self.triple_source.num_relation, self.embedding_dimension)
 
         nn.init.xavier_uniform_(self.entity_embeddings.weight.data)
         nn.init.xavier_uniform_(self.relation_embeddings.weight.data)
 
-    def _calc(self,h,t,r):
+    def _calc(self, h, t, r):
         return torch.abs(h + r - t)
 
     # margin-based loss
@@ -74,7 +77,10 @@ class TransE(Model):
             n_t = self.entity_embeddings(neg_t)
             n_r = self.relation_embeddings(neg_r)
             _n_score = self._calc(n_h, n_t, n_r)
-            _n_score = _n_score.view(-1, self.config.negative_entity + self.config.negative_relation, self.embedding_dimension)
+            _n_score = _n_score.view(
+                -1,
+                self.config.negative_entity + self.config.negative_relation,
+                self.embedding_dimension)
             n_score = torch.sum(torch.mean(_n_score, 1), 1)
 
             p_score = torch.sum(torch.mean(_p_score, 1), 1)
@@ -97,10 +103,14 @@ class ComplEx(Model):
         super(ComplEx, self).__init__(triple_source, config)
         self.embedding_dimension = self.config.entity_embedding_dimension
 
-        self.ent_re_embeddings = nn.Embedding(self.triple_source.num_entity, self.embedding_dimension)
-        self.ent_im_embeddings = nn.Embedding(self.triple_source.num_entity, self.embedding_dimension)
-        self.rel_re_embeddings = nn.Embedding(self.triple_source.num_relation, self.embedding_dimension)
-        self.rel_im_embeddings = nn.Embedding(self.triple_source.num_relation, self.embedding_dimension)
+        self.ent_re_embeddings = nn.Embedding(self.triple_source.num_entity,
+                                              self.embedding_dimension)
+        self.ent_im_embeddings = nn.Embedding(self.triple_source.num_entity,
+                                              self.embedding_dimension)
+        self.rel_re_embeddings = nn.Embedding(self.triple_source.num_relation,
+                                              self.embedding_dimension)
+        self.rel_im_embeddings = nn.Embedding(self.triple_source.num_relation,
+                                              self.embedding_dimension)
         self.softplus = nn.Softplus()
         if self.config.enable_cuda:
             self.softplus = self.softplus.cuda()
@@ -112,7 +122,9 @@ class ComplEx(Model):
 
     def _calc(self, e_re_h, e_im_h, e_re_t, e_im_t, r_re, r_im):
         """score function of ComplEx"""
-        return torch.sum(r_re * e_re_h * e_re_t + r_re * e_im_h * e_im_t + r_im * e_re_h * e_im_t - r_im * e_im_h * e_re_t, 1, False)
+        return torch.sum(
+            r_re * e_re_h * e_re_t + r_re * e_im_h * e_im_t +
+            r_im * e_re_h * e_im_t - r_im * e_im_h * e_re_t, 1, False)
 
     def loss_func(self, loss, regul):
         return loss + self.config.lambda_ * regul
@@ -157,13 +169,16 @@ class ComplEx(Model):
                 tmp = tmp.cuda()
 
             loss = torch.mean(tmp)
-            regul = torch.mean(e_re_h**2) + torch.mean(e_im_h**2) + torch.mean(e_re_t**2) + torch.mean(e_im_t**2) + torch.mean(r_re**2) + torch.mean(r_im**2)
+            regul = torch.mean(e_re_h**2) + torch.mean(e_im_h**2) + torch.mean(
+                e_re_t**2) + torch.mean(e_im_t**2) + torch.mean(
+                    r_re**2) + torch.mean(r_im**2)
             loss = self.loss_func(loss, regul)
 
             return loss
         else:
             score = -self._calc(p_re_h, p_im_h, p_re_t, p_im_t, p_re_r, p_im_r)
             return score
+
 
 # TODO: Untested
 class Analogy(Model):
@@ -173,12 +188,24 @@ class Analogy(Model):
 
     def __init__(self, triple_source, config):
         super(Analogy, self).__init__(triple_source, config)
-        self.ent_re_embeddings = nn.Embedding(self.triple_source.num_entity, self.config.entity_embedding_dimension/2)
-        self.ent_im_embeddings = nn.Embedding(self.triple_source.num_entity, self.config.entity_embedding_dimension/2)
-        self.rel_re_embeddings = nn.Embedding(self.triple_source.num_relation, self.config.entity_embedding_dimension/2)
-        self.rel_im_embeddings = nn.Embedding(self.triple_source.num_relation, self.config.entity_embedding_dimension/2)
-        self.ent_embeddings = nn.Embedding(self.triple_source.num_entity, self.config.entity_embedding_dimension)
-        self.rel_embeddings = nn.Embedding(self.triple_source.num_relation, self.config.entity_embedding_dimension)
+        self.ent_re_embeddings = nn.Embedding(
+            self.triple_source.num_entity,
+            self.config.entity_embedding_dimension / 2)
+        self.ent_im_embeddings = nn.Embedding(
+            self.triple_source.num_entity,
+            self.config.entity_embedding_dimension / 2)
+        self.rel_re_embeddings = nn.Embedding(
+            self.triple_source.num_relation,
+            self.config.entity_embedding_dimension / 2)
+        self.rel_im_embeddings = nn.Embedding(
+            self.triple_source.num_relation,
+            self.config.entity_embedding_dimension / 2)
+        self.ent_embeddings = nn.Embedding(
+            self.triple_source.num_entity,
+            self.config.entity_embedding_dimension)
+        self.rel_embeddings = nn.Embedding(
+            self.triple_source.num_relation,
+            self.config.entity_embedding_dimension)
         self.softplus = nn.Softplus()
         if self.config.enable_cuda:
             self.softplus = self.softplus.cuda()
@@ -191,10 +218,13 @@ class Analogy(Model):
 
     def _calc(self, e_re_h, e_im_h, e_h, e_re_t, e_im_t, e_t, r_re, r_im, r):
         """score function of Analogy, which is the hybrid of ComplEx and DistMult"""
-        return torch.sum(r_re * e_re_h * e_re_t + r_re * e_im_h * e_im_t + r_im * e_re_h * e_im_t - r_im * e_im_h * e_re_t, 1 ,False) + torch.sum(e_h*e_t*r, 1, False)
+        return torch.sum(
+            r_re * e_re_h * e_re_t + r_re * e_im_h * e_im_t +
+            r_im * e_re_h * e_im_t - r_im * e_im_h * e_re_t, 1,
+            False) + torch.sum(e_h * e_t * r, 1, False)
 
     def loss_func(self, loss, regul):
-        return loss + self.config.lambda_*regul
+        return loss + self.config.lambda_ * regul
 
     def forward(self, batch, negative_batch):
         if len(batch) == 4:
@@ -236,13 +266,18 @@ class Analogy(Model):
             r = torch.cat((r, neg_r))
             y = torch.cat((y, neg_y))
 
-            res=self._calc(e_re_h,e_im_h,e_h,e_re_t,e_im_t,e_t,r_re,r_im,r)
-            loss = torch.mean(self.softplus(- y * res))
-            regul = torch.mean(e_re_h**2)+torch.mean(e_im_h**2)*torch.mean(e_h**2)+torch.mean(e_re_t**2)+torch.mean(e_im_t**2)+torch.mean(e_t**2)+torch.mean(r_re**2)+torch.mean(r_im**2)+torch.mean(r**2)
-            loss =  self.loss_func(loss, regul)
+            res = self._calc(e_re_h, e_im_h, e_h, e_re_t, e_im_t, e_t, r_re,
+                             r_im, r)
+            loss = torch.mean(self.softplus(-y * res))
+            regul = torch.mean(e_re_h**2) + torch.mean(e_im_h**2) * torch.mean(
+                e_h**2) + torch.mean(e_re_t**2) + torch.mean(
+                    e_im_t**2) + torch.mean(e_t**2) + torch.mean(
+                        r_re**2) + torch.mean(r_im**2) + torch.mean(r**2)
+            loss = self.loss_func(loss, regul)
             return loss
         else:
-            p_score = -self._calc(e_re_h, e_im_h, e_h, e_re_t, e_im_t, e_t, r_re, r_im, r)
+            p_score = -self._calc(e_re_h, e_im_h, e_h, e_re_t, e_im_t, e_t,
+                                  r_re, r_im, r)
             return p_score
 
 
@@ -258,17 +293,19 @@ class DistMult(Model):
     def __init__(self, triple_source, config):
         super(DistMult, self).__init__(triple_source, config)
         self.embedding_dimension = self.config.entity_embedding_dimension
-        self.entity_embeddings = nn.Embedding(self.triple_source.num_entity, self.embedding_dimension)
-        self.relation_embeddings = nn.Embedding(self.triple_source.num_relation, self.embedding_dimension)
+        self.entity_embeddings = nn.Embedding(self.triple_source.num_entity,
+                                              self.embedding_dimension)
+        self.relation_embeddings = nn.Embedding(
+            self.triple_source.num_relation, self.embedding_dimension)
 
         nn.init.xavier_uniform_(self.entity_embeddings.weight.data)
         nn.init.xavier_uniform_(self.relation_embeddings.weight.data)
 
     def _calc(self, h, t, r):
-        return torch.sum(h*t*r, 1, False)
+        return torch.sum(h * t * r, 1, False)
 
     def loss_func(self, loss, regul):
-        return loss + self.config.lambda_*regul
+        return loss + self.config.lambda_ * regul
 
     def forward(self, batch, negative_batch=None):
         if len(batch) == 4:
@@ -294,14 +331,16 @@ class DistMult(Model):
             e_t = torch.cat((e_t, neg_e_t))
             e_r = torch.cat((e_r, neg_e_r))
             res = self._calc(e_h, e_t, e_r)
-            tmp = self.softplus(- y * res)
+            tmp = self.softplus(-y * res)
             loss = torch.mean(tmp)
-            regul = torch.mean(e_h ** 2) + torch.mean(e_t ** 2) + torch.mean(e_r ** 2)
+            regul = torch.mean(e_h**2) + torch.mean(e_t**2) + torch.mean(e_r**
+                                                                         2)
             loss = self.loss_func(loss, regul)
             return loss
         else:
             score = -self._calc(e_h, e_t, e_r)
             return score
+
 
 #         class RESCAL(Model):
 #     def __init__(self,config):
@@ -556,4 +595,3 @@ class DistMult(Model):
 #         _p_score = self._calc(p_h, p_t, p_r)
 #         p_score=torch.sum(_p_score,1)
 #         return p_score.cpu()
-

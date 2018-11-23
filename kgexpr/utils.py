@@ -1,9 +1,13 @@
-import torch
 import os.path
 import json
-from pathlib import Path
 import importlib
+from pathlib import Path
+from itertools import filterfalse
+
+import torch
+
 import kgekit.io
+from kgexpr.stats.constants import *
 
 
 def report_gpu_info():
@@ -11,8 +15,12 @@ def report_gpu_info():
     for i in range(count):
         print(str(i) + " " + torch.cuda.get_device_name(i))
 
-def save_checkpoint(state, filename='model_states/checkpoint.pth.tar', postfix_num=None):
-    path = "{}_{}".format(filename, postfix_num) if postfix_num is not None else filename
+
+def save_checkpoint(state,
+                    filename='model_states/checkpoint.pth.tar',
+                    postfix_num=None):
+    path = "{}_{}".format(filename,
+                          postfix_num) if postfix_num is not None else filename
     dirname = os.path.dirname(path)
     Path(dirname).mkdir(parents=True, exist_ok=True)
     torch.save(state, path)
@@ -26,15 +34,17 @@ def load_checkpoint(config, model, optimizer=None):
             start_epoch = checkpoint['epoch']
             model.load_state_dict(checkpoint['state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer'])
-            logging.info("loaded checkpoint '{}' (epoch {})"
-                  .format(config.resume, checkpoint['epoch']))
+            logging.info("loaded checkpoint '{}' (epoch {})".format(
+                config.resume, checkpoint['epoch']))
         else:
             logging.info("no checkpoint found at '{}'".format(config.resume))
+
 
 def write_logging_data(raw_data, config):
     """writes the logging data."""
     with open(os.path.join(config.logging_path, config.name), 'w') as f:
         f.write(json.dumps(raw_data))
+
 
 def load_class_from_module(class_name, *modules):
     for module in modules:
@@ -45,8 +55,10 @@ def load_class_from_module(class_name, *modules):
             pass
     raise RuntimeError("Can't find the {} from {}".format(class_name, modules))
 
+
 def read_triple_translation(config):
-    translation_path = os.path.join(config.data_dir, config.translation_filename)
+    translation_path = os.path.join(config.data_dir,
+                                    config.translation_filename)
     entities, relations = kgekit.io.read_translation(translation_path)
     return dict(entities), dict(relations)
 
@@ -81,8 +93,8 @@ class Config(object):
     lambda_ = 0.001
 
     # Stats
-    report_features = stats.LinkPredictionStatistics.DEFAULT
-    report_dimension = stats.StatisticsDimension.DEFAULT
+    report_features = LinkPredictionStatistics.DEFAULT
+    report_dimension = StatisticsDimension.DEFAULT
 
     # Interactive response control
     report_num_prediction_interactively = 10
@@ -101,7 +113,9 @@ class Config(object):
     @classmethod
     def registered_options(cls):
         """Returns a iterator"""
-        return filterfalse(lambda x: x.startswith('_') or type(cls.__dict__[x]) == classmethod, cls.__dict__)
+        return filterfalse(
+            lambda x: x.startswith('_') or type(cls.__dict__[x]) == classmethod,
+            cls.__dict__)
 
     @classmethod
     def option_type(cls, key):

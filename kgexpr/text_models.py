@@ -1,3 +1,6 @@
+import logging
+import numpy as np
+
 import torch
 import torch.autograd as autograd
 import torch.nn as nn
@@ -5,8 +8,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torch.utils.data.dataset
 from torch.autograd import Variable
-import numpy as np
-import logging
+
 from kgexpr.models import Model
 
 
@@ -21,10 +23,14 @@ class ComplExText(Model):
         super(ComplEx, self).__init__(triple_source, config)
         self.embedding_dimension = self.config.entity_embedding_dimension
 
-        self.ent_re_embeddings = nn.Embedding(self.triple_source.num_entity, self.embedding_dimension)
-        self.ent_im_embeddings = nn.Embedding(self.triple_source.num_entity, self.embedding_dimension)
-        self.rel_re_embeddings = nn.Embedding(self.triple_source.num_relation, self.embedding_dimension)
-        self.rel_im_embeddings = nn.Embedding(self.triple_source.num_relation, self.embedding_dimension)
+        self.ent_re_embeddings = nn.Embedding(self.triple_source.num_entity,
+                                              self.embedding_dimension)
+        self.ent_im_embeddings = nn.Embedding(self.triple_source.num_entity,
+                                              self.embedding_dimension)
+        self.rel_re_embeddings = nn.Embedding(self.triple_source.num_relation,
+                                              self.embedding_dimension)
+        self.rel_im_embeddings = nn.Embedding(self.triple_source.num_relation,
+                                              self.embedding_dimension)
         self.softplus = nn.Softplus()
         if self.config.enable_cuda:
             self.softplus = self.softplus.cuda()
@@ -36,7 +42,9 @@ class ComplExText(Model):
 
     def _calc(self, e_re_h, e_im_h, e_re_t, e_im_t, r_re, r_im):
         """score function of ComplEx"""
-        return torch.sum(r_re * e_re_h * e_re_t + r_re * e_im_h * e_im_t + r_im * e_re_h * e_im_t - r_im * e_im_h * e_re_t, 1, False)
+        return torch.sum(
+            r_re * e_re_h * e_re_t + r_re * e_im_h * e_im_t +
+            r_im * e_re_h * e_im_t - r_im * e_im_h * e_re_t, 1, False)
 
     def loss_func(self, loss, regul):
         return loss + self.config.lambda_ * regul
@@ -81,7 +89,9 @@ class ComplExText(Model):
                 tmp = tmp.cuda()
 
             loss = torch.mean(tmp)
-            regul = torch.mean(e_re_h**2) + torch.mean(e_im_h**2) + torch.mean(e_re_t**2) + torch.mean(e_im_t**2) + torch.mean(r_re**2) + torch.mean(r_im**2)
+            regul = torch.mean(e_re_h**2) + torch.mean(e_im_h**2) + torch.mean(
+                e_re_t**2) + torch.mean(e_im_t**2) + torch.mean(
+                    r_re**2) + torch.mean(r_im**2)
             loss = self.loss_func(loss, regul)
 
             return loss

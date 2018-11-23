@@ -1,13 +1,15 @@
-import torch.multiprocessing as mp
-import kgekit
-from kgexpr import data
-import stats
 import logging
 import sys
 import threading
 import contextlib
 import copy
+
 import torch
+import torch.multiprocessing as mp
+
+import kgekit
+from kgexpr.data import constants
+from kgexpr import stats
 
 
 class AtomicCounter(object):
@@ -22,7 +24,7 @@ class AtomicCounter(object):
             nc = getattr(contextlib, 'nullcontext')
         except AttributeError:
             nc = contextlib.suppress()
-        self._lock = nc # threading.Lock()
+        self._lock = nc  # threading.Lock()
 
     def increment(self, num=1):
         """Atomically increment the counter by num (default 1) and return the
@@ -44,28 +46,33 @@ class AtomicCounter(object):
         with self._lock:
             self.value = 0
 
-def evaluate_single_triple(prediction, prediction_type, triple_index, config, entities, relations):
+
+def evaluate_single_triple(prediction, prediction_type, triple_index, config,
+                           entities, relations):
     """Returns a list of top `config.report_num_preiction_interactively` results by name."""
     sorted_prediction, indices = torch.sort(prediction)
     prediction_list = []
-    if prediction_type == data.HEAD_KEY or prediction_type == data.TAIL_KEY:
+    if prediction_type == constants.HEAD_KEY or prediction_type == constants.TAIL_KEY:
         for i in range(config.report_num_prediction_interactively):
             if i < len(indices):
                 index = indices[i]
                 prediction_list.append((index, entities[index]))
-    elif prediction_type == data.RELATION_KEY:
+    elif prediction_type == constants.RELATION_KEY:
         for i in range(config.report_num_prediction_interactively):
             if i < len(indices):
                 prediction_list.append((index, relations[index]))
     else:
-        raise RuntimeError("Unknown prediction type {}.".format(prediction_type))
+        raise RuntimeError(
+            "Unknown prediction type {}.".format(prediction_type))
 
     return predict_links
+
 
 def _evaluate_prediction_view(result_view, triple_index, rank_fn, datatype):
     """Evaluation on a view of batch."""
     rank, filtered_rank = rank_fn(result_view, triple_index)
     return (datatype, rank, filtered_rank)
+
 
 def _evaluation_worker_loop(resource, input_q, output):
     ranker = resource.ranker
@@ -81,21 +88,32 @@ def _evaluation_worker_loop(resource, input_q, output):
             result = []
             for triple_index, split in zip(batch, splits):
                 if split[0] != split[1] and split[1] != split[2]:
-                    result.append(_evaluate_prediction_view(predicted_batch[split[0]:split[1]], triple_index, ranker.rankHead, data.HEAD_KEY))
-                    result.append(_evaluate_prediction_view(predicted_batch[split[1]:split[2]], triple_index, ranker.rankTail, data.TAIL_KEY))
+                    result.append(
+                        _evaluate_prediction_view(
+                            predicted_batch[split[0]:split[1]], triple_index,
+                            ranker.rankHead, constants.HEAD_KEY))
+                    result.append(
+                        _evaluate_prediction_view(
+                            predicted_batch[split[1]:split[2]], triple_index,
+                            ranker.rankTail, constants.TAIL_KEY))
                 if split[2] != split[3]:
-                    result.append(_evaluate_prediction_view(predicted_batch[split[2]:split[3]], triple_index, ranker.rankRelation, data.RELATION_KEY))
+                    result.append(
+                        _evaluate_prediction_view(
+                            predicted_batch[split[2]:split[3]], triple_index,
+                            ranker.rankRelation, constants.RELATION_KEY))
             output.put(result)
     except StopIteration:
-        print("[Evaluation Worker {}] stops.".format(mp.current_process().name))
+        print("[Evaluation Worker {}] stops.".format(
+            mp.current_process().name))
         sys.stdout.flush()
+
 
 def _evaluation_result_thread_loop(resource, output, results_list, counter):
     hr, fhr, tr, ftr, rr, frr = results_list
     RESULTS_LIST = {
-        data.HEAD_KEY: (hr, fhr),
-        data.TAIL_KEY: (tr, ftr),
-        data.RELATION_KEY: (rr, frr)
+        constants.HEAD_KEY: (hr, fhr),
+        constants.TAIL_KEY: (tr, ftr),
+        constants.RELATION_KEY: (rr, frr)
     }
 
     try:
@@ -114,7 +132,9 @@ def _evaluation_result_thread_loop(resource, output, results_list, counter):
         print("[Result Worker {}] stops.".format(mp.current_process().name))
         sys.stdout.flush()
 
+
 RESULT_LIST_SIZE = 6
+
 
 class EvaluationProcessPool(object):
     def __init__(self, config, triple_source, context):
@@ -122,7 +142,9 @@ class EvaluationProcessPool(object):
         self._context = context
         self._manager = self._context.Manager()
         self._ns = self._manager.Namespace()
-        self._ns.ranker = kgekit.Ranker(triple_source.train_set, triple_source.valid_set, triple_source.test_set)
+        self._ns.ranker = kgekit.Ranker(triple_source.train_set,
+                                        triple_source.valid_set,
+                                        triple_source.test_set)
         self._input = self._context.SimpleQueue()
         self._output = self._context.SimpleQueue()
         self._results_list = [list() for _ in range(RESULT_LIST_SIZE)]
@@ -138,16 +160,21 @@ class EvaluationProcessPool(object):
         self._processes = [
             self._context.Process(
                 target=_evaluation_worker_loop,
-                args=(self._ns, self._input, self._output,)
-            )
-            for _ in range(self._config.num_evaluation_workers)
+                args=(
+                    self._ns,
+                    self._input,
+                    self._output,
+                )) for _ in range(self._config.num_evaluation_workers)
         ]
         self._processes.append(
             threading.Thread(
                 target=_evaluation_result_thread_loop,
-                args=(self._ns, self._output, self._results_list, self._counter,)
-            )
-        )
+                args=(
+                    self._ns,
+                    self._output,
+                    self._results_list,
+                    self._counter,
+                )))
         for p in self._processes:
             p.start()
 
@@ -166,7 +193,9 @@ class EvaluationProcessPool(object):
         """Batch is a Tensor."""
         self._input.put(test_package)
         self._counter.increment()
-        logging.debug("Putting a new batch for evaluation. Now we have sent {} batches.".format(self._counter.value))
+        logging.debug(
+            "Putting a new batch for evaluation. Now we have sent {} batches.".
+            format(self._counter.value))
 
     def wait_evaluation_results(self):
         logging.debug("Starts to wait for result batches.")
@@ -191,26 +220,31 @@ def predict_links(model, triple_source, config, data_loader, pool):
 
     for i_batch, sample_batched in enumerate(data_loader):
         sampled, batch, splits = sample_batched
-        sampled = data.convert_triple_tuple_to_torch(data.get_triples_from_batch(sampled), config)
+        sampled = data.convert_triple_tuple_to_torch(
+            data.get_triples_from_batch(sampled), config)
         predicted_batch = model.forward(sampled).cpu()
-        logging.debug("Current batch's shape {}.".format(predicted_batch.shape))
+        logging.debug("Current batch's shape {}.".format(
+            predicted_batch.shape))
 
         pool.evaluate_batch((predicted_batch, batch, splits))
 
     # Synchonized point. We want all our results back.
-    head_ranks, filtered_head_ranks, tail_ranks, filtered_tail_ranks, relation_ranks, filtered_relation_ranks = pool.wait_evaluation_results()
-    logging.info("Batch size of rank lists (hr, frr, tr, ftr, rr, frr): {}, {}, {}, {}, {}, {}".format(
-        len(head_ranks),
-        len(filtered_head_ranks),
-        len(tail_ranks),
-        len(filtered_tail_ranks),
-        len(relation_ranks),
-        len(filtered_relation_ranks)
-    ))
-    return (head_ranks, filtered_head_ranks), (tail_ranks, filtered_tail_ranks), (relation_ranks, filtered_relation_ranks)
+    head_ranks, filtered_head_ranks, tail_ranks, filtered_tail_ranks, relation_ranks, filtered_relation_ranks = pool.wait_evaluation_results(
+    )
+    logging.info(
+        "Batch size of rank lists (hr, frr, tr, ftr, rr, frr): {}, {}, {}, {}, {}, {}"
+        .format(
+            len(head_ranks), len(filtered_head_ranks), len(tail_ranks),
+            len(filtered_tail_ranks), len(relation_ranks),
+            len(filtered_relation_ranks)))
+    return (head_ranks, filtered_head_ranks), (
+        tail_ranks, filtered_tail_ranks), (relation_ranks,
+                                           filtered_relation_ranks)
+
 
 # FIXME: can't be used with multiprocess now. See predict_links
-def evaulate_prediction_np_collate(model, triple_source, config, ranker, data_loader):
+def evaulate_prediction_np_collate(model, triple_source, config, ranker,
+                                   data_loader):
     """use with NumpyCollate."""
     model.eval()
 
@@ -226,24 +260,45 @@ def evaulate_prediction_np_collate(model, triple_source, config, ranker, data_lo
         for triple in sample_batched:
             triple_index = kgekit.TripleIndex(*triple[0, :])
 
-            if (config.report_dimension & stats.StatisticsDimension.SEPERATE_ENTITY) or (config.report_dimension & stats.StatisticsDimension.COMBINED_ENTITY):
-                _evaluate_predict_element(model, config, triple_index, triple_source.num_entity, data.TripleElement.HEAD, ranker.rankHead, head_ranks, filtered_head_ranks)
-                _evaluate_predict_element(model, config, triple_index, triple_source.num_entity, data.TripleElement.TAIL, ranker.rankTail, tail_ranks, filtered_tail_ranks)
+            if (config.report_dimension &
+                    stats.StatisticsDimension.SEPERATE_ENTITY) or (
+                        config.report_dimension &
+                        stats.StatisticsDimension.COMBINED_ENTITY):
+                _evaluate_predict_element(
+                    model, config, triple_index, triple_source.num_entity,
+                    data.TripleElement.HEAD, ranker.rankHead, head_ranks,
+                    filtered_head_ranks)
+                _evaluate_predict_element(
+                    model, config, triple_index, triple_source.num_entity,
+                    data.TripleElement.TAIL, ranker.rankTail, tail_ranks,
+                    filtered_tail_ranks)
             if config.report_dimension & stats.StatisticsDimension.RELATION:
-                _evaluate_predict_element(model, config, triple_index, triple_source.num_relation, data.TripleElement.RELATION, ranker.rankRelation, relation_ranks, filtered_relation_ranks)
+                _evaluate_predict_element(
+                    model, config, triple_index, triple_source.num_relation,
+                    data.TripleElement.RELATION, ranker.rankRelation,
+                    relation_ranks, filtered_relation_ranks)
 
-    return (head_ranks, filtered_head_ranks), (tail_ranks, filtered_tail_ranks), (relation_ranks, filtered_relation_ranks)
+    return (head_ranks, filtered_head_ranks), (
+        tail_ranks, filtered_tail_ranks), (relation_ranks,
+                                           filtered_relation_ranks)
+
 
 # FIXME: Not sure what to deal with this old method
-def _evaluate_predict_element(model, config, triple_index, num_expands, element_type, rank_fn, ranks_list, filtered_ranks_list):
+def _evaluate_predict_element(model, config, triple_index, num_expands,
+                              element_type, rank_fn, ranks_list,
+                              filtered_ranks_list):
     """Evaluation a single triple with expanded sets."""
-    batch = data.expand_triple_to_sets(kgekit.data.unpack(triple_index), num_expands, element_type)
+    batch = data.expand_triple_to_sets(
+        kgekit.data.unpack(triple_index), num_expands, element_type)
     batch = data.convert_triple_tuple_to_torch(batch, config)
     logging.debug(element_type)
-    logging.debug("Batch len: " + str(len(batch)) + "; batch sample: " + str(batch[0]))
+    logging.debug("Batch len: " + str(len(batch)) + "; batch sample: " +
+                  str(batch[0]))
     predicted_batch = model.forward(batch).cpu()
-    logging.debug("Predicted batch len" + str(len(predicted_batch)) + "; batch sample: " + str(predicted_batch[0]))
+    logging.debug("Predicted batch len" + str(len(predicted_batch)) +
+                  "; batch sample: " + str(predicted_batch[0]))
     rank, filtered_rank = rank_fn(predicted_batch.data.numpy(), triple_index)
-    logging.debug("Rank :" + str(rank) + "; Filtered rank length :" + str(filtered_rank))
+    logging.debug("Rank :" + str(rank) + "; Filtered rank length :" +
+                  str(filtered_rank))
     ranks_list.append(rank)
     filtered_ranks_list.append(filtered_rank)
