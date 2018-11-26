@@ -80,7 +80,9 @@ def seed_modules(numpy_seed, torch_seed, torcu_cuda_seed_all,
 
 
 def cli(args):
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
+                        datefmt='%m/%d/%Y %H:%M:%S',
+                        level=logging.INFO)
     report_gpu_info()
 
     config, parsed_args = cli_config_and_parse_args(args)
