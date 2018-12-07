@@ -104,7 +104,7 @@ def train_and_validate(triple_source,
             loss_sum = loss.sum()
             loss_sum.backward()
             optimizer.step()
-            loss_epoch += loss_sum.data[0]
+            loss_epoch += float(loss_sum.item()) # avoid long-term memory usage
 
         if drawer is not None:
             drawer.append(
@@ -115,8 +115,9 @@ def train_and_validate(triple_source,
 
         if enable_validation:
             logging.info('Evaluation for epoch ' + str(i_epoch))
-            result = evaluation.predict_links(model, triple_source, config,
-                                              valid_data_loader, pool)
+            with torch.no_grad():
+                result = evaluation.predict_links(model, triple_source, config,
+                                                  valid_data_loader, pool)
             stats.report_prediction_result(
                 config, result, epoch=i_epoch, drawer=drawer)
 
@@ -163,24 +164,25 @@ def interactive_prediction(triple_source, entities, relations, config,
     model.eval()
 
     logging.info('Interactive prediction starts')
-    for head, relation, tail in generator:
-        logging.info('--------------------')
-        logging.info('Prediction input ({}, {}, {})'.format(
-            head, relation, tail))
-        logging.info('--------------------')
+    with torch.no_grad():
+        for head, relation, tail in generator:
+            logging.info('--------------------')
+            logging.info('Prediction input ({}, {}, {})'.format(
+                head, relation, tail))
+            logging.info('--------------------')
 
-        # determines which element to predict
-        batch, prediction_type, triple_index = data.sieve_and_expand_triple(
-            triple_source, entities, relations, head, relation, tail)
-        batch = data.convert_triple_tuple_to_torch(batch, config)
-        predicted = model.forward(batch)
+            # determines which element to predict
+            batch, prediction_type, triple_index = data.sieve_and_expand_triple(
+                triple_source, entities, relations, head, relation, tail)
+            batch = data.convert_triple_tuple_to_torch(batch, config)
+            predicted = model.forward(batch)
 
-        logging.info('Predicting {} for ({}, {}, {})'.format(
-            repr(prediction_type), head, relation, tail))
-        prediction_list = evaluation.evaluate_single_triple(
-            predicted, prediction_type, triple_index, config, entities,
-            relations)
-        logging.info('Top {} predicted elements are:'.format(
-            rank, filtered_rank, len(prediction_list)))
-        for idx, prediction in prediction_list:
-            logging.info('{}: {}'.format(idx, prediction))
+            logging.info('Predicting {} for ({}, {}, {})'.format(
+                repr(prediction_type), head, relation, tail))
+            prediction_list = evaluation.evaluate_single_triple(
+                predicted, prediction_type, triple_index, config, entities,
+                relations)
+            logging.info('Top {} predicted elements are:'.format(
+                rank, filtered_rank, len(prediction_list)))
+            for idx, prediction in prediction_list:
+                logging.info('{}: {}'.format(idx, prediction))

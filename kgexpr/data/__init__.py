@@ -4,13 +4,12 @@ import os
 import kgekit.io
 import kgekit.utils
 import torch
-from torch.autograd.variable import Variable
 from torch.utils.data import Dataset
 import numpy as np
 import random
 from torchvision import transforms
 import functools
-from kgexpr.data import collators, constants
+from kgexpr.data import collators, constants, transformers
 
 
 class TripleSource(object):
@@ -140,35 +139,6 @@ class OrderedTripleTransform(object):
         return vec
 
 
-class OrderedTripleListTransform(object):
-    """Reformat a triple index into list.
-
-    Args:
-        triple_order (str): Desired triple order in list.
-    """
-
-    def __init__(self, triple_order):
-        kgekit.utils.assert_triple_order(triple_order)
-        self.triple_order = triple_order
-
-    def __call__(self, samples):
-        batch_size = len(samples)
-        batch = np.empty((batch_size, constants.NUM_POSITIVE_INSTANCE,
-                          constants.TRIPLE_LENGTH),
-                         dtype=np.int64)
-        for i in range(batch_size):
-            for o in self.triple_order:
-                t = samples[i]
-                if o == 'h':
-                    batch[i, 0, 0] = t.head
-                elif o == 'r':
-                    batch[i, 0, 1] = t.relation
-                elif o == 't':
-                    batch[i, 0, 2] = t.tail
-
-        return batch
-
-
 def get_triples_from_batch(batch):
     """Returns h, r, t and possible label from batch."""
 
@@ -186,7 +156,7 @@ class _BatchElementConverter(object):
         self.cuda_enabled = cuda_enabled
 
     def __call__(self, x):
-        x = Variable(torch.from_numpy(x))
+        x = torch.from_numpy(x)
         if self.cuda_enabled:
             x = x.cuda()
         return x
@@ -229,6 +199,29 @@ def expand_triple_to_sets(triple, num_expands, arange_target):
 
 
 _SAFE_MINIMAL_BATCH_SIZE = 1
+
+
+def create_text_dataloader(triple_source, config, collators_label=False):
+    dataset = TripleIndexesDataset(triple_source, dataset_type)
+
+    # Use those C++ extension is fast but then we can't use spawn method to start data loader.
+    negative_sampler = kgekit.LCWANoThrowSampler(
+        triple_source.train_set, triple_source.num_entity,
+        triple_source.num_relation, config.negative_entity,
+        config.negative_relation, kgekit.LCWANoThrowSamplerStrategy.Hash)
+    corruptor = kgekit.BernoulliCorruptor(triple_source.train_set)
+
+    collates = [
+        collators.BernoulliCorruptionCollate(triple_source, corruptor),
+        collators.LCWANoThrowCollate(
+            triple_source,
+            negative_sampler,
+            transform=transformers.OrderedTripleListTransform(config.triple_order)),
+    ]
+    if collates_label:
+        collates.append(collators.label_collate)
+    collate_fn = transforms.Compose(collates)
+    batch_size = config.batch_size
 
 
 def create_dataloader(triple_source,
@@ -311,3 +304,16 @@ def sieve_and_expand_triple(triple_source, entities, relations, head, relation,
         raise RuntimeError("head, relation, tail are known.")
 
     return (h, r, t), prediction_type, triple_index
+
+
+class LiteralCollate(object):
+    def __init__(self):
+            self.source,
+            negative_sampler,
+            literals=['facts'],
+            sample_negative_for_non_triples=False,
+            transforms=dict(
+                triple_transform=data.OrderedTripleListTransform("hrt"),
+                fact_transform=data.FactTransform(),
+            ),
+        )(self.samples, 0)
