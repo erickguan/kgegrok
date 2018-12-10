@@ -16,6 +16,8 @@ setup(
     name='kgexpr',
     version='0.1.0',
     description='knowledge representation learning',
+    long_description=open("README.md", "r").read(),
+    long_description_content_type="text/markdown",
     url='http://github.com/fantasticfears/kgexpr',
     author='Erick Guan',
     author_email='fantasticfears@gmail.com',
