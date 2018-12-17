@@ -78,22 +78,17 @@ class NumpyCollate(object):
 
 def label_collate(sample):
     """Add data label for (batch, negative_batch).
-    positive batch shape: (batch_size, 1, 4)
-    negative batch shape: (batch_size, negative_samples, 4).
+    positive batch shape: (batch_size, 1, 3)
+    negative batch shape: (batch_size, negative_samples, 3).
+    label batch shape: (batch_size, 1+negative_samples, 1).
     """
     batch, negative_batch = sample
 
-    pos_shape = list(batch.shape)
-    pos_shape[2] = 1
-    pos_y = np.ones(pos_shape, dtype=np.float32)
-    neg_shape = list(negative_batch.shape)
-    neg_shape[2] = 1
-    neg_y = np.empty(neg_shape, dtype=np.float32)
-    neg_y.fill(-1.0)
+    labels_shape = (batch.shape[0], 1+negative_batch.shape[1], 1)
+    labels = np.full(labels_shape, -1.0, dtype=np.float32)
+    labels[:,0,:] = 1.0
 
-    batch = np.concatenate((batch, pos_y), axis=2)
-    negative_batch = np.concatenate((negative_batch, neg_y), axis=2)
-    return batch, negative_batch
+    return batch, negative_batch, labels
 
 
 class LCWANoThrowCollate(object):

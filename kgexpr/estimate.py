@@ -95,12 +95,17 @@ def train_and_validate(triple_source,
         for i_batch, sample_batched in enumerate(data_loader):
             logging.info('Training batch ' + str(i_batch + INDEX_OFFSET) + "/" +
                          str(len(data_loader)))
-            batch, negative_batch = sample_batched
+            if len(sample_batched) == 2:
+                batch, negative_batch = sample_batched
+                labels = None
+            elif len(sample_batched) == 3:
+                batch, negative_batch, labels = sample_batched
+                labels = data.convert_triple_tuple_to_torch(labels, config)
             batch = data.convert_triple_tuple_to_torch(
                 data.get_triples_from_batch(batch), config)
             negative_batch = data.convert_triple_tuple_to_torch(
                 data.get_triples_from_batch(negative_batch), config)
-            loss = model.forward(batch, negative_batch)
+            loss = model.forward(batch, negative_batch, labels)
             loss_sum = loss.sum()
             optimizer.zero_grad()
             loss_sum.backward()

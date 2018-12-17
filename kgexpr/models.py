@@ -128,11 +128,8 @@ class ComplEx(Model):
     def loss_func(self, loss, regul):
         return loss + self.config.lambda_ * regul
 
-    def forward(self, batch, negative_batch):
-        if len(batch) == 4:
-            pos_h, pos_r, pos_t, y = batch
-        else:
-            pos_h, pos_r, pos_t = batch
+    def forward(self, batch, negative_batch, labels):
+        pos_h, pos_r, pos_t = batch
         e_re_h = self.ent_re_embeddings(pos_h)
         e_im_h = self.ent_im_embeddings(pos_h)
         e_re_t = self.ent_re_embeddings(pos_t)
@@ -142,11 +139,10 @@ class ComplEx(Model):
 
         # Calculating loss to get what the framework will optimize
         if negative_batch is not None:
-            neg_h, neg_r, neg_t, neg_y = negative_batch
+            neg_h, neg_r, neg_t = negative_batch
             neg_h = neg_h.view(-1)
             neg_r = neg_r.view(-1)
             neg_t = neg_t.view(-1)
-            neg_y = neg_y.view(-1)
             neg_e_re_h = self.ent_re_embeddings(neg_h)
             neg_e_im_h = self.ent_im_embeddings(neg_h)
             neg_e_re_t = self.ent_re_embeddings(neg_t)
@@ -160,7 +156,7 @@ class ComplEx(Model):
             e_im_t = torch.cat((e_im_t, neg_e_im_t))
             r_re = torch.cat((r_re, neg_r_re))
             r_im = torch.cat((r_im, neg_r_im))
-            y = torch.cat((y, neg_y))
+            y = labels
 
             res = self._calc(e_re_h, e_im_h, e_re_t, e_im_t, r_re, r_im)
             tmp = self.softplus(-y * res)
