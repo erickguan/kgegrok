@@ -20,7 +20,7 @@ class Config(object):
     num_workers = 1
     entity_embedding_dimension = 10
     margin = 0.01
-    epoches = 1
+    epochs = 1
 
 
 @pytest.mark.numpyfile

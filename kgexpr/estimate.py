@@ -85,7 +85,7 @@ def train_and_validate(triple_source,
             stats.prepare_plot_validation_result(drawer, config)
 
     INDEX_OFFSET = 1
-    for i_epoch in range(INDEX_OFFSET, config.epoches + INDEX_OFFSET, 1):
+    for i_epoch in range(INDEX_OFFSET, config.epochs + INDEX_OFFSET, 1):
         model.train()
         logging.info('--------------------')
         logging.info('Training at epoch ' + str(i_epoch))
@@ -133,12 +133,12 @@ def train_and_validate(triple_source,
 
     if config.save_after_train:
         save_checkpoint({
-            'epoch': config.epoches,
+            'epoch': config.epochs,
             'state_dict': model.state_dict(),
             'optimizer': optimizer.state_dict(),
         },
                         config,
-                        postfix_num=config.epoches)
+                        postfix_num=config.epochs)
 
     if drawer is not None:
         write_logging_data(drawer.dump_raw_data(), config)

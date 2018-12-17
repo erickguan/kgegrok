@@ -246,7 +246,7 @@ def create_dataloader(triple_source,
             collators.LCWANoThrowCollate(
                 triple_source,
                 negative_sampler,
-                transform=OrderedTripleListTransform(config.triple_order)),
+                transform=transformers.OrderedTripleListTransform(config.triple_order)),
         ]
         if collates_label:
             collates.append(collators.label_collate)
@@ -308,14 +308,14 @@ def sieve_and_expand_triple(triple_source, entities, relations, head, relation,
     return (h, r, t), prediction_type, triple_index
 
 
-class LiteralCollate(object):
-    def __init__(self):
-            self.source,
-            negative_sampler,
-            literals=['facts'],
-            sample_negative_for_non_triples=False,
-            transforms=dict(
-                triple_transform=data.OrderedTripleListTransform("hrt"),
-                fact_transform=data.FactTransform(),
-            ),
-        )(self.samples, 0)
+# class LiteralCollate(object):
+#     def __init__(self):
+#             self.source,
+#             negative_sampler,
+#             literals=['facts'],
+#             sample_negative_for_non_triples=False,
+#             transforms=dict(
+#                 triple_transform=data.OrderedTripleListTransform("hrt"),
+#                 fact_transform=data.FactTransform(),
+#             ),
+#         )(self.samples, 0)

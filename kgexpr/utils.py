@@ -91,7 +91,7 @@ class Config(object):
     # Model hyperparameters
     entity_embedding_dimension = 50
     margin = 1.0
-    epoches = 1000
+    epochs = 1000
     alpha = 0.001
     lr_decay = 0.96
     weight_decay = 0.96
