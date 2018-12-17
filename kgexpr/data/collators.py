@@ -158,3 +158,11 @@ class TripleTileCollate(object):
 
         sampled = sampled[:, np.newaxis, :]
         return (sampled, batch, splits)
+
+class LiteralCollate(object):
+    def __init__(self, source, negative_sampler, literals, transforms, sample_negative_for_non_triples=False):
+        self.source = source
+        self.negative_sampler = negative_sampler
+        self.literals = literals
+        self.sample_negative_for_non_triples = sample_negative_for_non_triples
+        self.transforms = transforms

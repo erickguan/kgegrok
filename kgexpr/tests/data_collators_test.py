@@ -1,6 +1,6 @@
 import unittest
 from kgexpr import data
-from kgexpr.data import collators
+from kgexpr.data import collators, transformers
 import kgekit
 from torchvision import transforms
 import numpy as np
@@ -59,7 +59,7 @@ class DataTest(unittest.TestCase):
         batch, negatives = collators.LCWANoThrowCollate(
             self.source,
             negative_sampler,
-            transform=data.OrderedTripleListTransform("hrt"))(self.samples, 0)
+            transform=transformers.OrderedTripleListTransform("hrt"))(self.samples, 0)
         np.testing.assert_equal(
             batch, np.array([
                 [[0, 0, 1]],
@@ -70,5 +70,30 @@ class DataTest(unittest.TestCase):
             np.array([
                 [[0, 0, 3], [0, 2, 1]],
                 [[0, 1, 2], [1, 0, 2]],
+            ],
+                     dtype=np.int64))
+
+    def test_literal_collate(self):
+        np.random.seed(0)
+        negative_sampler = kgekit.LCWANoThrowSampler(
+            self.source.train_set, self.source.num_entity,
+            self.source.num_relation, 1, 1,
+            kgekit.LCWANoThrowSamplerStrategy.Hash)
+        batch, negatives = collators.LiteralCollate(
+            self.source,
+            negative_sampler,
+            literals=['facts'],
+            transforms=dict(
+                triple_transform=transformers.OrderedTripleListTransform("hrt"),
+                fact_transform=transformers.FactTransform(),
+            ),
+            sample_negative_for_non_triples=False,
+        )(self.samples, 0)
+        np.testing.assert_equal(
+            batch, np.array([
+            ], dtype=np.int64))
+        np.testing.assert_equal(
+            negatives,
+            np.array([
             ],
                      dtype=np.int64))

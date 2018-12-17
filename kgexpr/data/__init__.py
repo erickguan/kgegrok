@@ -157,6 +157,8 @@ class _BatchElementConverter(object):
 
     def __call__(self, x):
         x = torch.from_numpy(x)
+        # Input is an index to find relevant embeddings. We don't track them
+        x.requires_grad_(False)
         if self.cuda_enabled:
             x = x.cuda()
         return x
