@@ -102,6 +102,7 @@ def train_and_validate(triple_source,
                 data.get_triples_from_batch(negative_batch), config)
             loss = model.forward(batch, negative_batch)
             loss_sum = loss.sum()
+            optimizer.zero_grad()
             loss_sum.backward()
             optimizer.step()
             loss_epoch += float(loss_sum.item()) # avoid long-term memory usage
