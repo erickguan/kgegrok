@@ -122,7 +122,7 @@ def train_and_validate(triple_source,
             stats.report_prediction_result(
                 config, result, epoch=i_epoch, drawer=drawer)
 
-        if config.save_per_epoch > 0 and i_epoch % config.save_per_epoch:
+        if config.save_per_epoch > 0 and i_epoch % config.save_per_epoch == 0:
             save_checkpoint({
                 'epoch': i_epoch,
                 'state_dict': model.state_dict(),
