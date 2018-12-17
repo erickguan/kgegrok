@@ -85,11 +85,11 @@ def label_collate(sample):
 
     pos_shape = list(batch.shape)
     pos_shape[2] = 1
-    pos_y = np.ones(pos_shape, dtype=np.int64)
+    pos_y = np.ones(pos_shape, dtype=np.float32)
     neg_shape = list(negative_batch.shape)
     neg_shape[2] = 1
-    neg_y = np.empty(neg_shape, dtype=np.int64)
-    neg_y.fill(-1)
+    neg_y = np.empty(neg_shape, dtype=np.float32)
+    neg_y.fill(-1.0)
 
     batch = np.concatenate((batch, pos_y), axis=2)
     negative_batch = np.concatenate((negative_batch, neg_y), axis=2)

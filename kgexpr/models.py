@@ -164,8 +164,6 @@ class ComplEx(Model):
 
             res = self._calc(e_re_h, e_im_h, e_re_t, e_im_t, r_re, r_im)
             tmp = self.softplus(-y * res)
-            if self.config.enable_cuda:
-                tmp = tmp.cuda()
 
             loss = torch.mean(tmp)
             regul = torch.mean(e_re_h**2) + torch.mean(e_im_h**2) + torch.mean(
