@@ -16,7 +16,13 @@ from kgexpr import evaluation
 from kgexpr.utils import report_gpu_info, load_class_from_module, read_triple_translation, Config
 
 
-def cli_train(triple_source, config, model_class, optimizer_class, pool):
+def cli_train(triple_source, config, model_class, optimizer_class):
+    drawer = stats.ReportDrawer(visdom.Visdom(
+        port=6006), config) if config.plot_graph else None
+    model = estimate.train(triple_source, config, model_class,
+                           optimizer_class, drawer)
+
+def cli_train_and_validate(triple_source, config, model_class, optimizer_class, pool):
     drawer = stats.ReportDrawer(visdom.Visdom(
         port=6006), config) if config.plot_graph else None
     model = estimate.train_and_validate(triple_source, config, model_class,
@@ -105,7 +111,7 @@ def cli(args):
                                          'kgexpr.text_models')
 
     # TODO: DRY
-    if parsed_args['mode'] in ['train', 'test']:
+    if parsed_args['mode'] in ['train_validate', 'test']:
         ctx = mp.get_context('spawn')
         pool = evaluation.EvaluationProcessPool(config, triple_source, ctx)
         pool.start()
@@ -116,14 +122,20 @@ def cli(args):
     if parsed_args['mode'] == 'train':
         optimizer_class = load_class_from_module(config.optimizer,
                                                  'torch.optim')
-        cli_train(triple_source, config, model_class, optimizer_class, pool)
+        cli_train(triple_source, config, model_class, optimizer_class)
+    elif parsed_args['mode'] == 'train_validate':
+        optimizer_class = load_class_from_module(config.optimizer,
+                                                 'torch.optim')
+        cli_train_and_validate(triple_source, config, model_class, optimizer_class, pool)
     elif parsed_args['mode'] == 'test':
         cli_test(triple_source, config, model_class, pool)
     elif parsed_args['mode'] == 'demo_prediction':
         cli_demo_prediction(triple_source, config, model_class)
+    else:
+        raise RuntimeError("Wrong mode {} selected.".format(parsed_args['mode']))
 
     # TODO: DRY
-    if parsed_args['mode'] in ['train', 'test']:
+    if parsed_args['mode'] in ['train_validate', 'test']:
         pool.stop()
 
 
