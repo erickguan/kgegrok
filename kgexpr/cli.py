@@ -16,22 +16,21 @@ from kgexpr import evaluation
 from kgexpr.utils import report_gpu_info, load_class_from_module, read_triple_translation, Config
 
 
+def _create_drawer(config):
+    return stats.ReportDrawer(visdom.Visdom(
+        port=6006), config) if config.plot_graph else None
+
 def cli_train(triple_source, config, model_class, optimizer_class):
-    drawer = stats.ReportDrawer(visdom.Visdom(
-        port=6006), config) if config.plot_graph else None
     model = estimate.train(triple_source, config, model_class,
-                           optimizer_class, drawer)
+                           optimizer_class, drawer=_create_drawer(config))
 
-def cli_train_and_validate(triple_source, config, model_class, optimizer_class, pool):
-    drawer = stats.ReportDrawer(visdom.Visdom(
-        port=6006), config) if config.plot_graph else None
+def cli_train_and_validate(triple_source, config, model_class, optimizer_class, validation_process_pool):
     model = estimate.train_and_validate(triple_source, config, model_class,
-                                        optimizer_class, pool, drawer)
+                                        optimizer_class, validation_process_pool, drawer=_create_drawer(config))
 
-
-def cli_test(triple_source, config, model_class, pool):
+def cli_test(triple_source, config, model_class, validation_process_pool):
     assert config.resume is not None
-    model = estimate.test(triple_source, config, model_class, pool)
+    model = estimate.test(triple_source, config, model_class, validation_process_pool)
 
 
 def _get_and_validate_input(entities, relations):
@@ -110,7 +109,7 @@ def cli(args):
     model_class = load_class_from_module(config.model, 'kgexpr.models',
                                          'kgexpr.text_models')
 
-    # TODO: DRY
+    # TODO: DRY, contextmanager
     if parsed_args['mode'] in ['train_validate', 'test']:
         ctx = mp.get_context('spawn')
         pool = evaluation.EvaluationProcessPool(config, triple_source, ctx)

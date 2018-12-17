@@ -58,7 +58,7 @@ def train_and_validate(triple_source,
                        config,
                        model_class,
                        optimizer_class,
-                       pool,
+                       pool=None,
                        drawer=None,
                        enable_validation=True):
     """Train and validates the dataset."""
@@ -153,9 +153,8 @@ def train(triple_source, config, model_class, optimizer_class, drawer):
         config,
         model_class,
         optimizer_class,
-        drawer,
+        drawer=drawer,
         enable_validation=False)
-
 
 def interactive_prediction(triple_source, entities, relations, config,
                            model_class, generator):
