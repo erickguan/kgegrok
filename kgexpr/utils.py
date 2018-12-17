@@ -105,7 +105,7 @@ class Config(object):
     report_num_prediction_interactively = 10
 
     # filename to resume
-    save_per_epoch = 0
+    save_per_epoch = 50
     save_after_train = True
     resume = None
 
