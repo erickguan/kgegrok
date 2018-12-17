@@ -80,13 +80,15 @@ def label_collate(sample):
     """Add data label for (batch, negative_batch).
     positive batch shape: (batch_size, 1, 3)
     negative batch shape: (batch_size, negative_samples, 3).
-    label batch shape: (batch_size, 1+negative_samples, 1).
+    label batch shape: (batch_size*(1+negative_samples),).
     """
     batch, negative_batch = sample
 
     labels_shape = (batch.shape[0], 1+negative_batch.shape[1], 1)
     labels = np.full(labels_shape, -1.0, dtype=np.float32)
     labels[:,0,:] = 1.0
+    new_labels_shape = (labels_shape[0] * labels_shape[1])
+    np.reshape(labels, new_labels_shape)
 
     return batch, negative_batch, labels
 

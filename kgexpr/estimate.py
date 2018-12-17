@@ -100,7 +100,7 @@ def train_and_validate(triple_source,
                 labels = None
             elif len(sample_batched) == 3:
                 batch, negative_batch, labels = sample_batched
-                labels = data.convert_triple_tuple_to_torch(labels, config)
+                labels = data.convert_triple_tuple_to_torch(labels, config)[0]
             batch = data.convert_triple_tuple_to_torch(
                 data.get_triples_from_batch(batch), config)
             negative_batch = data.convert_triple_tuple_to_torch(
