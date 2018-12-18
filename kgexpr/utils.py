@@ -30,7 +30,7 @@ def save_checkpoint(state,
 
 
 def load_checkpoint(config, model, optimizer=None):
-    if config.resume:
+    if len(config.resume) > 0:
         if os.path.isfile(config.resume):
             logging.info("loading checkpoint '{}'".format(config.resume))
             checkpoint = torch.load(config.resume)
@@ -107,7 +107,7 @@ class Config(object):
     # filename to resume
     save_per_epoch = 50
     save_after_train = True
-    resume = None
+    resume = ""
 
     # Introduce underministic behaviour but allow cudnn find best algoritm
     cudnn_benchmark = True

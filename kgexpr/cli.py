@@ -29,7 +29,7 @@ def cli_train_and_validate(triple_source, config, model_class, optimizer_class, 
                                         optimizer_class, validation_process_pool, drawer=_create_drawer(config))
 
 def cli_test(triple_source, config, model_class, validation_process_pool):
-    assert config.resume is not None
+    assert config.resume is not None and len(config.resume) > 0
     model = estimate.test(triple_source, config, model_class, validation_process_pool)
 
 
@@ -53,7 +53,7 @@ def _get_and_validate_input(entities, relations):
 
 def cli_demo_prediction(triple_source, config, model_class):
     """Iterative demo"""
-    assert config.resume is not None
+    assert config.resume is not None and len(config.resume) > 0
     config.enable_cuda = False
     entities, relations = read_triple_translation(config)
     generator = _get_and_validate_input(entities, relations)
