@@ -92,7 +92,8 @@ def train_and_validate(triple_source,
         logging.info('--------------------')
 
         loss_epoch = 0.0
-        for i_batch, sample_batched in enumerate(data_loader):
+        i_batch = 0
+        for sample_batched in data_loader:
             logging.info('Training batch ' + str(i_batch + INDEX_OFFSET) + "/" +
                          str(len(data_loader)))
 
@@ -102,6 +103,7 @@ def train_and_validate(triple_source,
             loss_sum.backward()
             optimizer.step()
             loss_epoch += float(loss_sum.item()) # avoid long-term memory usage
+            i_batch += 1
 
         if drawer is not None:
             drawer.append(
