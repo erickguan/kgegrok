@@ -49,7 +49,7 @@ def test(triple_source, config, model_class, pool):
     result = evaluation.predict_links(model, triple_source, config, data_loader,
                                       pool)
 
-    stats.report_prediction_result(config, result, epoch=i_epoch, drawer=None)
+    stats.report_prediction_result(config, result, drawer=None)
 
     return model
 
