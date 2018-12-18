@@ -24,7 +24,7 @@ class Model(nn.Module):
         self.triple_source = triple_source
         self.config = config
 
-    def forward(self, batch, negative_batch=None):
+    def forward(self, batch, negative_batch=None, labels=None):
         """Args:
         batch tensor with shape (batch_size, 1, 3).
         negative_batch tensor with shape (batch_size, negative_samples, 3).
@@ -62,7 +62,7 @@ class TransE(Model):
         loss = criterion(p_score, n_score, y)
         return loss
 
-    def forward(self, batch, negative_batch=None):
+    def forward(self, batch, negative_batch=None, labels=None):
         pos_h, pos_r, pos_t = batch
         p_h = self.entity_embeddings(pos_h)
         p_t = self.entity_embeddings(pos_t)
