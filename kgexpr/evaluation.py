@@ -224,10 +224,14 @@ def predict_links(model, triple_source, config, data_loader, pool):
     model.eval()
 
     for i_batch, sample_batched in enumerate(data_loader):
-        sampled, batch, splits = sample_batched
+        if len(sample_batched) == 4:
+            sampled, batch, splits, labels = sample_batched
+        else:
+            sampled, batch, splits = sample_batched
+            labels = None
         sampled = data.convert_triple_tuple_to_torch(
             data.get_triples_from_batch(sampled), config)
-        predicted_batch = model.forward(sampled).cpu()
+        predicted_batch = model.forward(sampled, None, labels).cpu()
         logging.debug("Current batch's shape {}.".format(predicted_batch.shape))
 
         pool.evaluate_batch((predicted_batch, batch, splits))

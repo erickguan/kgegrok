@@ -76,6 +76,16 @@ class NumpyCollate(object):
         return batch
 
 
+def label_prediction_collate(sample):
+    """Add all positive labels for sample.
+    """
+    tiled, batch, splits = sample
+
+    labels_shape = (tiled.shape[0])
+    labels = np.full(labels_shape, 1.0, dtype=np.float32)
+
+    return tiled, batch, splits, labels
+
 def label_collate(sample):
     """Add data label for (batch, negative_batch).
     positive batch shape: (batch_size, 1, 3)
@@ -136,7 +146,9 @@ class TripleTileCollate(object):
         triple_source: triple source function
     Returns:
         Positive tensor with shape (batch_size * varied_size, 1, 3).
-        varied_size will depends on testing dimension, num_entity and num_relation.
+            varied_size will depends on testing dimension, num_entity and num_relation.
+        Original batch from PyTorch,
+        Splits split points
     """
 
     def __init__(self, config, triple_source):

@@ -250,12 +250,15 @@ def create_dataloader(triple_source,
         ]
         if collates_label:
             collates.append(collators.label_collate)
-        collate_fn = transforms.Compose(collates)
         batch_size = config.batch_size
     else:  # Validation and Test
         batch_size = max(_SAFE_MINIMAL_BATCH_SIZE,
                          int(config.batch_size * config.evaluation_load_factor))
-        collate_fn = collators.TripleTileCollate(config, triple_source)
+        collates = [collators.TripleTileCollate(config, triple_source)]
+        if collates_label:
+            collates.append(collators.label_prediction_collate)
+    collate_fn = transforms.Compose(collates)
+
 
     data_loader = torch.utils.data.DataLoader(
         dataset,
