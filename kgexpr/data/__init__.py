@@ -250,13 +250,18 @@ def create_dataloader(triple_source,
         ]
         if collates_label:
             collates.append(collators.label_collate)
+        else:
+            collates.append(collators.none_label_collate)
         batch_size = config.batch_size
+        collates.append(collators.BreakdownCollator(config))
     else:  # Validation and Test
         batch_size = max(_SAFE_MINIMAL_BATCH_SIZE,
                          int(config.batch_size * config.evaluation_load_factor))
         collates = [collators.TripleTileCollate(config, triple_source)]
         if collates_label:
             collates.append(collators.label_prediction_collate)
+        else:
+            collates.append(collators.none_label_collate)
     collate_fn = transforms.Compose(collates)
 
 

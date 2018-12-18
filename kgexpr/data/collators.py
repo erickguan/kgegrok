@@ -1,6 +1,7 @@
 """different data collator function"""
 
 import numpy as np
+from kgexpr import data
 from kgexpr.data import constants
 from kgexpr.stats.constants import StatisticsDimension
 import kgekit
@@ -102,6 +103,24 @@ def label_collate(sample):
 
     return batch, negative_batch, labels
 
+class BreakdownCollator(object):
+    def __init__(self, config):
+        self.config = config
+
+    def __call__(self, sample):
+        batch, negative_batch, labels = sample
+        if labels is not None:
+            labels = data.convert_triple_tuple_to_torch(labels, self.config)[0]
+        batch = data.convert_triple_tuple_to_torch(
+            data.get_triples_from_batch(batch), self.config)
+        negative_batch = data.convert_triple_tuple_to_torch(
+            data.get_triples_from_batch(negative_batch), self.config)
+        return batch, negative_batch, labels
+
+def none_label_collate(sample):
+    """Adds a None to collators."""
+    batch, negative_batch = sample
+    return (batch, negative_batch, None)
 
 class LCWANoThrowCollate(object):
     """Process and sample an negative batch. Supports multiprocess from pytorch.
