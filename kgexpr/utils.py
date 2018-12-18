@@ -36,7 +36,10 @@ def load_checkpoint(config, model, optimizer=None):
             checkpoint = torch.load(config.resume)
             start_epoch = checkpoint['epoch']
             model.load_state_dict(checkpoint['state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer'])
+            if optimizer is not None:
+                optimizer.load_state_dict(checkpoint['optimizer'])
+            else:
+                logging.warn("Optimizer is not loaded.")
             logging.info("loaded checkpoint '{}' (epoch {})".format(
                 config.resume, checkpoint['epoch']))
         else:
