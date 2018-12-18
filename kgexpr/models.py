@@ -169,7 +169,7 @@ class ComplEx(Model):
 
             return loss
         else:
-            score = -self._calc(p_re_h, p_im_h, p_re_t, p_im_t, p_re_r, p_im_r)
+            score = -self._calc(e_re_h, e_im_h, e_re_t, e_im_t, r_re, r_im)
             return score
 
 
