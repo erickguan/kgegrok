@@ -164,8 +164,11 @@ class _BatchElementConverter(object):
         return x
 
 
-def convert_triple_tuple_to_torch(batch, config):
-    converter = _BatchElementConverter(config.enable_cuda)
+def convert_triple_tuple_to_torch(batch, config, enable_cuda_override):
+    if enable_cuda_override is not None:
+        converter = _BatchElementConverter(enable_cuda_override)
+    else:
+        converter = _BatchElementConverter(config.enable_cuda)
     return tuple(map(converter, batch))
 
 

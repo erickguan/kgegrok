@@ -110,11 +110,11 @@ class BreakdownCollator(object):
     def __call__(self, sample):
         batch, negative_batch, labels = sample
         if labels is not None:
-            labels = data.convert_triple_tuple_to_torch(labels, self.config)[0]
+            labels = data.convert_triple_tuple_to_torch(labels, self.config, False)[0]
         batch = data.convert_triple_tuple_to_torch(
-            data.get_triples_from_batch(batch), self.config)
+            data.get_triples_from_batch(batch), self.config, False)
         negative_batch = data.convert_triple_tuple_to_torch(
-            data.get_triples_from_batch(negative_batch), self.config)
+            data.get_triples_from_batch(negative_batch), self.config, False)
         return batch, negative_batch, labels
 
 def none_label_collate(sample):
