@@ -26,16 +26,19 @@ class TripleSource(object):
         """
         self.data_dir = data_dir
         self._train_set, num_failed = kgekit.io.read_triple_indexes(
-            os.path.join(self.data_dir, self.TRAIN_FILENAME), triple_order,
-            delimiter)
+            os.path.join(self.data_dir, self.TRAIN_FILENAME),
+            triple_order=triple_order,
+            delimiter=delimiter)
         assert num_failed == 0
         self._valid_set, num_failed = kgekit.io.read_triple_indexes(
-            os.path.join(self.data_dir, self.VALID_FILENAME), triple_order,
-            delimiter)
+            os.path.join(self.data_dir, self.VALID_FILENAME),
+            triple_order=triple_order,
+            delimiter=delimiter)
         assert num_failed == 0
         self._test_set, num_failed = kgekit.io.read_triple_indexes(
-            os.path.join(self.data_dir, self.TEST_FILENAME), triple_order,
-            delimiter)
+            os.path.join(self.data_dir, self.TEST_FILENAME),
+            triple_order=triple_order,
+            delimiter=delimiter)
         assert num_failed == 0
         head_compare = lambda x: x.head
         tail_compare = lambda x: x.tail
