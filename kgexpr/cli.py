@@ -13,7 +13,7 @@ from kgexpr import data
 from kgexpr import estimate
 from kgexpr import stats
 from kgexpr import evaluation
-from kgexpr.utils import report_gpu_info, load_class_from_module, read_triple_translation, Config
+from kgexpr import utils
 
 
 def _create_drawer(config):
@@ -55,7 +55,7 @@ def cli_demo_prediction(triple_source, config, model_class):
     """Iterative demo"""
     assert config.resume is not None and len(config.resume) > 0
     config.enable_cuda = False
-    entities, relations = read_triple_translation(config)
+    entities, relations = utils.read_triple_translation(config)
     generator = _get_and_validate_input(entities, relations)
     estimate.interactive_prediction(triple_source, entities, relations, config,
                                     model_class, generator)
@@ -64,11 +64,15 @@ def cli_demo_prediction(triple_source, config, model_class):
 def cli_config_and_parse_args(args):
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', default='train')
-    for k in Config.registered_options():
-        parser.add_argument("--{}".format(k), type=Config.option_type(k))
+    for k in utils.Config.registered_options():
+        cfg_type = utils.Config.option_type(k)
+        if cfg_type == bool:
+            parser.add_argument("--{}".format(k), type=utils.str2bool)
+        else:
+            parser.add_argument("--{}".format(k), type=utils.Config.option_type(k))
 
     parsed_args = vars(parser.parse_args(args[1:]))
-    config = Config(parsed_args)
+    config = utils.Config(parsed_args)
     config.enable_cuda = True if torch.cuda.is_available(
     ) and config.enable_cuda else False
 
@@ -88,7 +92,7 @@ def cli(args):
     logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
                         datefmt='%m/%d/%Y %H:%M:%S',
                         level=logging.INFO)
-    report_gpu_info()
+    utils.report_gpu_info()
 
     config, parsed_args = cli_config_and_parse_args(args)
     print(config.__dict__)
@@ -106,7 +110,7 @@ def cli(args):
 
     triple_source = data.TripleSource(config.data_dir, config.triple_order,
                                       config.triple_delimiter)
-    model_class = load_class_from_module(config.model, 'kgexpr.models',
+    model_class = utils.load_class_from_module(config.model, 'kgexpr.models',
                                          'kgexpr.text_models')
 
     # TODO: DRY, contextmanager
@@ -119,11 +123,11 @@ def cli(args):
     select.select([sys.stdin], [], [], 4)
 
     if parsed_args['mode'] == 'train':
-        optimizer_class = load_class_from_module(config.optimizer,
+        optimizer_class = utils.load_class_from_module(config.optimizer,
                                                  'torch.optim')
         cli_train(triple_source, config, model_class, optimizer_class)
     elif parsed_args['mode'] == 'train_validate':
-        optimizer_class = load_class_from_module(config.optimizer,
+        optimizer_class = utils.load_class_from_module(config.optimizer,
                                                  'torch.optim')
         cli_train_and_validate(triple_source, config, model_class, optimizer_class, pool)
     elif parsed_args['mode'] == 'test':
