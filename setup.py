@@ -12,9 +12,11 @@ from setuptools.command.build_ext import build_ext
 from shutil import copyfile, copymode
 from setuptools import find_packages
 
+import kgexpr
+
 setup(
     name='kgexpr',
-    version='0.1.0',
+    version=kgexpr.__version__,
     description='knowledge representation learning',
     long_description=open("README.md", "r").read(),
     long_description_content_type="text/markdown",
@@ -23,7 +25,7 @@ setup(
     author_email='fantasticfears@gmail.com',
     license='GPLv2',
     packages=find_packages(),
-    install_requires=['kgekit', 'numpy>=1.10', 'pytorch>=0.4'],
+    install_requires=['kgekit', 'numpy>=1.10', 'pytorch>=1.0'],
     test_suite='tests',
     zip_safe=False,
     include_package_data=True,
