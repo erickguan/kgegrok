@@ -106,6 +106,7 @@ class Config(object):
     margin = 1.0
     epochs = 1000
     alpha = 0.001
+    lr = 0.96
     lr_decay = 0.96
     weight_decay = 0.96
     lambda_ = 0.001
