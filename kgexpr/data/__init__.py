@@ -266,8 +266,6 @@ def create_dataloader(triple_source,
         collates = [collators.TripleTileCollate(config, triple_source)]
         if collates_label:
             collates.append(collators.label_prediction_collate)
-        else:
-            collates.append(collators.none_label_collate)
     collate_fn = transforms.Compose(collates)
 
 
