@@ -3,6 +3,7 @@ import numpy as np
 import sys
 import select
 import argparse
+from contextlib import contextmanager
 
 import torch
 import torch.optim as optim
@@ -87,6 +88,21 @@ def seed_modules(numpy_seed, torch_seed, torcu_cuda_seed_all,
     torch.backends.cudnn.deterministic = cuda_deterministic
     torch.backends.cudnn.benchmark = cuda_benchmark
 
+@contextmanager
+def _validation_resource_manager(mode, config, triple_source, required_modes=['train_validate', 'test']):
+    """prepare resources if validation is needed."""
+    enabled = mode in required_modes
+    try:
+        if enabled:
+            ctx = mp.get_context('spawn')
+            pool = evaluation.EvaluationProcessPool(self.config, self.triple_source, self.ctx)
+            pool.start()
+            yield pool
+        else:
+            yield None
+    finally:
+        if enabled:
+           pool.stop()
 
 def cli(args):
     logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
@@ -113,33 +129,24 @@ def cli(args):
     model_class = utils.load_class_from_module(config.model, 'kgexpr.models',
                                          'kgexpr.text_models')
 
-    # TODO: DRY, contextmanager
-    if parsed_args['mode'] in ['train_validate', 'test']:
-        ctx = mp.get_context('spawn')
-        pool = evaluation.EvaluationProcessPool(config, triple_source, ctx)
-        pool.start()
+    with _validation_resource_manager(parsed_args['mode'], config, triple_source) as pool:
+        # maybe roughly 10s now
+        select.select([sys.stdin], [], [], 4)
 
-    # maybe roughly 10s now
-    select.select([sys.stdin], [], [], 4)
-
-    if parsed_args['mode'] == 'train':
-        optimizer_class = utils.load_class_from_module(config.optimizer,
-                                                 'torch.optim')
-        cli_train(triple_source, config, model_class, optimizer_class)
-    elif parsed_args['mode'] == 'train_validate':
-        optimizer_class = utils.load_class_from_module(config.optimizer,
-                                                 'torch.optim')
-        cli_train_and_validate(triple_source, config, model_class, optimizer_class, pool)
-    elif parsed_args['mode'] == 'test':
-        cli_test(triple_source, config, model_class, pool)
-    elif parsed_args['mode'] == 'demo_prediction':
-        cli_demo_prediction(triple_source, config, model_class)
-    else:
-        raise RuntimeError("Wrong mode {} selected.".format(parsed_args['mode']))
-
-    # TODO: DRY
-    if parsed_args['mode'] in ['train_validate', 'test']:
-        pool.stop()
+        if parsed_args['mode'] == 'train':
+            optimizer_class = utils.load_class_from_module(config.optimizer,
+                                                    'torch.optim')
+            cli_train(triple_source, config, model_class, optimizer_class)
+        elif parsed_args['mode'] == 'train_validate':
+            optimizer_class = utils.load_class_from_module(config.optimizer,
+                                                    'torch.optim')
+            cli_train_and_validate(triple_source, config, model_class, optimizer_class, pool)
+        elif parsed_args['mode'] == 'test':
+            cli_test(triple_source, config, model_class, pool)
+        elif parsed_args['mode'] == 'demo_prediction':
+            cli_demo_prediction(triple_source, config, model_class)
+        else:
+            raise RuntimeError("Wrong mode {} selected.".format(parsed_args['mode']))
 
 
 if __name__ == '__main__':
