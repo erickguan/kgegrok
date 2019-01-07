@@ -135,9 +135,9 @@ class LCWANoThrowCollate(object):
         self.transform = transform
 
     def __call__(self, batch_set, sample_seed=None):
-        if isinstance(batch_set, tuple) and len(batch_set) == 2:
+        try:
             corrupt_head, batch = batch_set
-        else:
+        except:
             raise RuntimeError(
                 "Wrong parameter type. Need a tuple (corrupt_head, batch). Got "
                 + str(type(batch_set)))

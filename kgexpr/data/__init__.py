@@ -231,6 +231,39 @@ def create_text_dataloader(triple_source, config, collators_label=False):
     collate_fn = transforms.Compose(collates)
     batch_size = config.batch_size
 
+class TripleIndexBatchSampler(object):
+    """Samples a mini-batch of triple indexes."""
+
+    def __init__(self, dataset, batch_size):
+        self.dataset = dataset
+        self.batch_size = batch_size
+
+    def __iter__(self):
+        # sequence iterator
+        self.cursor = 0
+        self.max_item = len(self.dataset)
+        return self
+
+    def __len__(self):
+        # if self.drop_last:
+        #     return len(self.sampler) // self.batch_size
+        return (len(self.dataset) + self.batch_size - 1) // self.batch_size
+
+    def __next__(self):
+        if self.cursor + self.batch_size < self.max_item:
+            batch = np.empty((self.batch_size), dtype=np.int64)
+            for i in range(self.batch_size):
+                batch[i] = self.cursor + i
+            self.cursor += self.batch_size
+        else: # last batch
+            batch_size = self.max_item - self.cursor
+            if batch_size <= 0:
+                raise StopIteration()
+            batch = np.empty((batch_size), dtype=np.int64)
+            for i in range(batch_size):
+                batch[i] = self.cursor + i
+            self.cursor += batch_size
+        return batch
 
 def create_dataloader(triple_source,
                       config,
@@ -269,9 +302,10 @@ def create_dataloader(triple_source,
     collate_fn = transforms.Compose(collates)
 
 
+    batch_sampler = TripleIndexBatchSampler(dataset, batch_size)
     data_loader = torch.utils.data.DataLoader(
         dataset,
-        batch_size=batch_size,
+        batch_sampler=batch_sampler,
         num_workers=config.num_workers,
         pin_memory=True,  # May cause system froze because of of non-preemption
         collate_fn=collate_fn,

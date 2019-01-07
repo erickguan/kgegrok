@@ -21,6 +21,12 @@ def _create_drawer(config):
     return stats.ReportDrawer(visdom.Visdom(
         port=6006), config) if config.plot_graph else None
 
+def cli_profile(triple_source, config, model_class, optimizer_class):
+    with torch.autograd.profiler.profile() as prof:
+        model = estimate.train(triple_source, config, model_class,
+                        optimizer_class, drawer=_create_drawer(config))
+    print(prof)
+
 def cli_train(triple_source, config, model_class, optimizer_class):
     model = estimate.train(triple_source, config, model_class,
                            optimizer_class, drawer=_create_drawer(config))
@@ -145,6 +151,10 @@ def cli(args):
             cli_test(triple_source, config, model_class, pool)
         elif parsed_args['mode'] == 'demo_prediction':
             cli_demo_prediction(triple_source, config, model_class)
+        elif parsed_args['mode'] == 'profile':
+            optimizer_class = utils.load_class_from_module(config.optimizer,
+                                        'torch.optim')
+            cli_profile(triple_source, config, model_class, optimizer_class)
         else:
             raise RuntimeError("Wrong mode {} selected.".format(parsed_args['mode']))
 
