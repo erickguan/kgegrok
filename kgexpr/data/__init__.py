@@ -122,12 +122,15 @@ class TripleIndexesDataset(Dataset):
 def get_triples_from_batch(batch):
     """Returns h, r, t and possible label from batch."""
 
-    batch_size, num_samples, num_element = batch.shape
-    elements = np.split(batch, num_element, axis=2)
-    if num_samples <= 1:
-        return (e.reshape(batch_size) for e in elements)
-    else:
+    multiple_samples = (batch.ndim == 3)
+    if multiple_samples:
+        batch_size, num_samples, num_element = batch.shape
+        elements = np.split(batch, num_element, axis=2)
         return (e.reshape(batch_size, num_samples) for e in elements)
+    else:
+        batch_size, num_element = batch.shape
+        elements = np.split(batch, num_element, axis=1)
+        return (e.reshape(batch_size) for e in elements)
 
 
 def np_to_tensor(x, cuda_enabled=False):
