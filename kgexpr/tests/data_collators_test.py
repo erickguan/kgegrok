@@ -38,15 +38,16 @@ class DataTest(unittest.TestCase):
 
     def test_uniform_collate(self):
         np.random.seed(0)
+        corruptor = kgekit.UniformCorruptor()
         self.assertEqual(
-            collators.UniformCorruptionCollate()(self.small_triple_list),
+            collators.CorruptionCollate(corruptor)(self.small_triple_list),
             ([False, False], self.small_triple_list))
 
     def test_bernoulli_corruption_collate(self):
         np.random.seed(0)
         corruptor = kgekit.BernoulliCorruptor(self.source.train_set)
         self.assertEqual(
-            collators.BernoulliCorruptionCollate(self.source, corruptor)(
+            collators.CorruptionCollate(corruptor)(
                 self.small_triple_list),
             ([False, False], self.small_triple_list))
 

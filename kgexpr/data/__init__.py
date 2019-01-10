@@ -281,7 +281,7 @@ def create_dataloader(triple_source,
         corruptor = kgekit.BernoulliCorruptor(triple_source.train_set)
 
         collates = [
-            collators.BernoulliCorruptionCollate(triple_source, corruptor),
+            collators.CorruptionCollate(corruptor),
             collators.LCWANoThrowCollate(
                 triple_source,
                 negative_sampler,

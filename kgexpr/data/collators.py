@@ -7,56 +7,19 @@ from kgexpr.stats.constants import StatisticsDimension
 import kgekit
 
 
-def _make_random_choice(size, probability):
-    if isinstance(probability[0], float):
-        choices = [
-            np.random.choice([True, False], p=probability) for _ in range(size)
-        ]
-    else:
-        choices = [
-            np.random.choice([True, False], p=probability[i])
-            for i in range(size)
-        ]
-    return choices
-
-
-def _round_probablities(probability):
-    return (probability, 1 - probability)
-
-
-class BernoulliCorruptionCollate(object):
-    """Generates corrupted head/tail decision in Bernoulli Distribution based on tph.
+class CorruptionCollate(object):
+    """Generates corrupted head/tail decision in uniform distribution.
+    if used with bernoulli corruptor, it's Bernoulli Distribution based on tph.
     True means we will corrupt head."""
 
-    def __init__(self, triple_source, bernoulli_corruptor):
-        """Loads the data from source."""
-        self.train_set = triple_source.train_set
-        self.bernoulli_corruptor = bernoulli_corruptor
+    def __init__(self, corruptor):
+        self.corruptor = corruptor
 
     def __call__(self, batch: constants.TripleIndexList):
         """return corruption flag and actual batch"""
-        if isinstance(batch[0], list):
-            probabilities = [
-                _round_probablities(
-                    self.bernoulli_corruptor.getProbablityRelation(t[1]))
-                for t in batch
-            ]
-        else:
-            probabilities = [
-                _round_probablities(
-                    self.bernoulli_corruptor.getProbablityRelation(t.relation))
-                for t in batch
-            ]
-        return _make_random_choice(len(batch), probabilities), batch
-
-
-class UniformCorruptionCollate(object):
-    """Generates corrupted head/tail decision in uniform distribution.
-    True means we will corrupt head."""
-
-    def __call__(self, batch: constants.TripleIndexList):
-        """batch is a list"""
-        return _make_random_choice(len(batch), [0.5, 0.5]), batch
+        choices = np.empty(len(batch), dtype=np.bool_)
+        self.corruptor.make_random_choice(batch, choices)
+        return choices, batch
 
 
 class NumpyCollate(object):
