@@ -47,7 +47,7 @@ def label_prediction_collate(sample):
     tiled, batch, splits = sample
 
     labels_shape = (tiled.shape[0])
-    labels = np.full(labels_shape, 1.0, dtype=np.float32)
+    labels = np.full(labels_shape, 1, dtype=np.int64)
 
     return tiled, batch, splits, labels
 
@@ -59,12 +59,9 @@ def label_collate(sample):
     """
     batch, negative_batch = sample
 
-    labels_shape = (batch.shape[0], 1+negative_batch.shape[1], 1)
-    labels = np.full(labels_shape, -1.0, dtype=np.float32)
-    labels[:,0,:] = 1.0
-    new_labels_shape = (labels_shape[0] * labels_shape[1])
-    np.reshape(labels, new_labels_shape)
-
+    labels_shape = (batch.shape[0]*(1+negative_batch.shape[1]),)
+    labels = np.full(labels_shape, -1, dtype=np.int64)
+    labels[:batch.shape[0]] = 1
     return batch, negative_batch, labels
 
 class BreakdownCollator(object):
@@ -74,7 +71,7 @@ class BreakdownCollator(object):
     def __call__(self, sample):
         batch, negative_batch, labels = sample
         if labels is not None:
-            labels = data.convert_triple_tuple_to_torch(labels, self.config, False)[0]
+            labels = data.np_to_tensor(labels, self.config.enable_cuda)
         batch = data.convert_triple_tuple_to_torch(
             data.get_triples_from_batch(batch), self.config, False)
         negative_batch = data.convert_triple_tuple_to_torch(
@@ -98,7 +95,7 @@ class LCWANoThrowCollate(object):
         self.sampler = negative_sampler
         self.transform = transform
 
-    def __call__(self, batch_set, sample_seed=None):
+    def __call__(self, batch_set):
         try:
             corrupt_head, batch = batch_set
         except:
@@ -110,11 +107,8 @@ class LCWANoThrowCollate(object):
             (batch_size, self.sampler.numNegativeSamples(),
              constants.TRIPLE_LENGTH),
             dtype=np.int64)
-        if sample_seed is None:
-            sample_seed = np.random.randint(0, 10000000000)
 
-        assert isinstance(sample_seed, int)
-        self.sampler.sample(negative_batch, corrupt_head, batch, sample_seed)
+        self.sampler.sample(negative_batch, corrupt_head, batch)
 
         # We don't want to waste memory here. so batch was passed as a list
         if self.transform:

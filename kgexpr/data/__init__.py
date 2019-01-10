@@ -154,18 +154,20 @@ def get_triples_from_batch(batch):
         return (e.reshape(batch_size, num_samples) for e in elements)
 
 
-class _BatchElementConverter(object):
+def np_to_tensor(x, cuda_enabled=False):
+    x = torch.from_numpy(x)
+    # Input is an index to find relevant embeddings. We don't track them
+    x.requires_grad_(False)
+    if cuda_enabled:
+        x = x.cuda()
+    return x
 
+class _BatchElementConverter(object):
     def __init__(self, cuda_enabled=False):
         self.cuda_enabled = cuda_enabled
 
     def __call__(self, x):
-        x = torch.from_numpy(x)
-        # Input is an index to find relevant embeddings. We don't track them
-        x.requires_grad_(False)
-        if self.cuda_enabled:
-            x = x.cuda()
-        return x
+        return np_to_tensor(x, self.cuda_enabled)
 
 
 def convert_triple_tuple_to_torch(batch, config, enable_cuda_override=None):
@@ -210,28 +212,6 @@ def expand_triple_to_sets(triple, num_expands, arange_target):
 _SAFE_MINIMAL_BATCH_SIZE = 1
 
 
-def create_text_dataloader(triple_source, config, collators_label=False):
-    dataset = TripleIndexesDataset(triple_source, dataset_type)
-
-    # Use those C++ extension is fast but then we can't use spawn method to start data loader.
-    negative_sampler = kgedata.LCWANoThrowSampler(
-        triple_source.train_set, triple_source.num_entity,
-        triple_source.num_relation, config.negative_entity,
-        config.negative_relation, kgedata.LCWANoThrowSamplerStrategy.Hash)
-    corruptor = kgedata.BernoulliCorruptor(triple_source.train_set)
-
-    collates = [
-        collators.BernoulliCorruptionCollate(triple_source, corruptor),
-        collators.LCWANoThrowCollate(
-            triple_source,
-            negative_sampler,
-            transform=transformers.OrderedTripleListTransform(config.triple_order)),
-    ]
-    if collates_label:
-        collates.append(collators.label_collate)
-    collate_fn = transforms.Compose(collates)
-    batch_size = config.batch_size
-
 class TripleIndexBatchSampler(object):
     """Samples a mini-batch of triple indexes."""
 
@@ -266,6 +246,8 @@ class TripleIndexBatchSampler(object):
             self.cursor += batch_size
         return batch
 
+SEED_OFFSET = 100
+
 def create_dataloader(triple_source,
                       config,
                       collates_label=False,
@@ -278,8 +260,10 @@ def create_dataloader(triple_source,
         negative_sampler = kgedata.LCWANoThrowSampler(
             triple_source.train_set, triple_source.num_entity,
             triple_source.num_relation, config.negative_entity,
-            config.negative_relation, kgedata.LCWANoThrowSamplerStrategy.Hash)
-        corruptor = kgedata.BernoulliCorruptor(triple_source.train_set)
+            config.negative_relation,
+            config.base_seed,
+            kgedata.LCWANoThrowSamplerStrategy.Hash)
+        corruptor = kgedata.BernoulliCorruptor(triple_source.train_set, triple_source.num_relation, config.base_seed+SEED_OFFSET)
 
         collates = [
             collators.CorruptionCollate(corruptor),
@@ -308,7 +292,7 @@ def create_dataloader(triple_source,
         dataset,
         batch_sampler=batch_sampler,
         num_workers=config.num_workers,
-        pin_memory=True,  # May cause system froze because of of non-preemption
+        pin_memory=True,  # May cause system froze because of not enough physical memory
         collate_fn=collate_fn,
     )
     return data_loader

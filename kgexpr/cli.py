@@ -86,13 +86,14 @@ def cli_config_and_parse_args(args):
     return config, parsed_args
 
 
-def seed_modules(numpy_seed, torch_seed, torcu_cuda_seed_all,
-                 cuda_deterministic, cuda_benchmark):
+def seed_modules(config, numpy_seed, torch_seed, torcu_cuda_seed_all,
+                 cuda_deterministic, kgexpr_base_seed, cuda_benchmark):
     np.random.seed(numpy_seed)
     torch.manual_seed(torch_seed)
     torch.cuda.manual_seed_all(torcu_cuda_seed_all)
     torch.backends.cudnn.deterministic = cuda_deterministic
     torch.backends.cudnn.benchmark = cuda_benchmark
+    config.base_seed = kgexpr_base_seed
 
 @contextmanager
 def _validation_resource_manager(mode, config, triple_source, required_modes=['train_validate', 'test']):
@@ -124,10 +125,12 @@ def cli(args):
     select.select([sys.stdin], [], [], 3)
 
     seed_modules(
+        config,
         numpy_seed=10000,
         torch_seed=20000,
         torcu_cuda_seed_all=2192,
         cuda_deterministic=True,
+        kgexpr_base_seed=30000,
         cuda_benchmark=config.cudnn_benchmark)
 
     triple_source = data.TripleSource(config.data_dir, config.triple_order,
