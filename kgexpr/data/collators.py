@@ -41,6 +41,10 @@ class NumpyCollate(object):
         return batch
 
 
+def list_stack_collate(sample):
+    """Merge list into a mini-batch"""
+    return np.stack(sample, axis=0)
+
 def label_prediction_collate(sample):
     """Add all positive labels for sample.
     """

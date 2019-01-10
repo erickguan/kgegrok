@@ -68,7 +68,7 @@ class DataTest(unittest.TestCase):
     def test_ordered_triple_transform(self):
         transform_dataset = data.TripleIndexesDataset(
             self.source,
-            transform=transforms.Compose([data.OrderedTripleTransform("hrt")]))
+            transform=transforms.Compose([transformers.OrderedTripleTransform("hrt")]))
         self.assertEqual(transform_dataset[0], [0, 0, 1])
 
     def test_get_triples_from_batch(self):

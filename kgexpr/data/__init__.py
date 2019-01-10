@@ -106,6 +106,8 @@ class TripleIndexesDataset(Dataset):
             raise RuntimeError("DatasetType doesn't exists. It's " +
                                str(dataset_type))
         self.transform = transform
+        if self.transform:
+            self.triples = self.transform(self.triples)
 
     def __len__(self):
         return len(self.triples)
@@ -113,34 +115,8 @@ class TripleIndexesDataset(Dataset):
     def __getitem__(self, idx):
         sample = self.triples[idx]
 
-        if self.transform:
-            sample = self.transform(sample)
-
         return sample
 
-
-class OrderedTripleTransform(object):
-    """Reformat a triple index into list.
-
-    Args:
-        triple_order (str): Desired triple order in list.
-    """
-
-    def __init__(self, triple_order):
-        kgekit.utils.assert_triple_order(triple_order)
-        self.triple_order = triple_order
-
-    def __call__(self, sample):
-        vec = []
-        for o in self.triple_order:
-            if o == 'h':
-                vec.append(sample.head)
-            elif o == 'r':
-                vec.append(sample.relation)
-            elif o == 't':
-                vec.append(sample.tail)
-
-        return vec
 
 
 def get_triples_from_batch(batch):
@@ -253,24 +229,29 @@ def create_dataloader(triple_source,
                       collates_label=False,
                       dataset_type=constants.DatasetType.TRAINING):
     """Creates dataloader with certain types"""
-    dataset = TripleIndexesDataset(triple_source, dataset_type)
+    dataset = TripleIndexesDataset(
+        triple_source,
+        dataset_type,
+        transform=transformers.OrderedTripleListTransform(config.triple_order))
 
     # Use those C++ extension is fast but then we can't use spawn method to start data loader.
     if dataset_type == constants.DatasetType.TRAINING:
         negative_sampler = kgedata.LCWANoThrowSampler(
-            triple_source.train_set, triple_source.num_entity,
-            triple_source.num_relation, config.negative_entity,
+            triple_source.train_set,
+            triple_source.num_entity,
+            triple_source.num_relation,
+            config.negative_entity,
             config.negative_relation,
             config.base_seed,
             kgedata.LCWANoThrowSamplerStrategy.Hash)
         corruptor = kgedata.BernoulliCorruptor(triple_source.train_set, triple_source.num_relation, config.base_seed+SEED_OFFSET)
 
         collates = [
+            collators.list_stack_collate,
             collators.CorruptionCollate(corruptor),
             collators.LCWANoThrowCollate(
                 triple_source,
-                negative_sampler,
-                transform=transformers.OrderedTripleListTransform(config.triple_order)),
+                negative_sampler),
         ]
         if collates_label:
             collates.append(collators.label_collate)
