@@ -6,6 +6,7 @@ from torchvision import transforms
 import numpy as np
 import torch
 import pytest
+import kgedata
 
 
 class Config(object):
@@ -31,8 +32,8 @@ class DataStatstoolsTest(unittest.TestCase):
         cls.source = data.TripleSource(cls.triple_dir, 'hrt', ' ')
         cls.dataset = data.TripleIndexesDataset(cls.source)
         cls.small_triple_list = [
-            kgekit.TripleIndex(0, 0, 1),
-            kgekit.TripleIndex(1, 1, 2)
+            kgedata.TripleIndex(0, 0, 1),
+            kgedata.TripleIndex(1, 1, 2)
         ]
         cls.samples = ([True, False], cls.small_triple_list)
 

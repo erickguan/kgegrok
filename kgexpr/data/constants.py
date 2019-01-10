@@ -2,7 +2,7 @@
 
 from enum import Enum, Flag
 from typing import List
-from kgekit import TripleIndex
+from kgedata import TripleIndex
 
 TripleIndexList = List[TripleIndex]
 

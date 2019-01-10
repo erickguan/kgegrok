@@ -5,6 +5,7 @@ from kgexpr import data
 from kgexpr.data import constants
 from kgexpr.stats.constants import StatisticsDimension
 import kgekit
+import kgedata
 
 
 class CorruptionCollate(object):
@@ -139,7 +140,7 @@ class TripleTileCollate(object):
 
     def __call__(self, batch: constants.TripleIndexList):
         """process a mini-batch."""
-        sampled, splits = kgekit.expand_triple_batch(
+        sampled, splits = kgedata.expand_triple_batch(
             batch, self.triple_source.num_entity,
             self.triple_source.num_relation,
             (self.config.report_dimension & StatisticsDimension.SEPERATE_ENTITY)

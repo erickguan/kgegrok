@@ -8,6 +8,7 @@ import torch
 import torch.multiprocessing as mp
 
 import kgekit
+import kgedata
 from kgexpr.data import constants
 from kgexpr import stats
 from kgexpr import data
@@ -143,7 +144,7 @@ class EvaluationProcessPool(object):
         self._context = context
         self._manager = self._context.Manager()
         self._ns = self._manager.Namespace()
-        self._ns.ranker = kgekit.Ranker(triple_source.train_set,
+        self._ns.ranker = kgedata.Ranker(triple_source.train_set,
                                         triple_source.valid_set,
                                         triple_source.test_set)
         self._input = self._context.SimpleQueue()
@@ -266,7 +267,7 @@ def evaulate_prediction_np_collate(model, triple_source, config, ranker,
     for i_batch, sample_batched in enumerate(data_loader):
         # sample_batched is a list of triple. triple has shape (1, 3). We need to tile it for the test.
         for triple in sample_batched:
-            triple_index = kgekit.TripleIndex(*triple[0, :])
+            triple_index = kgedata.TripleIndex(*triple[0, :])
 
             if (config.report_dimension &
                     stats.StatisticsDimension.SEPERATE_ENTITY) or (

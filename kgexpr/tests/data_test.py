@@ -7,6 +7,7 @@ from torchvision import transforms
 import numpy as np
 import torch
 import pytest
+import kgedata
 
 
 class Config(object):
@@ -32,8 +33,8 @@ class DataTest(unittest.TestCase):
         cls.source = data.TripleSource(cls.triple_dir, 'hrt', ' ')
         cls.dataset = data.TripleIndexesDataset(cls.source)
         cls.small_triple_list = [
-            kgekit.TripleIndex(0, 0, 1),
-            kgekit.TripleIndex(1, 1, 2)
+            kgedata.TripleIndex(0, 0, 1),
+            kgedata.TripleIndex(1, 1, 2)
         ]
         cls.samples = ([True, False], cls.small_triple_list)
 
@@ -46,7 +47,7 @@ class DataTest(unittest.TestCase):
 
     def test_dataset(self):
         self.assertEqual(len(self.dataset), 4)
-        self.assertEqual(self.dataset[0], kgekit.TripleIndex(0, 0, 1))
+        self.assertEqual(self.dataset[0], kgedata.TripleIndex(0, 0, 1))
 
         valid_dataset = data.TripleIndexesDataset(
             self.source, constants.DatasetType.VALIDATION)
@@ -60,10 +61,10 @@ class DataTest(unittest.TestCase):
 
     def test_get_triples_from_batch(self):
         np.random.seed(0)
-        negative_sampler = kgekit.LCWANoThrowSampler(
+        negative_sampler = kgedata.LCWANoThrowSampler(
             self.source.train_set, self.source.num_entity,
             self.source.num_relation, 1, 1,
-            kgekit.LCWANoThrowSamplerStrategy.Hash)
+            kgedata.LCWANoThrowSamplerStrategy.Hash)
         batch, negatives = collators.LCWANoThrowCollate(
             self.source,
             negative_sampler,
@@ -80,10 +81,10 @@ class DataTest(unittest.TestCase):
 
     def test_get_negative_samples_from_batch(self):
         np.random.seed(0)
-        negative_sampler = kgekit.LCWANoThrowSampler(
+        negative_sampler = kgedata.LCWANoThrowSampler(
             self.source.train_set, self.source.num_entity,
             self.source.num_relation, 1, 1,
-            kgekit.LCWANoThrowSamplerStrategy.Hash)
+            kgedata.LCWANoThrowSamplerStrategy.Hash)
         batch, negatives = collators.LCWANoThrowCollate(
             self.source,
             negative_sampler,
@@ -108,10 +109,10 @@ class DataTest(unittest.TestCase):
 
     def test_get_labels_from_batch(self):
         np.random.seed(0)
-        negative_sampler = kgekit.LCWANoThrowSampler(
+        negative_sampler = kgedata.LCWANoThrowSampler(
             self.source.train_set, self.source.num_entity,
             self.source.num_relation, 1, 1,
-            kgekit.LCWANoThrowSamplerStrategy.Hash)
+            kgedata.LCWANoThrowSamplerStrategy.Hash)
         batch_sampled = collators.LCWANoThrowCollate(
             self.source,
             negative_sampler,

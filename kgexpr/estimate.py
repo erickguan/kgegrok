@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 import kgekit.data
+import kgedata
 from kgexpr import stats
 from kgexpr import data
 from kgexpr import evaluation
@@ -39,7 +40,7 @@ def test(triple_source, config, model_class, pool):
         dataset_type=constants.DatasetType.TESTING)
     model = nn.DataParallel(model_class(triple_source, config))
     load_checkpoint(config, model)
-    ranker = kgekit.Ranker(triple_source.train_set, triple_source.valid_set,
+    ranker = kgedata.Ranker(triple_source.train_set, triple_source.valid_set,
                            triple_source.test_set)
 
     if config.enable_cuda:

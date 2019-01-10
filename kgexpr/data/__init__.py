@@ -3,6 +3,7 @@
 import os
 import kgekit.io
 import kgekit.utils
+import kgedata
 import torch
 from torch.utils.data import Dataset
 import numpy as np
@@ -213,11 +214,11 @@ def create_text_dataloader(triple_source, config, collators_label=False):
     dataset = TripleIndexesDataset(triple_source, dataset_type)
 
     # Use those C++ extension is fast but then we can't use spawn method to start data loader.
-    negative_sampler = kgekit.LCWANoThrowSampler(
+    negative_sampler = kgedata.LCWANoThrowSampler(
         triple_source.train_set, triple_source.num_entity,
         triple_source.num_relation, config.negative_entity,
-        config.negative_relation, kgekit.LCWANoThrowSamplerStrategy.Hash)
-    corruptor = kgekit.BernoulliCorruptor(triple_source.train_set)
+        config.negative_relation, kgedata.LCWANoThrowSamplerStrategy.Hash)
+    corruptor = kgedata.BernoulliCorruptor(triple_source.train_set)
 
     collates = [
         collators.BernoulliCorruptionCollate(triple_source, corruptor),
@@ -274,11 +275,11 @@ def create_dataloader(triple_source,
 
     # Use those C++ extension is fast but then we can't use spawn method to start data loader.
     if dataset_type == constants.DatasetType.TRAINING:
-        negative_sampler = kgekit.LCWANoThrowSampler(
+        negative_sampler = kgedata.LCWANoThrowSampler(
             triple_source.train_set, triple_source.num_entity,
             triple_source.num_relation, config.negative_entity,
-            config.negative_relation, kgekit.LCWANoThrowSamplerStrategy.Hash)
-        corruptor = kgekit.BernoulliCorruptor(triple_source.train_set)
+            config.negative_relation, kgedata.LCWANoThrowSamplerStrategy.Hash)
+        corruptor = kgedata.BernoulliCorruptor(triple_source.train_set)
 
         collates = [
             collators.CorruptionCollate(corruptor),
@@ -324,7 +325,7 @@ def sieve_and_expand_triple(triple_source, entities, relations, head, relation,
     if head == '?':
         r = relations[relation]
         t = entities[tail]
-        triple_index = kgekit.TripleIndex(-1, r, t)
+        triple_index = kgedata.TripleIndex(-1, r, t)
 
         h = np.arange(triple_source.num_entity, dtype=np.int64)
         r = np.tile(np.array([r], dtype=np.int64), triple_source.num_entity)
@@ -333,7 +334,7 @@ def sieve_and_expand_triple(triple_source, entities, relations, head, relation,
     elif relation == '?':
         h = entities[head]
         t = entities[tail]
-        triple_index = kgekit.TripleIndex(h, -1, t)
+        triple_index = kgedata.TripleIndex(h, -1, t)
 
         h = np.tile(np.array([h], dtype=np.int64), triple_source.num_relation)
         r = np.arange(triple_source.num_relation, dtype=np.int64)
@@ -342,7 +343,7 @@ def sieve_and_expand_triple(triple_source, entities, relations, head, relation,
     elif tail == '?':
         r = relations[relation]
         h = entities[head]
-        triple_index = kgekit.TripleIndex(h, r, -1)
+        triple_index = kgedata.TripleIndex(h, r, -1)
 
         h = np.tile(np.array([h], dtype=np.int64), triple_source.num_entity)
         r = np.tile(np.array([r], dtype=np.int64), triple_source.num_entity)
