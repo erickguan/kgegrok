@@ -41,18 +41,16 @@ class OrderedTripleListTransform(object):
 
     def __call__(self, samples):
         batch_size = len(samples)
-        batch = np.empty((batch_size, constants.NUM_POSITIVE_INSTANCE,
-                          constants.TRIPLE_LENGTH),
-                         dtype=np.int64)
+        batch = np.empty((batch_size, constants.TRIPLE_LENGTH), dtype=np.int64)
         for i in range(batch_size):
             for o in self.triple_order:
                 t = samples[i]
                 if o == 'h':
-                    batch[i, 0, 0] = t.head
+                    batch[i, 0] = t.head
                 elif o == 'r':
-                    batch[i, 0, 1] = t.relation
+                    batch[i, 1] = t.relation
                 elif o == 't':
-                    batch[i, 0, 2] = t.tail
+                    batch[i, 2] = t.tail
 
         return batch
 

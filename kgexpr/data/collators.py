@@ -16,9 +16,9 @@ class CorruptionCollate(object):
     def __init__(self, corruptor):
         self.corruptor = corruptor
 
-    def __call__(self, batch: constants.TripleIndexList):
+    def __call__(self, batch):
         """return corruption flag and actual batch"""
-        choices = np.empty(len(batch), dtype=np.bool_)
+        choices = np.empty(batch.shape[0], dtype=np.bool_)
         self.corruptor.make_random_choice(batch, choices)
         return choices, batch
 
@@ -106,7 +106,7 @@ class LCWANoThrowCollate(object):
             raise RuntimeError(
                 "Wrong parameter type. Need a tuple (corrupt_head, batch). Got "
                 + str(type(batch_set)))
-        batch_size = len(batch)
+        batch_size = batch.shape[0]
         negative_batch = np.empty(
             (batch_size, self.sampler.numNegativeSamples(),
              constants.TRIPLE_LENGTH),
