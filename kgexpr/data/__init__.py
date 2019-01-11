@@ -97,22 +97,22 @@ class TripleDataset(Dataset):
         self._build_batches(triples)
 
     def _build_batches(self, triples):
-        self.tensors = []
+        self.data = []
 
         for i in range(0, len(triples), self.batch_size):
-            v = torch.tensor(triples[i:i+self.batch_size], dtype=torch.int64, requires_grad=False)
-            self.tensors.append(v)
+            v = np.array(triples[i:i+self.batch_size], dtype=np.int64)
+            self.data.append(v)
 
-        if self.drop_last and len(self.tensors) > 1 and self.tensors[-1].shape != self.tensors[-2].shape:
-            self.tensors.pop()
+        if self.drop_last and len(self.data) > 1 and self.data[-1].shape != self.data[-2].shape:
+            self.data.pop()
 
     def __len__(self):
         """Returns the number of batches for triples."""
-        return len(self.tensors)
+        return len(self.data)
 
     def __getitem__(self, idx):
         """returns the batch with transform."""
-        sample = self.tensors[idx]
+        sample = self.data[idx]
         if self.transform:
             sample = self.transform(sample)
 
