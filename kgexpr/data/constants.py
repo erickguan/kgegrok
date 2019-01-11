@@ -16,6 +16,8 @@ RELATION_KEY = "relation"
 
 DatasetType = Enum('DatasetType', 'TRAINING VALIDATION TESTING')
 
+DEFAULT_BATCH_SIZE = 100
+
 
 class TripleElement(Flag):
     HEAD = 1

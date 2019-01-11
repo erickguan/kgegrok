@@ -41,25 +41,23 @@ class TripleSource(object):
             triple_order=triple_order,
             delimiter=delimiter)
         assert num_failed == 0
-        head_compare = lambda x: x.head
-        tail_compare = lambda x: x.tail
-        relation_compare = lambda x: x.relation
-        max_head = max([
-            max(triple_set, key=head_compare) for triple_set in
-            [self._train_set, self._valid_set, self._test_set]
-        ],
-                       key=head_compare)
-        max_tail = max([
-            max(triple_set, key=tail_compare) for triple_set in
-            [self._train_set, self._valid_set, self._test_set]
-        ],
-                       key=tail_compare)
-        self._num_entity = max(max_head.head, max_tail.tail) + 1
-        self._num_relation = max([
-            max(triple_set, key=relation_compare) for triple_set in
-            [self._train_set, self._valid_set, self._test_set]
-        ],
-                                 key=relation_compare).relation + 1
+
+        self._transform_triples()
+        self._collect_stats()
+
+    def _transform_triples(self):
+        transform_triple = lambda x: np.array([x.head, x.relation, x.tail], dtype=np.int64)
+        self._train_set = np.stack([transform_triple(t) for t in self._train_set], axis=0)
+        self._valid_set = np.stack([transform_triple(t) for t in self._valid_set], axis=0)
+        self._test_set = np.stack([transform_triple(t) for t in self._test_set], axis=0)
+
+    def _collect_stats(self):
+        max_train = np.amax(self._train_set, axis=0)
+        max_valid = np.amax(self._valid_set, axis=0)
+        max_test = np.amax(self._test_set, axis=0)
+        max_nums = np.amax(np.stack([max_train, max_valid, max_test], axis=0), axis=0)
+        self._num_entity = max(max_nums[0], max_nums[2]) + 1
+        self._num_relation = max_nums[1] + 1
 
     @property
     def train_set(self):
@@ -81,14 +79,51 @@ class TripleSource(object):
     def num_relation(self):
         return self._num_relation
 
+def sequential_batch_sampler(num_batch):
+    return range(num_batch)
 
-class TripleIndexesDataset(Dataset):
+class TripleDataset(Dataset):
+    """Base class for triple dataset."""
+
+    def __init__(self,
+                 triples,
+                 batch_size=constants.DEFAULT_BATCH_SIZE,
+                 drop_last=False,
+                 transform=None):
+        """Builds the dataset with common parameters and data."""
+        self.batch_size = batch_size
+        self.drop_last = drop_last
+        self.transform = transform
+        self._build_batches(triples)
+
+    def _build_batches(self, triples):
+        self.tensors = []
+
+        for i in range(0, len(triples), self.batch_size):
+            v = torch.tensor(triples[i:i+self.batch_size], dtype=torch.int64, requires_grad=False)
+            self.tensors.append(v)
+
+    def __len__(self):
+        """Returns the number of batches for triples."""
+        return len(self.tensors)
+
+    def __getitem__(self, idx):
+        """returns the batch with transform."""
+        sample = self.tensors[idx]
+        if self.transform:
+            sample = self.transform(sample)
+
+        return sample
+
+
+class TripleTrainingDataset(Dataset):
     """Loads triple indexes dataset."""
 
     def __init__(self,
                  triple_source,
                  dataset_type=constants.DatasetType.TRAINING,
-                 transform=None):
+                 batch_size=constants.DEFAULT_BATCH_SIZE,
+                 drop_last=False):
         """
         Args:
             triple_source: Triple storage.
@@ -105,14 +140,17 @@ class TripleIndexesDataset(Dataset):
         else:
             raise RuntimeError("DatasetType doesn't exists. It's " +
                                str(dataset_type))
-        self.transform = transform
-        if self.transform:
-            self.triples = self.transform(self.triples)
+        self.drop_last = drop_last
+        self.triples = self.transform(self.triples)
 
     def __len__(self):
-        return len(self.triples)
+        if self.drop_last:
+            return len(self.sampler) // self.batch_size
+        else:
+            return (len(self.dataset) + self.batch_size - 1) // self.batch_size
 
     def __getitem__(self, idx):
+        """returns the batch (batch, negative, labels). If it's not available, present with a None."""
         sample = self.triples[idx]
 
         return sample
@@ -190,40 +228,6 @@ def expand_triple_to_sets(triple, num_expands, arange_target):
 
 _SAFE_MINIMAL_BATCH_SIZE = 1
 
-
-class TripleIndexBatchSampler(object):
-    """Samples a mini-batch of triple indexes."""
-
-    def __init__(self, dataset, batch_size):
-        self.dataset = dataset
-        self.batch_size = batch_size
-
-    def __iter__(self):
-        # sequence iterator
-        self.cursor = 0
-        self.max_item = len(self.dataset)
-        return self
-
-    def __len__(self):
-        # if self.drop_last:
-        #     return len(self.sampler) // self.batch_size
-        return (len(self.dataset) + self.batch_size - 1) // self.batch_size
-
-    def __next__(self):
-        if self.cursor + self.batch_size < self.max_item:
-            batch = np.empty((self.batch_size), dtype=np.int64)
-            for i in range(self.batch_size):
-                batch[i] = self.cursor + i
-            self.cursor += self.batch_size
-        else: # last batch
-            batch_size = self.max_item - self.cursor
-            if batch_size <= 0:
-                raise StopIteration()
-            batch = np.empty((batch_size), dtype=np.int64)
-            for i in range(batch_size):
-                batch[i] = self.cursor + i
-            self.cursor += batch_size
-        return batch
 
 SEED_OFFSET = 100
 
