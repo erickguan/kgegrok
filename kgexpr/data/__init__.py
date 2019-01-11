@@ -103,6 +103,9 @@ class TripleDataset(Dataset):
             v = torch.tensor(triples[i:i+self.batch_size], dtype=torch.int64, requires_grad=False)
             self.tensors.append(v)
 
+        if self.drop_last and len(self.tensors) > 1 and self.tensors[-1].shape != self.tensors[-2].shape:
+            self.tensors.pop()
+
     def __len__(self):
         """Returns the number of batches for triples."""
         return len(self.tensors)
@@ -114,47 +117,6 @@ class TripleDataset(Dataset):
             sample = self.transform(sample)
 
         return sample
-
-
-class TripleTrainingDataset(Dataset):
-    """Loads triple indexes dataset."""
-
-    def __init__(self,
-                 triple_source,
-                 dataset_type=constants.DatasetType.TRAINING,
-                 batch_size=constants.DEFAULT_BATCH_SIZE,
-                 drop_last=False):
-        """
-        Args:
-            triple_source: Triple storage.
-            dataset_type: Choose the type of dataset.
-            transform (callable, optional): Optional transform to be applied
-                on a sample.
-        """
-        if dataset_type == constants.DatasetType.TRAINING:
-            self.triples = triple_source.train_set
-        elif dataset_type == constants.DatasetType.VALIDATION:
-            self.triples = triple_source.valid_set
-        elif dataset_type == constants.DatasetType.TESTING:
-            self.triples = triple_source.test_set
-        else:
-            raise RuntimeError("DatasetType doesn't exists. It's " +
-                               str(dataset_type))
-        self.drop_last = drop_last
-        self.triples = self.transform(self.triples)
-
-    def __len__(self):
-        if self.drop_last:
-            return len(self.sampler) // self.batch_size
-        else:
-            return (len(self.dataset) + self.batch_size - 1) // self.batch_size
-
-    def __getitem__(self, idx):
-        """returns the batch (batch, negative, labels). If it's not available, present with a None."""
-        sample = self.triples[idx]
-
-        return sample
-
 
 
 def get_triples_from_batch(batch):
