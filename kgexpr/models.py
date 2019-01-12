@@ -69,7 +69,7 @@ class TransE(Model):
         _p_score = self._calc(p_h, p_t, p_r)
 
         if neg is not None:
-            neg_h, neg_r, neg_t = neg.transpose(0, 1)
+            neg_h, neg_r, neg_t = neg.view(-1, 3).transpose(0, 1)
             n_h = self.entity_embeddings(neg_h)
             n_t = self.entity_embeddings(neg_t)
             n_r = self.relation_embeddings(neg_r)
@@ -83,7 +83,6 @@ class TransE(Model):
         else:
             p_score = torch.sum(_p_score, 1)
             return p_score
-
 
 class ComplEx(Model):
     """ComplEx builds more dimension size."""
