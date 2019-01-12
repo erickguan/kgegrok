@@ -8,7 +8,6 @@ import torch
 import pytest
 import kgedata
 
-pytestmark = pytest.mark.skip("under refactor")
 
 class Config(object):
     """Mocked implementation of config"""
@@ -26,18 +25,6 @@ class Config(object):
 
 @pytest.mark.numpyfile
 class DataStatstoolsTest(unittest.TestCase):
-
-    @classmethod
-    def setUp(cls):
-        cls.triple_dir = 'kgexpr/tests/fixtures/triples'
-        cls.source = data.TripleSource(cls.triple_dir, 'hrt', ' ')
-        cls.dataset = data.TripleIndexesDataset(cls.source)
-        cls.small_triple_list = [
-            kgedata.TripleIndex(0, 0, 1),
-            kgedata.TripleIndex(1, 1, 2)
-        ]
-        cls.samples = ([True, False], cls.small_triple_list)
-
     def test_reciprocal_rank_fn(self):
         self.assertAlmostEqual(statstools.reciprocal_rank_fn(10), 0.1)
 
