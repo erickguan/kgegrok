@@ -11,6 +11,7 @@ import random
 from torchvision import transforms
 import functools
 from kgexpr.data import constants, transformers
+from kgexpr.utils import deprecation
 
 
 class TripleSource(object):
@@ -126,6 +127,7 @@ class TripleDataset(Dataset):
 
 def get_triples_from_batch(batch):
     """Returns h, r, t and possible label from batch."""
+    deprecation("Not tested anymore", since="0.3.0")
 
     multiple_samples = (batch.ndim == 3)
     if multiple_samples:
@@ -138,16 +140,9 @@ def get_triples_from_batch(batch):
         return (e.reshape(batch_size) for e in elements)
 
 
-def np_to_tensor(x, cuda_enabled=False):
-    x = torch.from_numpy(x)
-    # Input is an index to find relevant embeddings. We don't track them
-    x.requires_grad_(False)
-    if cuda_enabled:
-        x = x.cuda()
-    return x
-
 class _BatchElementConverter(object):
     def __init__(self, cuda_enabled=False):
+        deprecation("Not tested anymore", since="0.3.0")
         self.cuda_enabled = cuda_enabled
 
     def __call__(self, x):
@@ -155,6 +150,7 @@ class _BatchElementConverter(object):
 
 
 def convert_triple_tuple_to_torch(batch, config, enable_cuda_override=None):
+    deprecation("Not tested anymore", since="0.3.0")
     if enable_cuda_override is not None:
         converter = _BatchElementConverter(enable_cuda_override)
     else:
@@ -166,6 +162,7 @@ def expand_triple_to_sets(triple, num_expands, arange_target):
     """Tiles triple into a large sets for testing. One node will be initialized with arange.
     Returns (h, r, t), each with a shape of (num_expands,)
     """
+    deprecation("Not tested anymore", since="0.3.0")
 
     if not constants.TripleElement.has_value(arange_target):
         raise RuntimeError(
@@ -255,6 +252,7 @@ def create_dataloader(triple_source,
 def sieve_and_expand_triple(triple_source, entities, relations, head, relation,
                             tail):
     """Tile on a unknown element. returns a tuple of size 3 with h, r, t."""
+    deprecation("Not tested anymore", since="0.3.0")
 
     batch_size, num_samples, num_element = batch.shape
     elements = np.split(batch, num_element, axis=2)

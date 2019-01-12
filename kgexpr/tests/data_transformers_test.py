@@ -176,9 +176,12 @@ class TestDataTransformerTest(unittest.TestCase):
         gen = transformers.TripleTileGenerator(self.config, self.source)
         return gen
 
-    def test_triple_tile_generator(self):
+    def _gen_triple_tiles(self):
         gen = self._build_triple_tile_generator()
-        samples, batch, splits = gen(self.small_triple_list)
+        return gen(self.small_triple_list)
+
+    def test_triple_tile_generator(self):
+        samples, batch, splits = self._gen_triple_tiles()
         self.assertEqual(self.source.num_entity, 4)
         self.assertEqual(self.source.num_relation, 3)
         np.testing.assert_equal(batch, np.array([[1, 2, 3]], dtype=np.int64))
@@ -198,3 +201,27 @@ class TestDataTransformerTest(unittest.TestCase):
         ], dtype=np.int64))
 
         self.assertEqual(splits, [(0,4,8,11)])
+
+    def test_TestBatchTransform(self):
+        sample = self._gen_triple_tiles()
+        trans = transformers.TestBatchTransform(self.config)
+        tiled_t, batch, splits = trans(sample)
+        self.assertEqual(self.source.num_entity, 4)
+        self.assertEqual(self.source.num_relation, 3)
+        np.testing.assert_equal(batch, np.array([[1, 2, 3]], dtype=np.int64))
+        np.testing.assert_equal(tiled_t[0].numpy(), np.array([
+            [0, 2, 3], #0
+            [1, 2, 3],
+            [2, 2, 3],
+            [3, 2, 3], #3
+            [1, 2, 0],
+            [1, 2, 1],
+            [1, 2, 2],
+            [1, 2, 3], # 7
+            [1, 0, 3],
+            [1, 1, 3],
+            [1, 2, 3], # 10
+        ], dtype=np.int64))
+
+        self.assertEqual(splits, [(0,4,8,11)])
+

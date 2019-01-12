@@ -132,6 +132,22 @@ class TripleTileGenerator(object):
 
         return sampled, batch, splits
 
+class TestBatchTransform(object):
+    """Generates None and put things into Tensor."""
+
+    def __init__(self, config, enable_cuda_override=None):
+        if enable_cuda_override is not None:
+            self.cuda_enabled = enable_cuda_override
+        else:
+            self.cuda_enabled = config.enable_cuda
+
+    def __call__(self, sample):
+        """process a mini-batch."""
+        tiled, batch, splits = sample
+
+        tiled = _np_to_tensor(tiled, self.cuda_enabled)
+        return (tiled, None, None), batch, splits
+
 def label_prediction_collate(sample):
     """Add all positive labels for sample.
     """
