@@ -45,36 +45,37 @@ class DataTransformerTest(unittest.TestCase):
             transformers.CorruptionFlagGenerator(corruptor)(self.small_triple_list)[0],
             np.array([False, False], dtype=np.bool).reshape((-1, self.num_corrupts)))
 
-    def test_bernoulli_corruption_collate(self):
+    def test_bernoulli_corruption_generator(self):
         np.random.seed(0)
         corruptor = kgedata.BernoulliCorruptor(self.source.train_set, self.source.num_relation, self.num_corrupts, 2000)
         np.testing.assert_equal(
             transformers.CorruptionFlagGenerator(corruptor)(self.small_triple_list)[0],
             np.array([False, False], dtype=np.bool).reshape((-1, self.num_corrupts)))
 
-    # def test_lcwa_no_throw_collate(self):
-    #     np.random.seed(0)
-    #     negative_sampler = kgedata.LCWANoThrowSampler(
-    #         self.source.train_set, self.source.num_entity,
-    #         self.source.num_relation, 1, 1,
-    #         self.config.base_seed,
-    #         kgedata.LCWANoThrowSamplerStrategy.Hash)
-    #     batch, negatives = collators.LCWANoThrowCollate(
-    #         self.source,
-    #         negative_sampler,
-    #         transform=transformers.OrderedTripleListTransform("hrt"))(self.samples)
-    #     np.testing.assert_equal(
-    #         batch, np.array([
-    #             [[0, 0, 1]],
-    #             [[1, 1, 2]],
-    #         ], dtype=np.int64))
-    #     np.testing.assert_equal(
-    #         negatives,
-    #         np.array([
-    #             [[0, 0, 0], [0, 1, 1]],
-    #             [[0, 1, 2], [1, 0, 2]],
-    #         ],
-    #                  dtype=np.int64))
+    def test_negative_batch_generator(self):
+        np.random.seed(0)
+        corruptor = kgedata.UniformCorruptor(self.num_corrupts, 1000)
+        negative_sampler = kgedata.LCWANoThrowSampler(
+            self.source.train_set, self.source.num_entity,
+            self.source.num_relation, 1, 1,
+            1000,
+            kgedata.LCWANoThrowSamplerStrategy.Hash)
+
+        sample = transformers.CorruptionFlagGenerator(corruptor)(self.small_triple_list)
+        batch, negatives = transformers.NegativeBatchGenerator(negative_sampler)(sample)
+
+        np.testing.assert_equal(
+            batch, np.array([
+                [0, 0, 1],
+                [0, 1, 2],
+            ], dtype=np.int64))
+        np.testing.assert_equal(
+            negatives,
+            np.array([
+                [2, 0, 1], [0, 1, 1],
+                [2, 1, 2], [0, 0, 2],
+            ],
+            dtype=np.int64))
 
     # def test_literal_collate(self):
     #     np.random.seed(0)

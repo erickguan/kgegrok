@@ -27,7 +27,7 @@ class NegativeBatchGenerator(object):
         Negative tensor with shape (batch_size, negative_samples, 3).
     """
 
-    def __init__(self, triple_source, negative_sampler):
+    def __init__(self, negative_sampler):
         self.sampler = negative_sampler
 
     def __call__(self, batch_set):
@@ -35,6 +35,62 @@ class NegativeBatchGenerator(object):
         batch_size = batch.shape[0]
         negative_batch = self.sampler.sample(corrupt_head, batch)
         return batch, negative_batch
+
+def label_batch_generator(sample):
+    """Add data label for (batch, negative_batch).
+    positive batch shape: (batch_size, 3)
+    negative batch shape: (batch_size*negative_samples, 3).
+    label batch shape: (batch_size*(1+negative_samples),).
+    """
+    batch, negative_batch = sample
+
+    labels_shape = (batch.shape[0]*(1+negative_batch.shape[1]),)
+    labels = np.full(labels_shape, -1, dtype=np.int64)
+    labels[:batch.shape[0]] = 1
+    return batch, negative_batch, labels
+
+def batch_transpose_transform(sample):
+    batch, negative_batch, labels = sample
+    batch = batch.T
+    negative_batch = negative_batch.T
+
+    return batch, negative_batch, labels
+
+def _np_to_tensor(x, cuda_enabled):
+    x = torch.from_numpy(x)
+    # Input is an index to find relevant embeddings. We don't track them
+    x.requires_grad_(False)
+    if cuda_enabled:
+        x = x.cuda()
+    return x
+
+def _batch_element_to_tensor(x, cuda_enabled):
+    if x is None:
+        return x
+    return _np_to_tensor(x, cuda_enabled)
+
+class TensorTransform(object):
+    """Returns batch, negative_batch, labels by the tensor."""
+
+    def __init__(self, config, enable_cuda_override=None):
+        if enable_cuda_override is not None:
+            self.cuda_enabled = enable_cuda_override
+        else:
+            self.cuda_enabled = config.enable_cuda
+
+    def __call__(self, sample):
+        return tuple(map(lambda x: _batch_element_to_tensor(x, self.cuda_enabled), sample))
+
+
+def label_prediction_collate(sample):
+    """Add all positive labels for sample.
+    """
+    tiled, batch, splits = sample
+
+    labels_shape = (tiled.shape[0])
+    labels = np.full(labels_shape, 1, dtype=np.int64)
+
+    return tiled, batch, splits, labels
 
 class NumpyCollate(object):
     """Process triples and put them into a triple index.
@@ -52,30 +108,6 @@ class NumpyCollate(object):
             batch = self.transform(batch)
         batch = np.array(batch, dtype=np.int64)[:, np.newaxis, :]
         return batch
-
-
-def label_prediction_collate(sample):
-    """Add all positive labels for sample.
-    """
-    tiled, batch, splits = sample
-
-    labels_shape = (tiled.shape[0])
-    labels = np.full(labels_shape, 1, dtype=np.int64)
-
-    return tiled, batch, splits, labels
-
-def label_collate(sample):
-    """Add data label for (batch, negative_batch).
-    positive batch shape: (batch_size, 1, 3)
-    negative batch shape: (batch_size, negative_samples, 3).
-    label batch shape: (batch_size*(1+negative_samples),).
-    """
-    batch, negative_batch = sample
-
-    labels_shape = (batch.shape[0]*(1+negative_batch.shape[1]),)
-    labels = np.full(labels_shape, -1, dtype=np.int64)
-    labels[:batch.shape[0]] = 1
-    return batch, negative_batch, labels
 
 class BreakdownCollator(object):
     def __init__(self, config):

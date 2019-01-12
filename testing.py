@@ -8,22 +8,22 @@ from torchvision.transforms import Compose
 
 config = utils.Config()
 
-triple_source = data.TripleSource("data/YAGO3-10", "hrt", " ")
+# triple_source = data.TripleSource("data/YAGO3-10", "hrt", " ")
+triple_source = data.TripleSource("kgexpr/tests/fixtures/triples", "hrt", " ")
 ds = data.TripleDataset(triple_source.train_set, batch_size=2)
+np.random.seed(0)
 negative_sampler = kgedata.LCWANoThrowSampler(
             triple_source.train_set,
             triple_source.num_entity,
             triple_source.num_relation,
             config.negative_entity,
             config.negative_relation,
-            config.base_seed,
+            1000,
             kgedata.LCWANoThrowSamplerStrategy.Hash)
-corruptor = kgedata.BernoulliCorruptor(triple_source.train_set, triple_source.num_relation, config.negative_entity, config.base_seed+1)
+corruptor = kgedata.BernoulliCorruptor(triple_source.train_set, triple_source.num_relation, config.negative_entity, 1000)
 transforms = [
     transformers.CorruptionFlagGenerator(corruptor),
-    transformers.NegativeBatchGenerator(
-        triple_source,
-        negative_sampler),
+    transformers.NegativeBatchGenerator(negative_sampler),
 ]
 # collates.append(collators.label_collate)
 transform_fn = Compose(transforms)
@@ -37,6 +37,11 @@ dl2 = iter(torch.utils.data.DataLoader(
     )
 )
 
-for i in range(5):
-    batch = next(dl2)
-    print(batch[0].shape, batch[1].shape)
+# for i in range(5):
+#     batch = next(dl2)
+#     print(batch[0].shape, batch[1].shape)
+
+sample = next(iter(ds))
+sample = transformers.CorruptionFlagGenerator(corruptor)(sample)
+batch, negative = transformers.NegativeBatchGenerator(negative_sampler)(sample)
+print(batch, negative)

@@ -24,7 +24,7 @@ class Model(nn.Module):
         self.triple_source = triple_source
         self.config = config
 
-    def forward(self, batch, negative_batch=None, labels=None):
+    def forward(self, batch):
         """Args:
         batch tensor with shape (batch_size, 1, 3).
         negative_batch tensor with shape (batch_size, negative_samples, 3).
@@ -62,17 +62,18 @@ class TransE(Model):
         loss = criterion(p_score, n_score, y)
         return loss
 
-    def forward(self, batch, negative_batch=None, labels=None):
-        pos_h, pos_r, pos_t = batch
+    def forward(self, batch):
+        pos, neg, label = batch
+
+        pos_h, pos_r, pos_t = pos
         p_h = self.entity_embeddings(pos_h)
         p_t = self.entity_embeddings(pos_t)
         p_r = self.relation_embeddings(pos_r)
         _p_score = self._calc(p_h, p_t, p_r)
         _p_score = _p_score.view(-1, 1, self.embedding_dimension)
-        logging.debug("_p_score shape " + str(_p_score.shape))
 
-        if negative_batch is not None:
-            neg_h, neg_r, neg_t = negative_batch
+        if neg is not None:
+            neg_h, neg_r, neg_t = neg
             n_h = self.entity_embeddings(neg_h)
             n_t = self.entity_embeddings(neg_t)
             n_r = self.relation_embeddings(neg_r)
@@ -87,7 +88,6 @@ class TransE(Model):
             return loss
         else:
             p_score = torch.sum(_p_score, (1, 2))
-            logging.debug("p_score shape " + str(p_score.shape))
             return p_score
 
 
@@ -128,8 +128,10 @@ class ComplEx(Model):
     def loss_func(self, loss, regul):
         return loss + self.config.lambda_ * regul
 
-    def forward(self, batch, negative_batch, labels):
-        pos_h, pos_r, pos_t = batch
+    def forward(self, batch):
+        pos, neg, label = batch
+
+        pos_h, pos_r, pos_t = pos
         e_re_h = self.ent_re_embeddings(pos_h)
         e_im_h = self.ent_im_embeddings(pos_h)
         e_re_t = self.ent_re_embeddings(pos_t)
@@ -138,8 +140,8 @@ class ComplEx(Model):
         r_im = self.rel_im_embeddings(pos_r)
 
         # Calculating loss to get what the framework will optimize
-        if negative_batch is not None:
-            neg_h, neg_r, neg_t = negative_batch
+        if neg is not None:
+            neg_h, neg_r, neg_t = neg
             neg_h = neg_h.view(-1)
             neg_r = neg_r.view(-1)
             neg_t = neg_t.view(-1)
