@@ -48,6 +48,7 @@ class TransE(Model):
                                                 self.embedding_dimension)
 
         self.criterion = nn.MarginRankingLoss(self.config.margin, False)
+        self.y = torch.tensor([-1.0], device=torch.device('cpu'), requires_grad=False)
 
         nn.init.xavier_uniform_(self.entity_embeddings.weight.data)
         nn.init.xavier_uniform_(self.relation_embeddings.weight.data)
@@ -57,7 +58,7 @@ class TransE(Model):
 
     # margin-based loss
     def loss_func(self, p_score, n_score):
-        loss = self.criterion(p_score, n_score, torch.tensor([-1.0], requires_grad=False))
+        loss = self.criterion(p_score, n_score, self.y)
         return loss
 
     def forward(self, batch):
