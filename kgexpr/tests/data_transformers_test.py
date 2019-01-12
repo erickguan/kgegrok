@@ -1,6 +1,6 @@
 import unittest
 from kgexpr import data
-from kgexpr.data import collators, transformers
+from kgexpr.data import transformers
 import kgekit
 import kgedata
 from torchvision import transforms
@@ -27,57 +27,54 @@ class Config(object):
 
 
 @pytest.mark.numpyfile
-class DataTest(unittest.TestCase):
-
+class DataTransformerTest(unittest.TestCase):
     @classmethod
     def setUp(cls):
         cls.config = Config()
         cls.triple_dir = 'kgexpr/tests/fixtures/triples'
         cls.source = data.TripleSource(cls.triple_dir, 'hrt', ' ')
-        cls.dataset = data.TripleIndexesDataset(cls.source)
-        cls.small_triple_list = [
-            kgedata.TripleIndex(0, 0, 1),
-            kgedata.TripleIndex(1, 1, 2)
-        ]
+        cls.dataset = data.TripleDataset(cls.source.train_set, batch_size=2)
+        cls.small_triple_list = next(iter(cls.dataset))
+        cls.num_corrupts = 1
         cls.samples = (np.array([True, False], dtype=np.bool), cls.small_triple_list)
 
-    def test_uniform_collate(self):
+    def test_uniform_corruption_flag_generator(self):
         np.random.seed(0)
-        corruptor = kgedata.UniformCorruptor(self.config.base_seed)
+        corruptor = kgedata.UniformCorruptor(self.num_corrupts, 1000)
         np.testing.assert_equal(
-            collators.CorruptionCollate(corruptor)(self.small_triple_list)[0],
-            np.array([False, True], dtype=np.bool))
+            transformers.CorruptionFlagGenerator(corruptor)(self.small_triple_list)[0],
+            np.array([False, False], dtype=np.bool).reshape((-1, self.num_corrupts)))
 
     def test_bernoulli_corruption_collate(self):
         np.random.seed(0)
-        corruptor = kgedata.BernoulliCorruptor(self.source.train_set, self.source.num_relation, self.config.base_seed)
+        corruptor = kgedata.BernoulliCorruptor(self.source.train_set, self.source.num_relation, self.num_corrupts, 2000)
         np.testing.assert_equal(
-            collators.CorruptionCollate(corruptor)(self.small_triple_list)[0],
-            np.array([False, True], dtype=np.bool))
+            transformers.CorruptionFlagGenerator(corruptor)(self.small_triple_list)[0],
+            np.array([False, False], dtype=np.bool).reshape((-1, self.num_corrupts)))
 
-    def test_lcwa_no_throw_collate(self):
-        np.random.seed(0)
-        negative_sampler = kgedata.LCWANoThrowSampler(
-            self.source.train_set, self.source.num_entity,
-            self.source.num_relation, 1, 1,
-            self.config.base_seed,
-            kgedata.LCWANoThrowSamplerStrategy.Hash)
-        batch, negatives = collators.LCWANoThrowCollate(
-            self.source,
-            negative_sampler,
-            transform=transformers.OrderedTripleListTransform("hrt"))(self.samples)
-        np.testing.assert_equal(
-            batch, np.array([
-                [[0, 0, 1]],
-                [[1, 1, 2]],
-            ], dtype=np.int64))
-        np.testing.assert_equal(
-            negatives,
-            np.array([
-                [[0, 0, 0], [0, 1, 1]],
-                [[0, 1, 2], [1, 0, 2]],
-            ],
-                     dtype=np.int64))
+    # def test_lcwa_no_throw_collate(self):
+    #     np.random.seed(0)
+    #     negative_sampler = kgedata.LCWANoThrowSampler(
+    #         self.source.train_set, self.source.num_entity,
+    #         self.source.num_relation, 1, 1,
+    #         self.config.base_seed,
+    #         kgedata.LCWANoThrowSamplerStrategy.Hash)
+    #     batch, negatives = collators.LCWANoThrowCollate(
+    #         self.source,
+    #         negative_sampler,
+    #         transform=transformers.OrderedTripleListTransform("hrt"))(self.samples)
+    #     np.testing.assert_equal(
+    #         batch, np.array([
+    #             [[0, 0, 1]],
+    #             [[1, 1, 2]],
+    #         ], dtype=np.int64))
+    #     np.testing.assert_equal(
+    #         negatives,
+    #         np.array([
+    #             [[0, 0, 0], [0, 1, 1]],
+    #             [[0, 1, 2], [1, 0, 2]],
+    #         ],
+    #                  dtype=np.int64))
 
     # def test_literal_collate(self):
     #     np.random.seed(0)

@@ -10,7 +10,7 @@ import numpy as np
 import random
 from torchvision import transforms
 import functools
-from kgexpr.data import collators, constants, transformers
+from kgexpr.data import constants, transformers
 
 
 class TripleSource(object):
@@ -26,30 +26,23 @@ class TripleSource(object):
             Directory with {train,valid,test}.txt
         """
         self.data_dir = data_dir
-        self._train_set, num_failed = kgekit.io.read_triple_indexes(
+        self._train_set, num_failed = kgekit.io.read_triple_indexes_numpy(
             os.path.join(self.data_dir, self.TRAIN_FILENAME),
             triple_order=triple_order,
             delimiter=delimiter)
         assert num_failed == 0
-        self._valid_set, num_failed = kgekit.io.read_triple_indexes(
+        self._valid_set, num_failed = kgekit.io.read_triple_indexes_numpy(
             os.path.join(self.data_dir, self.VALID_FILENAME),
             triple_order=triple_order,
             delimiter=delimiter)
         assert num_failed == 0
-        self._test_set, num_failed = kgekit.io.read_triple_indexes(
+        self._test_set, num_failed = kgekit.io.read_triple_indexes_numpy(
             os.path.join(self.data_dir, self.TEST_FILENAME),
             triple_order=triple_order,
             delimiter=delimiter)
         assert num_failed == 0
 
-        self._transform_triples()
         self._collect_stats()
-
-    def _transform_triples(self):
-        transform_triple = lambda x: np.array([x.head, x.relation, x.tail], dtype=np.int64)
-        self._train_set = np.stack([transform_triple(t) for t in self._train_set], axis=0)
-        self._valid_set = np.stack([transform_triple(t) for t in self._valid_set], axis=0)
-        self._test_set = np.stack([transform_triple(t) for t in self._test_set], axis=0)
 
     def _collect_stats(self):
         max_train = np.amax(self._train_set, axis=0)
@@ -79,8 +72,13 @@ class TripleSource(object):
     def num_relation(self):
         return self._num_relation
 
-def sequential_batch_sampler(num_batch):
-    return range(num_batch)
+def sequential_batch_sampler(dataset):
+    for i in range(len(dataset)):
+        yield [i]
+
+def flat_collate_fn(batch):
+    """Flatten pytorch dataloader list since we only load 1 batch for dataloader."""
+    return batch[0]
 
 class TripleDataset(Dataset):
     """Base class for triple dataset."""
@@ -93,7 +91,7 @@ class TripleDataset(Dataset):
         """Builds the dataset with common parameters and data."""
         self.batch_size = batch_size
         self.drop_last = drop_last
-        self.transform = transform
+        self._transform = transform
         self._build_batches(triples)
 
     def _build_batches(self, triples):
@@ -113,11 +111,18 @@ class TripleDataset(Dataset):
     def __getitem__(self, idx):
         """returns the batch with transform."""
         sample = self.data[idx]
-        if self.transform:
-            sample = self.transform(sample)
+        if self._transform:
+            sample = self._transform(sample)
 
         return sample
 
+    @property
+    def transform(self):
+        return self._transform
+
+    @transform.setter
+    def transform(self, transform):
+        self._transform = transform
 
 def get_triples_from_batch(batch):
     """Returns h, r, t and possible label from batch."""
@@ -235,7 +240,6 @@ def create_dataloader(triple_source,
         if collates_label:
             collates.append(collators.label_prediction_collate)
     collate_fn = transforms.Compose(collates)
-
 
     batch_sampler = TripleIndexBatchSampler(dataset, batch_size)
     data_loader = torch.utils.data.DataLoader(

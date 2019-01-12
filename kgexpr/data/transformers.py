@@ -1,9 +1,138 @@
-"""Includes a bunch of transformer."""
+"""Includes a bunch of transformer for dataset."""
 
 import numpy as np
 from kgexpr.data import constants
 import kgekit
 
+
+class CorruptionFlagGenerator(object):
+    """Generates corrupted head/tail decision in uniform distribution.
+    if used with bernoulli corruptor, it's Bernoulli Distribution based on tph.
+    True means we will corrupt head."""
+
+    def __init__(self, corruptor):
+        self.corruptor = corruptor
+
+    def __call__(self, batch):
+        """return corruption flag and actual batch"""
+        choices = self.corruptor.make_random_choice(batch)
+        return choices, batch
+
+
+class NegativeBatchGenerator(object):
+    """Process and sample an negative batch. Supports multiprocess from pytorch.
+    We don't throw if |set(subject, predict)| is empty.
+    Returns:
+        Positive tensor with shape (batch_size, 1, 3).
+        Negative tensor with shape (batch_size, negative_samples, 3).
+    """
+
+    def __init__(self, triple_source, negative_sampler):
+        self.sampler = negative_sampler
+
+    def __call__(self, batch_set):
+        corrupt_head, batch = batch_set
+        batch_size = batch.shape[0]
+        negative_batch = self.sampler.sample(corrupt_head, batch)
+        return batch, negative_batch
+
+class NumpyCollate(object):
+    """Process triples and put them into a triple index.
+    Returns:
+        Positive tensor with shape (batch_size, 1, 3).
+    """
+
+    def __init__(self, transform=None):
+        self.transform = transform
+
+    def __call__(self, batch: constants.TripleIndexList):
+        """process a mini-batch."""
+        batch_size = len(batch)
+        if self.transform:
+            batch = self.transform(batch)
+        batch = np.array(batch, dtype=np.int64)[:, np.newaxis, :]
+        return batch
+
+
+def label_prediction_collate(sample):
+    """Add all positive labels for sample.
+    """
+    tiled, batch, splits = sample
+
+    labels_shape = (tiled.shape[0])
+    labels = np.full(labels_shape, 1, dtype=np.int64)
+
+    return tiled, batch, splits, labels
+
+def label_collate(sample):
+    """Add data label for (batch, negative_batch).
+    positive batch shape: (batch_size, 1, 3)
+    negative batch shape: (batch_size, negative_samples, 3).
+    label batch shape: (batch_size*(1+negative_samples),).
+    """
+    batch, negative_batch = sample
+
+    labels_shape = (batch.shape[0]*(1+negative_batch.shape[1]),)
+    labels = np.full(labels_shape, -1, dtype=np.int64)
+    labels[:batch.shape[0]] = 1
+    return batch, negative_batch, labels
+
+class BreakdownCollator(object):
+    def __init__(self, config):
+        self.config = config
+
+    def __call__(self, sample):
+        batch, negative_batch, labels = sample
+        if labels is not None:
+            labels = data.np_to_tensor(labels, self.config.enable_cuda)
+        batch = data.convert_triple_tuple_to_torch(
+            data.get_triples_from_batch(batch), self.config, False)
+        negative_batch = data.convert_triple_tuple_to_torch(
+            data.get_triples_from_batch(negative_batch), self.config, False)
+        return batch, negative_batch, labels
+
+def none_label_collate(sample):
+    """Adds a None to collators."""
+    batch, negative_batch = sample
+    return (batch, negative_batch, None)
+
+
+class TripleTileCollate(object):
+    """Process triples and put them into a tiled but flat numpy array.
+    Args:
+        config: config object for reading dimension information
+        triple_source: triple source function
+    Returns:
+        Positive tensor with shape (batch_size * varied_size, 1, 3).
+            varied_size will depends on testing dimension, num_entity and num_relation.
+        Original batch from PyTorch,
+        Splits split points
+    """
+
+    def __init__(self, config, triple_source):
+        self.config = config
+        self.triple_source = triple_source
+
+    def __call__(self, batch: constants.TripleIndexList):
+        """process a mini-batch."""
+        sampled, splits = kgedata.expand_triple_batch(
+            batch, self.triple_source.num_entity,
+            self.triple_source.num_relation,
+            (self.config.report_dimension & StatisticsDimension.SEPERATE_ENTITY)
+            or (self.config.report_dimension &
+                StatisticsDimension.COMBINED_ENTITY),
+            self.config.report_dimension & StatisticsDimension.RELATION)
+
+        sampled = sampled[:, np.newaxis, :]
+        return (sampled, batch, splits)
+
+class LiteralCollate(object):
+    def __init__(self, source, negative_sampler, literals, transforms, sample_negative_for_non_triples=False):
+        self.source = source
+        self.negative_sampler = negative_sampler
+        self.literals = literals
+        self.sample_negative_for_non_triples = sample_negative_for_non_triples
+        self.transforms = transforms
 
 class OrderedTripleTransform(object):
     """Reformat a triple index into list.

@@ -1,7 +1,6 @@
 import unittest
 from kgexpr import data
 from kgexpr.data import constants
-from kgexpr.data import collators
 from kgexpr.data import transformers
 import kgekit
 from torchvision import transforms
@@ -60,8 +59,8 @@ class DataTest(unittest.TestCase):
     def test_dataset_tensor(self):
         dataset = data.TripleDataset(self.source.train_set, batch_size=2)
         self.assertEqual(len(dataset), 3)
-        self.assertTrue(torch.equal(dataset.tensors[0], torch.tensor([[0, 0, 1], [0, 1, 2]], dtype=torch.int64)))
-        self.assertTrue(torch.equal(dataset.tensors[-1], torch.tensor([[2, 0, 3]], dtype=torch.int64)))
+        np.testing.assert_equal(dataset.data[0], np.array([[0, 0, 1], [0, 1, 2]], dtype=np.int64))
+        np.testing.assert_equal(dataset.data[-1], np.array([[2, 0, 3]], dtype=np.int64))
 
 
     # def test_get_triples_from_batch(self):

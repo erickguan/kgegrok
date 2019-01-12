@@ -8,6 +8,7 @@ import torch
 import pytest
 import kgedata
 
+pytestmark = pytest.mark.skip("under refactor")
 
 class Config(object):
     """Mocked implementation of config"""
