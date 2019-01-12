@@ -7,6 +7,7 @@ from torchvision import transforms
 import numpy as np
 import torch
 import pytest
+from kgexpr.stats.constants import *
 
 pytestmark = pytest.mark.random_order(disabled=True)
 
@@ -24,6 +25,7 @@ class Config(object):
     epochs = 1
     base_seed = 5000
     enable_cuda = False
+    report_dimension = StatisticsDimension.DEFAULT
 
 
 @pytest.mark.numpyfile
@@ -158,3 +160,41 @@ class DataTransformerTest(unittest.TestCase):
             np.array([
             ],
                      dtype=np.int64))
+
+@pytest.mark.numpyfile
+class TestDataTransformerTest(unittest.TestCase):
+    @classmethod
+    def setUp(cls):
+        cls.config = Config()
+        cls.triple_dir = 'kgexpr/tests/fixtures/triples'
+        cls.source = data.TripleSource(cls.triple_dir, 'hrt', ' ')
+        cls.dataset = data.TripleDataset(cls.source.test_set, batch_size=1)
+        cls.small_triple_list = next(iter(cls.dataset))
+        np.random.seed(0)
+
+    def _build_triple_tile_generator(self):
+        gen = transformers.TripleTileGenerator(self.config, self.source)
+        return gen
+
+    def test_triple_tile_generator(self):
+        gen = self._build_triple_tile_generator()
+        samples, batch, splits = gen(self.small_triple_list)
+        self.assertEqual(self.source.num_entity, 4)
+        self.assertEqual(self.source.num_relation, 3)
+        np.testing.assert_equal(batch, np.array([[1, 2, 3]], dtype=np.int64))
+
+        np.testing.assert_equal(samples, np.array([
+            [0, 2, 3], #0
+            [1, 2, 3],
+            [2, 2, 3],
+            [3, 2, 3], #3
+            [1, 2, 0],
+            [1, 2, 1],
+            [1, 2, 2],
+            [1, 2, 3], # 7
+            [1, 0, 3],
+            [1, 1, 3],
+            [1, 2, 3], # 10
+        ], dtype=np.int64))
+
+        self.assertEqual(splits, [(0,4,8,11)])

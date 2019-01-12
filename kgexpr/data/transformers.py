@@ -4,6 +4,8 @@ import numpy as np
 import torch
 from kgexpr.data import constants
 from kgexpr.utils import deprecation
+from kgexpr.stats.constants import StatisticsDimension
+import kgedata
 import kgekit
 
 
@@ -102,6 +104,33 @@ def none_label_batch_generator(sample):
     batch, negative_batch = sample
     return batch, negative_batch, None
 
+class TripleTileGenerator(object):
+    """Process triples and put them into a tiled but flat numpy array.
+    Args:
+        config: config object for reading dimension information
+        triple_source: triple source function
+    Returns:
+        Positive tensor with shape (batch_size * varied_size, 1, 3).
+            varied_size will depends on testing dimension, num_entity and num_relation.
+        Original batch from PyTorch,
+        Splits split points
+    """
+
+    def __init__(self, config, triple_source):
+        self.config = config
+        self.triple_source = triple_source
+
+    def __call__(self, batch):
+        """process a mini-batch."""
+        sampled, splits = kgedata.expand_triple_batch(
+            batch, self.triple_source.num_entity,
+            self.triple_source.num_relation,
+            (self.config.report_dimension & StatisticsDimension.SEPERATE_ENTITY)
+            or (self.config.report_dimension &
+                StatisticsDimension.COMBINED_ENTITY),
+            self.config.report_dimension & StatisticsDimension.RELATION)
+
+        return sampled, batch, splits
 
 def label_prediction_collate(sample):
     """Add all positive labels for sample.
@@ -147,42 +176,6 @@ class BreakdownCollator(object):
         negative_batch = data.convert_triple_tuple_to_torch(
             data.get_triples_from_batch(negative_batch), self.config, False)
         return batch, negative_batch, labels
-
-def none_label_collate(sample):
-    """Adds a None to collators."""
-    batch, negative_batch = sample
-    return (batch, negative_batch, None)
-
-
-class TripleTileCollate(object):
-    """Process triples and put them into a tiled but flat numpy array.
-    Args:
-        config: config object for reading dimension information
-        triple_source: triple source function
-    Returns:
-        Positive tensor with shape (batch_size * varied_size, 1, 3).
-            varied_size will depends on testing dimension, num_entity and num_relation.
-        Original batch from PyTorch,
-        Splits split points
-    """
-
-    def __init__(self, config, triple_source):
-        deprecation("Not tested anymore", since="0.3.0")
-        self.config = config
-        self.triple_source = triple_source
-
-    def __call__(self, batch: constants.TripleIndexList):
-        """process a mini-batch."""
-        sampled, splits = kgedata.expand_triple_batch(
-            batch, self.triple_source.num_entity,
-            self.triple_source.num_relation,
-            (self.config.report_dimension & StatisticsDimension.SEPERATE_ENTITY)
-            or (self.config.report_dimension &
-                StatisticsDimension.COMBINED_ENTITY),
-            self.config.report_dimension & StatisticsDimension.RELATION)
-
-        sampled = sampled[:, np.newaxis, :]
-        return (sampled, batch, splits)
 
 class LiteralCollate(object):
     def __init__(self, source, negative_sampler, literals, transforms, sample_negative_for_non_triples=False):
