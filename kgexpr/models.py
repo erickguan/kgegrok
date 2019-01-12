@@ -56,33 +56,27 @@ class TransE(Model):
     def _calc(self, h, t, r):
         return torch.abs(h + r - t)
 
-    # margin-based loss
     def loss_func(self, p_score, n_score):
-        loss = self.criterion(p_score, n_score, self.y)
-        return loss
+        return self.criterion(p_score, n_score, self.y)
 
     def forward(self, batch):
-        pos, neg, label = batch
+        pos, neg, _ = batch
 
         pos_h, pos_r, pos_t = pos.transpose(0, 1)
         p_h = self.entity_embeddings(pos_h)
         p_t = self.entity_embeddings(pos_t)
         p_r = self.relation_embeddings(pos_r)
         _p_score = self._calc(p_h, p_t, p_r)
-        _p_score = _p_score.view(-1, 1, self.embedding_dimension)
 
-        if neg is not None:
+        if neg:
             neg_h, neg_r, neg_t = neg.transpose(0, 1)
             n_h = self.entity_embeddings(neg_h)
             n_t = self.entity_embeddings(neg_t)
             n_r = self.relation_embeddings(neg_r)
             _n_score = self._calc(n_h, n_t, n_r)
-            _n_score = _n_score.view(
-                -1, self.config.negative_entity + self.config.negative_relation,
-                self.embedding_dimension)
-            n_score = torch.sum(torch.mean(_n_score, 1), 1)
+            n_score = torch.sum(torch.mean(_n_score, 1), 0)
 
-            p_score = torch.sum(torch.mean(_p_score, 1), 1)
+            p_score = torch.sum(torch.mean(_p_score, 1), 0)
             loss = self.loss_func(p_score, n_score)
             return loss
         else:
