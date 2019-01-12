@@ -79,7 +79,7 @@ class TransE(Model):
             n_r = self.relation_embeddings(neg_r)
             _n_score = self._calc(n_h, n_t, n_r)
             _n_score = _n_score.view(
-                -1, self.config.negative_entity + self.config.negative_relation,
+                -1, 1,
                 self.embedding_dimension)
             n_score = torch.sum(torch.mean(_n_score, 1), 1)
 
