@@ -25,7 +25,7 @@ setup(
     author_email='fantasticfears@gmail.com',
     license='GPLv2',
     packages=find_packages(),
-    install_requires=['kgekit', 'numpy>=1.10', 'pytorch>=1.0'],
+    install_requires=['kgekit', 'numpy>=1.10', 'torch>=1.0'],
     test_suite='tests',
     zip_safe=False,
     include_package_data=True,

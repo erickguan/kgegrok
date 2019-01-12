@@ -65,14 +65,14 @@ class DataTest(unittest.TestCase):
                                              constants.DatasetType.TRAINING)
         sample_batched = next(iter(data_loader))
         batch, negatives, labels = sample_batched
-        self.assertEqual(batch.shape, (3, 5))
+        self.assertEqual(batch.shape, (5, 3))
         np.testing.assert_equal(
             batch.numpy(),
             np.array([[0, 0, 1], [0, 1, 2], [1, 2, 3],
                       [3, 1, 2], [2, 0, 3]],
-                     dtype=np.int64).T)
+                     dtype=np.int64))
         np.testing.assert_equal(
-            negatives.numpy().T[0:2, :], np.array([
+            negatives.numpy()[0, :], np.array([
                 [0, 0, 0],
                 [0, 2, 1],
             ], dtype=np.int64))
@@ -83,16 +83,16 @@ class DataTest(unittest.TestCase):
                                              constants.DatasetType.TRAINING)
         sample_batched = next(iter(data_loader))
         batch, negatives, labels = sample_batched
-        self.assertEqual(batch.shape, (3, 5))
+        self.assertEqual(batch.shape, (5, 3))
         np.testing.assert_equal(
             batch.numpy(),
             np.array([[0, 0, 1], [0, 1, 2], [1, 2, 3],
                       [3, 1, 2], [2, 0, 3]],
-                     dtype=np.int64).T)
-        np.testing.assert_equal(batch[0].numpy(), np.array([0, 0, 1, 3, 2], dtype=np.int64))
-        self.assertEqual(negatives.shape, (3, 5*2))
+                     dtype=np.int64))
+        np.testing.assert_equal(batch.transpose(0, 1)[0].numpy(), np.array([0, 0, 1, 3, 2], dtype=np.int64))
+        self.assertEqual(negatives.shape, (5, 2, 3))
         np.testing.assert_equal(
-            negatives.numpy().T[0:2, :],
+            negatives.numpy()[0, :],
             np.array([
                 [0, 0, 0],
                 [0, 2, 1],

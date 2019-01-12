@@ -82,53 +82,34 @@ class DataTransformerTest(unittest.TestCase):
         np.testing.assert_equal(
             negatives,
             np.array([
-                [2, 0, 1], [0, 1, 1],
-                [2, 1, 2], [0, 0, 2],
+                [[2, 0, 1], [0, 1, 1]],
+                [[2, 1, 2], [0, 0, 2]],
             ],
             dtype=np.int64))
 
-    def _gen_transposed_sample_with_negs(self):
-        sample = self._gen_sample_with_negs()
-        return transformers.batch_transpose_transform(sample)
-
-    def test_batch_transpose_transform(self):
-        batch, negatives = self._gen_transposed_sample_with_negs()
-        np.testing.assert_equal(
-            batch, np.array([
-                [0, 0, 1],
-                [0, 1, 2],
-            ], dtype=np.int64).T)
-        np.testing.assert_equal(
-            negatives,
-            np.array([
-                [2, 0, 1], [0, 1, 1],
-                [2, 1, 2], [0, 0, 2],
-            ],
-            dtype=np.int64).T)
-
     def test_tensor_transform(self):
-        sample = self._gen_transposed_sample_with_negs()
+        sample = self._gen_sample_with_negs()
         transform = transformers.TensorTransform(self.config)
         batch, negatives = transform(sample)
         np.testing.assert_equal(
             batch.numpy(), np.array([
                 [0, 0, 1],
                 [0, 1, 2],
-            ], dtype=np.int64).T)
+            ], dtype=np.int64))
         np.testing.assert_equal(
             negatives.numpy(),
             np.array([
-                [2, 0, 1], [0, 1, 1],
-                [2, 1, 2], [0, 0, 2],
+                [[2, 0, 1], [0, 1, 1]],
+                [[2, 1, 2], [0, 0, 2]],
             ],
-            dtype=np.int64).T)
+            dtype=np.int64))
 
     def test_label_batch_generator(self):
-        sample = self._gen_transposed_sample_with_negs()
+        sample = self._gen_sample_with_negs()
         transform = transformers.LabelBatchGenerator(self.config, False)
         batch, negatives, labels = transform(sample)
         np.testing.assert_equal(
-            labels.numpy(), np.concatenate([np.ones(batch.shape[1], dtype=np.int64), np.full(negatives.shape[1], -1, dtype=np.int64)]))
+            labels.numpy(), np.concatenate([np.ones(batch.shape[0], dtype=np.int64), np.full(negatives.shape[0]*negatives.shape[1], -1, dtype=np.int64)]))
 
     def none_none_label_batch_generator(self):
         sample = self._gen_transposed_sample_with_negs()

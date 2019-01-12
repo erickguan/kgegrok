@@ -68,16 +68,16 @@ class LabelBatchGenerator(object):
 
     def __call__(self, sample):
         """Add data label for (batch, negative_batch).
-        positive batch shape before transposition: (batch_size, 3)
-        negative batch shape before transposition: (batch_size*negative_samples, 3).
+        positive batch shape: (batch_size, 3)
+        negative batch shape: (batch_size, negative_samples, 3).
         label batch shape: (batch_size*(1+negative_samples),).
         """
         batch, negative_batch = sample
 
         # deal with last batch
-        num_labels = batch.shape[1] + negative_batch.shape[1]
+        num_labels = batch.shape[0] * (1+negative_batch.shape[1])
         if num_labels < self._labels.shape[0]:
-            labels = self._build_label_tensor(num_labels, batch.shape[1])
+            labels = self._build_label_tensor(num_labels, batch.shape[0])
         else:
             labels = self._labels
         return batch, negative_batch, labels
@@ -86,12 +86,6 @@ class LabelBatchGenerator(object):
         labels = np.full(num_labels, -1, dtype=np.int64)
         labels[:batch_size] = 1
         return _np_to_tensor(labels, self.cuda_enabled)
-
-
-def batch_transpose_transform(sample):
-    """Transpose the batch so it can be easily unwrap"""
-    batch, negative_batch = sample
-    return batch.T, negative_batch.T
 
 class TensorTransform(object):
     """Returns batch, negative_batch by the tensor."""
