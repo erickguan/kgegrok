@@ -91,10 +91,7 @@ class LabelBatchGenerator(object):
 def batch_transpose_transform(sample):
     """Transpose the batch so it can be easily unwrap"""
     batch, negative_batch = sample
-    batch = batch.T
-    negative_batch = negative_batch.T
-
-    return batch, negative_batch
+    return batch.T, negative_batch.T
 
 class TensorTransform(object):
     """Returns batch, negative_batch by the tensor."""

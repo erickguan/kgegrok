@@ -89,6 +89,7 @@ class DataTest(unittest.TestCase):
             np.array([[0, 0, 1], [0, 1, 2], [1, 2, 3],
                       [3, 1, 2], [2, 0, 3]],
                      dtype=np.int64).T)
+        np.testing.assert_equal(batch[0].numpy(), np.array([0, 0, 1, 3, 2], dtype=np.int64))
         self.assertEqual(negatives.shape, (3, 5*2))
         np.testing.assert_equal(
             negatives.numpy().T[0:2, :],
