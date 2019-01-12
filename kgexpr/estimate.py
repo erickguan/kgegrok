@@ -98,7 +98,7 @@ def train_and_validate(triple_source,
             logging.info('Training batch ' + str(i_batch + INDEX_OFFSET) + "/" +
                          str(len(data_loader)))
 
-            loss = model.forward(*sample_batched)
+            loss = model.forward(sample_batched)
             loss_sum = loss.sum()
             optimizer.zero_grad()
             loss_sum.backward()
