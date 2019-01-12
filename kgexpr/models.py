@@ -65,7 +65,7 @@ class TransE(Model):
     def forward(self, batch):
         pos, neg, label = batch
 
-        pos_h, pos_r, pos_t = pos
+        pos_h, pos_r, pos_t = pos.transpose(0, 1)
         p_h = self.entity_embeddings(pos_h)
         p_t = self.entity_embeddings(pos_t)
         p_r = self.relation_embeddings(pos_r)
@@ -73,7 +73,7 @@ class TransE(Model):
         _p_score = _p_score.view(-1, 1, self.embedding_dimension)
 
         if neg is not None:
-            neg_h, neg_r, neg_t = neg
+            neg_h, neg_r, neg_t = neg.transpose(0, 1)
             n_h = self.entity_embeddings(neg_h)
             n_t = self.entity_embeddings(neg_t)
             n_r = self.relation_embeddings(neg_r)
@@ -131,7 +131,7 @@ class ComplEx(Model):
     def forward(self, batch):
         pos, neg, label = batch
 
-        pos_h, pos_r, pos_t = pos
+        pos_h, pos_r, pos_t = pos.transpose(0, 1)
         e_re_h = self.ent_re_embeddings(pos_h)
         e_im_h = self.ent_im_embeddings(pos_h)
         e_re_t = self.ent_re_embeddings(pos_t)
@@ -141,7 +141,7 @@ class ComplEx(Model):
 
         # Calculating loss to get what the framework will optimize
         if neg is not None:
-            neg_h, neg_r, neg_t = neg
+            neg_h, neg_r, neg_t = neg.transpose(0, 1)
             neg_h = neg_h.view(-1)
             neg_r = neg_r.view(-1)
             neg_t = neg_t.view(-1)

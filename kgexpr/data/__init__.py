@@ -220,7 +220,6 @@ def create_dataloader(triple_source,
         transforms = [
             transformers.CorruptionFlagGenerator(corruptor),
             transformers.NegativeBatchGenerator(negative_sampler),
-            transformers.batch_transpose_transform,
             transformers.TensorTransform(config)
         ]
         if build_label:
