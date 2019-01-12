@@ -73,9 +73,18 @@ class TripleSource(object):
     def num_relation(self):
         return self._num_relation
 
-def sequential_batch_sampler(dataset):
-    for i in range(len(dataset)):
-        yield [i]
+class SequentialBatchSampler(object):
+    """generates an item of i."""
+
+    def __init__(self, dataset):
+        self.len = len(dataset)
+    
+    def __iter__(self):
+        self._iter = iter(range(self.len))
+        return self
+    
+    def __next__(self):
+        return [next(self._iter)]
 
 def flat_collate_fn(batch):
     """Flatten pytorch dataloader list since we only load 1 batch for dataloader."""
@@ -253,7 +262,7 @@ def create_dataloader(triple_source,
         num_workers=config.num_workers,
         pin_memory=True,
         timeout=config.batch_worker_timeout,
-        batch_sampler=sequential_batch_sampler(dataset),
+        batch_sampler=SequentialBatchSampler(dataset),
         collate_fn=flat_collate_fn
     )
     return data_loader

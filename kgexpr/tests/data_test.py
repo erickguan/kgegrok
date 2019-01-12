@@ -52,6 +52,18 @@ class DataTest(unittest.TestCase):
         self.assertEqual(self.source.num_entity, 4)
         self.assertEqual(self.source.num_relation, 3)
         np.testing.assert_equal(self.source.test_set, np.array([[1, 2, 3]], dtype=np.int64))
+    
+    def test_SequentialBatchSampler(self):
+        dataset = data.TripleDataset(self.source.test_set)
+        sampler = data.SequentialBatchSampler(dataset)
+        it1 = iter(sampler)
+        next(it1)
+        with pytest.raises(StopIteration):
+            next(it1)
+        it2 = iter(sampler)
+        next(it2)
+        with pytest.raises(StopIteration):
+            next(it2)
 
     def test_dataset_tensor(self):
         dataset = data.TripleDataset(self.source.train_set, batch_size=2)
