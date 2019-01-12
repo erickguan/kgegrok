@@ -47,6 +47,9 @@ class TransE(Model):
         self.relation_embeddings = nn.Embedding(self.triple_source.num_relation,
                                                 self.embedding_dimension)
 
+        self.criterion = nn.MarginRankingLoss(self.config.margin, False)
+        self.y = torch.tensor([-1.0], requires_grad=False)
+
         nn.init.xavier_uniform_(self.entity_embeddings.weight.data)
         nn.init.xavier_uniform_(self.relation_embeddings.weight.data)
 
@@ -55,11 +58,7 @@ class TransE(Model):
 
     # margin-based loss
     def loss_func(self, p_score, n_score):
-        criterion = nn.MarginRankingLoss(self.config.margin, False).cuda()
-        y = Variable(torch.Tensor([-1]))
-        if self.config.enable_cuda:
-            y = y.cuda()
-        loss = criterion(p_score, n_score, y)
+        loss = self.criterion(p_score, n_score, self.y)
         return loss
 
     def forward(self, batch):
@@ -79,7 +78,7 @@ class TransE(Model):
             n_r = self.relation_embeddings(neg_r)
             _n_score = self._calc(n_h, n_t, n_r)
             _n_score = _n_score.view(
-                -1, 1,
+                -1, self.config.negative_entity + self.config.negative_relation,
                 self.embedding_dimension)
             n_score = torch.sum(torch.mean(_n_score, 1), 1)
 
