@@ -8,7 +8,7 @@ import torch
 from torch.utils.data import Dataset
 import numpy as np
 import random
-from torchvision import transforms
+from torchvision.transforms import Compose
 import functools
 from kgexpr.data import constants, transformers
 from kgexpr.utils import deprecation
@@ -197,54 +197,65 @@ SEED_OFFSET = 100
 
 def create_dataloader(triple_source,
                       config,
-                      collates_label=False,
+                      build_label=False,
                       dataset_type=constants.DatasetType.TRAINING):
     """Creates dataloader with certain types"""
-    dataset = TripleIndexesDataset(
-        triple_source,
-        dataset_type,
-        transform=transformers.OrderedTripleListTransform(config.triple_order))
 
     # Use those C++ extension is fast but then we can't use spawn method to start data loader.
     if dataset_type == constants.DatasetType.TRAINING:
-        negative_sampler = kgedata.LCWANoThrowSampler(
+        corruptor = kgedata.BernoulliCorruptor(
             triple_source.train_set,
-            triple_source.num_entity,
             triple_source.num_relation,
             config.negative_entity,
-            config.negative_relation,
-            config.base_seed,
-            kgedata.LCWANoThrowSamplerStrategy.Hash)
-        corruptor = kgedata.BernoulliCorruptor(triple_source.train_set, triple_source.num_relation, config.base_seed+SEED_OFFSET)
+            config.base_seed + SEED_OFFSET)
+        negative_sampler = kgedata.LCWANoThrowSampler(
+                    triple_source.train_set,
+                    triple_source.num_entity,
+                    triple_source.num_relation,
+                    config.negative_entity,
+                    config.negative_relation,
+                    config.base_seed + 2*SEED_OFFSET,
+                    kgedata.LCWANoThrowSamplerStrategy.Hash)
 
-        collates = [
-            collators.list_stack_collate,
-            collators.CorruptionCollate(corruptor),
-            collators.LCWANoThrowCollate(
-                triple_source,
-                negative_sampler),
+        transforms = [
+            transformers.CorruptionFlagGenerator(corruptor),
+            transformers.NegativeBatchGenerator(negative_sampler),
+            transformers.batch_transpose_transform,
+            transformers.TensorTransform(config)
         ]
-        if collates_label:
-            collates.append(collators.label_collate)
+        if build_label:
+            transforms.append(transformers.LabelBatchGenerator(config))
         else:
-            collates.append(collators.none_label_collate)
-        batch_size = config.batch_size
-        collates.append(collators.BreakdownCollator(config))
+            transforms.append(transformers.none_label_batch_generator)
+
+        dataset = TripleDataset(
+            triple_source.train_set,
+            batch_size=config.batch_size,
+            transform=Compose(transforms))
     else:  # Validation and Test
         batch_size = max(_SAFE_MINIMAL_BATCH_SIZE,
                          int(config.batch_size * config.evaluation_load_factor))
-        collates = [collators.TripleTileCollate(config, triple_source)]
-        if collates_label:
-            collates.append(collators.label_prediction_collate)
-    collate_fn = transforms.Compose(collates)
+        transforms = [
+            transformers.TripleTileGenerator(config, triple_source),
+            transformers.TestBatchTransform(config)
+        ]
+        if dataset_type == constants.DatasetType.VALIDATION:
+            triple_set = triple_source.valid_set
+        else:
+            triple_set = triple_source.test_set
 
-    batch_sampler = TripleIndexBatchSampler(dataset, batch_size)
+        dataset = TripleDataset(
+            triple_set,
+            batch_size=config.batch_size,
+            transform=Compose(transforms))
+
     data_loader = torch.utils.data.DataLoader(
         dataset,
-        batch_sampler=batch_sampler,
         num_workers=config.num_workers,
-        pin_memory=True,  # May cause system froze because of not enough physical memory
-        collate_fn=collate_fn,
+        pin_memory=True,
+        timeout=config.batch_worker_timeout,
+        batch_sampler=sequential_batch_sampler(dataset),
+        collate_fn=flat_collate_fn
     )
     return data_loader
 

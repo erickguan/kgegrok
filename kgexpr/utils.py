@@ -94,6 +94,7 @@ class Config(object):
     negative_relation = 1
     batch_size = 100
     num_workers = 2
+    batch_worker_timeout = 1 # 1s
     num_evaluation_workers = 2
     # due to tile in the evaluation, it's reasonable to have less batch size
     evaluation_load_factor = 0.0001

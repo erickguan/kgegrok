@@ -60,9 +60,7 @@ class LabelBatchGenerator(object):
         else:
             self.cuda_enabled = config.enable_cuda
 
-        labels = np.full(self._num_labels, -1, dtype=np.int64)
-        labels[:self.batch_size] = 1
-        self._labels = _np_to_tensor(labels, self.cuda_enabled)
+        self._labels = self._build_label_tensor(self._num_labels, self.batch_size)
         try:
             self._labels.pin_memory()
         except RuntimeError:
@@ -76,7 +74,19 @@ class LabelBatchGenerator(object):
         """
         batch, negative_batch = sample
 
-        return batch, negative_batch, self._labels
+        # deal with last batch
+        num_labels = batch.shape[1] + negative_batch.shape[1]
+        if num_labels < self._labels.shape[0]:
+            labels = self._build_label_tensor(num_labels, batch.shape[1])
+        else:
+            labels = self._labels
+        return batch, negative_batch, labels
+    
+    def _build_label_tensor(self, num_labels, batch_size):
+        labels = np.full(num_labels, -1, dtype=np.int64)
+        labels[:batch_size] = 1
+        return _np_to_tensor(labels, self.cuda_enabled)
+
 
 def batch_transpose_transform(sample):
     """Transpose the batch so it can be easily unwrap"""
@@ -130,7 +140,7 @@ class TripleTileGenerator(object):
                 StatisticsDimension.COMBINED_ENTITY),
             self.config.report_dimension & StatisticsDimension.RELATION)
 
-        return sampled, batch, splits
+        return sampled.T, batch, splits
 
 class TestBatchTransform(object):
     """Generates None and put things into Tensor."""
