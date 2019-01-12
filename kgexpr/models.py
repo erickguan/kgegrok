@@ -47,7 +47,7 @@ class TransE(Model):
         self.relation_embeddings = nn.Embedding(self.triple_source.num_relation,
                                                 self.embedding_dimension)
 
-        self.register_parameter('y', torch.tensor([-1.0], requires_grad=False))
+        self.register_parameter('y', torch.nn.Parameter(torch.tensor([-1.0]), requires_grad=False))
         self.criterion = nn.MarginRankingLoss(self.config.margin, False)
 
         nn.init.xavier_uniform_(self.entity_embeddings.weight.data)
