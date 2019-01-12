@@ -74,13 +74,14 @@ class TransE(Model):
             n_t = self.entity_embeddings(neg_t)
             n_r = self.relation_embeddings(neg_r)
             _n_score = self._calc(n_h, n_t, n_r)
-            n_score = torch.sum(torch.mean(_n_score, 1), 0)
+            _n_score = _n_score.view(-1, self.config.negative_entity + self.config.negative_relation, self.embedding_dimension)
 
-            p_score = torch.sum(torch.mean(_p_score, 1), 0)
+            n_score = torch.sum(torch.mean(_n_score, 2), 1)
+            p_score = torch.mean(_p_score, 1)
             loss = self.loss_func(p_score, n_score)
             return loss
         else:
-            p_score = torch.sum(_p_score, (1, 2))
+            p_score = torch.sum(_p_score, 1)
             return p_score
 
 
