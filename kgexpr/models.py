@@ -68,7 +68,7 @@ class TransE(Model):
         p_r = self.relation_embeddings(pos_r)
         _p_score = self._calc(p_h, p_t, p_r)
 
-        if neg:
+        if neg is not None:
             neg_h, neg_r, neg_t = neg.transpose(0, 1)
             n_h = self.entity_embeddings(neg_h)
             n_t = self.entity_embeddings(neg_t)
