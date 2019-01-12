@@ -13,6 +13,7 @@ pytorch-pretrained-bert = "==0.4.0"
 
 [dev-packages]
 pytest = "*"
+pylint = "*"
 
 [requires]
 python_version = "3.6"
