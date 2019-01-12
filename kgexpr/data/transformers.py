@@ -1,7 +1,9 @@
 """Includes a bunch of transformer for dataset."""
 
 import numpy as np
+import torch
 from kgexpr.data import constants
+from kgexpr.utils import deprecation
 import kgekit
 
 
@@ -36,26 +38,6 @@ class NegativeBatchGenerator(object):
         negative_batch = self.sampler.sample(corrupt_head, batch)
         return batch, negative_batch
 
-def label_batch_generator(sample):
-    """Add data label for (batch, negative_batch).
-    positive batch shape: (batch_size, 3)
-    negative batch shape: (batch_size*negative_samples, 3).
-    label batch shape: (batch_size*(1+negative_samples),).
-    """
-    batch, negative_batch = sample
-
-    labels_shape = (batch.shape[0]*(1+negative_batch.shape[1]),)
-    labels = np.full(labels_shape, -1, dtype=np.int64)
-    labels[:batch.shape[0]] = 1
-    return batch, negative_batch, labels
-
-def batch_transpose_transform(sample):
-    batch, negative_batch, labels = sample
-    batch = batch.T
-    negative_batch = negative_batch.T
-
-    return batch, negative_batch, labels
-
 def _np_to_tensor(x, cuda_enabled):
     x = torch.from_numpy(x)
     # Input is an index to find relevant embeddings. We don't track them
@@ -64,13 +46,46 @@ def _np_to_tensor(x, cuda_enabled):
         x = x.cuda()
     return x
 
-def _batch_element_to_tensor(x, cuda_enabled):
-    if x is None:
-        return x
-    return _np_to_tensor(x, cuda_enabled)
+class LabelBatchGenerator(object):
+    """Add data label (third element) for a sample."""
+
+    def __init__(self, config, enable_cuda_override=None):
+        self.batch_size = config.batch_size
+        self.num_negative_sample = config.negative_entity + config.negative_relation
+        self._num_labels = self.batch_size * (1+self.num_negative_sample)
+        if enable_cuda_override is not None:
+            self.cuda_enabled = enable_cuda_override
+        else:
+            self.cuda_enabled = config.enable_cuda
+
+        labels = np.full(self._num_labels, -1, dtype=np.int64)
+        labels[:self.batch_size] = 1
+        self._labels = _np_to_tensor(labels, self.cuda_enabled)
+        try:
+            self._labels.pin_memory()
+        except RuntimeError:
+            pass # No CUDA semantics
+
+    def __call__(self, sample):
+        """Add data label for (batch, negative_batch).
+        positive batch shape before transposition: (batch_size, 3)
+        negative batch shape before transposition: (batch_size*negative_samples, 3).
+        label batch shape: (batch_size*(1+negative_samples),).
+        """
+        batch, negative_batch = sample
+
+        return batch, negative_batch, self._labels
+
+def batch_transpose_transform(sample):
+    """Transpose the batch so it can be easily unwrap"""
+    batch, negative_batch = sample
+    batch = batch.T
+    negative_batch = negative_batch.T
+
+    return batch, negative_batch
 
 class TensorTransform(object):
-    """Returns batch, negative_batch, labels by the tensor."""
+    """Returns batch, negative_batch by the tensor."""
 
     def __init__(self, config, enable_cuda_override=None):
         if enable_cuda_override is not None:
@@ -79,12 +94,20 @@ class TensorTransform(object):
             self.cuda_enabled = config.enable_cuda
 
     def __call__(self, sample):
-        return tuple(map(lambda x: _batch_element_to_tensor(x, self.cuda_enabled), sample))
+        batch, negative_batch = sample
+        return _np_to_tensor(batch, self.cuda_enabled), _np_to_tensor(negative_batch, self.cuda_enabled)
+
+def none_label_batch_generator(sample):
+    """Generates a None for labels."""
+    batch, negative_batch = sample
+    return batch, negative_batch, None
 
 
 def label_prediction_collate(sample):
     """Add all positive labels for sample.
     """
+    deprecation("Not tested anymore", since="0.3.0")
+
     tiled, batch, splits = sample
 
     labels_shape = (tiled.shape[0])
@@ -99,6 +122,7 @@ class NumpyCollate(object):
     """
 
     def __init__(self, transform=None):
+        deprecation("Not tested anymore", since="0.3.0")
         self.transform = transform
 
     def __call__(self, batch: constants.TripleIndexList):
@@ -111,6 +135,7 @@ class NumpyCollate(object):
 
 class BreakdownCollator(object):
     def __init__(self, config):
+        deprecation("Not tested anymore", since="0.3.0")
         self.config = config
 
     def __call__(self, sample):
@@ -142,6 +167,7 @@ class TripleTileCollate(object):
     """
 
     def __init__(self, config, triple_source):
+        deprecation("Not tested anymore", since="0.3.0")
         self.config = config
         self.triple_source = triple_source
 
@@ -160,6 +186,7 @@ class TripleTileCollate(object):
 
 class LiteralCollate(object):
     def __init__(self, source, negative_sampler, literals, transforms, sample_negative_for_non_triples=False):
+        deprecation("WIP", since="0.3.0")
         self.source = source
         self.negative_sampler = negative_sampler
         self.literals = literals
@@ -174,6 +201,7 @@ class OrderedTripleTransform(object):
     """
 
     def __init__(self, triple_order):
+        deprecation("Input is changed to numpy array.", since="0.3.0")
         kgekit.utils.assert_triple_order(triple_order)
         self.triple_order = triple_order
 
@@ -197,6 +225,7 @@ class OrderedTripleListTransform(object):
     """
 
     def __init__(self, triple_order):
+        deprecation("Input is changed to numpy array.", since="0.3.0")
         kgekit.utils.assert_triple_order(triple_order)
         self.triple_order = triple_order
 
@@ -224,6 +253,7 @@ class FactTransform(object):
     """
 
     def __init__(self, triple_order):
+        deprecation("Input is changed to numpy array.", since="0.3.0")
         kgekit.utils.assert_triple_order(triple_order)
         self.triple_order = triple_order
 

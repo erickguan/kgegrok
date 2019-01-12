@@ -17,7 +17,7 @@ class Config(object):
     triple_delimiter = ' '
     negative_entity = 1
     negative_relation = 1
-    batch_size = 100
+    batch_size = 2
     num_workers = 1
     entity_embedding_dimension = 10
     margin = 0.01
@@ -37,33 +37,41 @@ class DataTransformerTest(unittest.TestCase):
         cls.small_triple_list = next(iter(cls.dataset))
         cls.num_corrupts = 1
         cls.samples = (np.array([True, False], dtype=np.bool), cls.small_triple_list)
+        np.random.seed(0)
+
+    def _build_corruptor(self):
+        corruptor = kgedata.UniformCorruptor(self.num_corrupts, 1000)
+        return corruptor
 
     def test_uniform_corruption_flag_generator(self):
-        np.random.seed(0)
-        corruptor = kgedata.UniformCorruptor(self.num_corrupts, 1000)
+        corruptor = self._build_corruptor()
         np.testing.assert_equal(
             transformers.CorruptionFlagGenerator(corruptor)(self.small_triple_list)[0],
             np.array([False, False], dtype=np.bool).reshape((-1, self.num_corrupts)))
 
     def test_bernoulli_corruption_generator(self):
-        np.random.seed(0)
         corruptor = kgedata.BernoulliCorruptor(self.source.train_set, self.source.num_relation, self.num_corrupts, 2000)
         np.testing.assert_equal(
             transformers.CorruptionFlagGenerator(corruptor)(self.small_triple_list)[0],
             np.array([False, False], dtype=np.bool).reshape((-1, self.num_corrupts)))
 
-    def test_negative_batch_generator(self):
-        np.random.seed(0)
-        corruptor = kgedata.UniformCorruptor(self.num_corrupts, 1000)
+    def _build_corruptor_sampler(self):
+        corruptor = self._build_corruptor()
         negative_sampler = kgedata.LCWANoThrowSampler(
             self.source.train_set, self.source.num_entity,
             self.source.num_relation, 1, 1,
             1000,
             kgedata.LCWANoThrowSamplerStrategy.Hash)
+        return corruptor, negative_sampler
 
+    def _gen_sample_with_negs(self):
+        corruptor, negative_sampler = self._build_corruptor_sampler()
         sample = transformers.CorruptionFlagGenerator(corruptor)(self.small_triple_list)
-        batch, negatives = transformers.NegativeBatchGenerator(negative_sampler)(sample)
+        sample = transformers.NegativeBatchGenerator(negative_sampler)(sample)
+        return sample
 
+    def test_negative_batch_generator(self):
+        batch, negatives = self._gen_sample_with_negs()
         np.testing.assert_equal(
             batch, np.array([
                 [0, 0, 1],
@@ -77,27 +85,76 @@ class DataTransformerTest(unittest.TestCase):
             ],
             dtype=np.int64))
 
-    # def test_literal_collate(self):
-    #     np.random.seed(0)
-    #     negative_sampler = kgedata.LCWANoThrowSampler(
-    #         self.source.train_set, self.source.num_entity,
-    #         self.source.num_relation, 1, 1,
-    #         kgedata.LCWANoThrowSamplerStrategy.Hash)
-    #     batch, negatives = collators.LiteralCollate(
-    #         self.source,
-    #         negative_sampler,
-    #         literals=['facts'],
-    #         transforms=dict(
-    #             triple_transform=transformers.OrderedTripleListTransform("hrt"),
-    #             fact_transform=transformers.FactTransform("hrt"),
-    #         ),
-    #         sample_negative_for_non_triples=False,
-    #     )(self.samples, 0)
-    #     np.testing.assert_equal(
-    #         batch, np.array([
-    #         ], dtype=np.int64))
-    #     np.testing.assert_equal(
-    #         negatives,
-    #         np.array([
-    #         ],
-    #                  dtype=np.int64))
+    def _gen_transposed_sample_with_negs(self):
+        sample = self._gen_sample_with_negs()
+        return transformers.batch_transpose_transform(sample)
+
+    def test_batch_transpose_transform(self):
+        batch, negatives = self._gen_transposed_sample_with_negs()
+        np.testing.assert_equal(
+            batch, np.array([
+                [0, 0, 1],
+                [0, 1, 2],
+            ], dtype=np.int64).T)
+        np.testing.assert_equal(
+            negatives,
+            np.array([
+                [2, 0, 1], [0, 1, 1],
+                [2, 1, 2], [0, 0, 2],
+            ],
+            dtype=np.int64).T)
+
+    def test_tensor_transform(self):
+        sample = self._gen_transposed_sample_with_negs()
+        transform = transformers.TensorTransform(self.config)
+        batch, negatives = transform(sample)
+        np.testing.assert_equal(
+            batch.numpy(), np.array([
+                [0, 0, 1],
+                [0, 1, 2],
+            ], dtype=np.int64).T)
+        np.testing.assert_equal(
+            negatives.numpy(),
+            np.array([
+                [2, 0, 1], [0, 1, 1],
+                [2, 1, 2], [0, 0, 2],
+            ],
+            dtype=np.int64).T)
+
+    def test_label_batch_generator(self):
+        sample = self._gen_transposed_sample_with_negs()
+        transform = transformers.LabelBatchGenerator(self.config, False)
+        batch, negatives, labels = transform(sample)
+        np.testing.assert_equal(
+            labels.numpy(), np.concatenate([np.ones(batch.shape[1], dtype=np.int64), np.full(negatives.shape[1], -1, dtype=np.int64)]))
+
+    def none_none_label_batch_generator(self):
+        sample = self._gen_transposed_sample_with_negs()
+        _, _, labels = transformers.none_label_batch_generator(sample)
+        self.assertEqual(labels, None)
+
+    @pytest.mark.skip(reason="WIP")
+    def test_literal_collate(self):
+        np.random.seed(0)
+        negative_sampler = kgedata.LCWANoThrowSampler(
+            self.source.train_set, self.source.num_entity,
+            self.source.num_relation, 1, 1,
+            kgedata.LCWANoThrowSamplerStrategy.Hash)
+        batch, negatives = collators.LiteralCollate(
+            self.source,
+            negative_sampler,
+            literals=['facts'],
+            transforms=dict(
+                triple_transform=transformers.OrderedTripleListTransform("hrt"),
+                fact_transform=transformers.FactTransform("hrt"),
+            ),
+            sample_negative_for_non_triples=False,
+        )(self.samples, 0)
+        np.testing.assert_equal(
+            batch, np.array([
+            ], dtype=np.int64))
+        np.testing.assert_equal(
+            negatives,
+            np.array([
+            ],
+                     dtype=np.int64))

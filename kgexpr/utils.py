@@ -3,6 +3,7 @@ import json
 import importlib
 import logging
 import argparse
+import warnings
 from pathlib import Path
 from itertools import filterfalse
 
@@ -155,3 +156,8 @@ class Config(object):
         for k, v in args.items():
             if v is not None and k in self.registered_options():
                 self.__dict__[k] = v
+
+def deprecation(message, since=None):
+    if since is not None:
+        message << " (since {})".format(since)
+    warnings.warn(message, DeprecationWarning, stacklevel=2)
