@@ -44,8 +44,8 @@ def _np_to_tensor(x, cuda_enabled):
     x = torch.from_numpy(x)
     # Input is an index to find relevant embeddings. We don't track them
     x.requires_grad_(False)
-    if cuda_enabled:
-        x = x.cuda()
+    # if cuda_enabled:
+    #     x = x.cuda()
     return x
 
 class LabelBatchGenerator(object):
