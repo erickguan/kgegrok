@@ -48,6 +48,8 @@ class TransE(Model):
                                                 self.embedding_dimension)
 
         self.criterion = nn.MarginRankingLoss(self.config.margin, False)
+        if config.enable_cuda:
+            self.criterion = self.criterion.cuda()
         self.y = torch.tensor([-1.0], requires_grad=False)
 
         nn.init.xavier_uniform_(self.entity_embeddings.weight.data)
