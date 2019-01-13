@@ -141,6 +141,5 @@ class DataTest(unittest.TestCase):
                 [3, 1, 2],
                 [3, 2, 2],
                 ], dtype=np.int64))
-        print(negatives)
         self.assertEqual(negatives, None)
         self.assertEqual(labels, None)

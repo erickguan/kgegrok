@@ -25,9 +25,8 @@ class CorruptionFlagGenerator(object):
 
 class NegativeBatchGenerator(object):
     """Process and sample an negative batch. Supports multiprocess from pytorch.
-    We don't throw if |set(subject, predict)| is empty.
     Returns:
-        Positive tensor with shape (batch_size, 1, 3).
+        Positive tensor with shape (batch_size, 3).
         Negative tensor with shape (batch_size, negative_samples, 3).
     """
 
@@ -41,26 +40,31 @@ class NegativeBatchGenerator(object):
         return batch, negative_batch
 
 def _np_to_tensor(x):
+    if x is None: return x
     # Input is an index to find relevant embeddings. We don't track them
     return torch.from_numpy(x).requires_grad_(False)
+
+
+def _build_labels_np(num_total, num_postive):
+    """Builds a label array in place with [0:num_positive)=1; [num_positive, num_total) = -1"""
+    labels = np.full(num_total, -1, dtype=np.int64)
+    labels[:num_postive] = 1
+    return labels
 
 class LabelBatchGenerator(object):
     """Add data label (third element) for a sample."""
 
-    def __init__(self, config, enable_cuda_override=None):
-        self.batch_size = config.batch_size
-        self.num_negative_sample = config.negative_entity + config.negative_relation
-        self._num_labels = self.batch_size * (1+self.num_negative_sample)
-        if enable_cuda_override is not None:
-            self.cuda_enabled = enable_cuda_override
-        else:
-            self.cuda_enabled = config.enable_cuda
+    def __init__(self, config, batch_label_generator=None):
+        self._batch_size = config.batch_size
+        self._num_negative_sample = config.negative_entity + config.negative_relation
+        self._num_labels = self._batch_size * (1+self._num_negative_sample)
 
-        self._labels = self._build_label_tensor(self._num_labels, self.batch_size)
-        try:
-            self._labels.pin_memory()
-        except RuntimeError:
-            pass # No CUDA semantics
+        self._batch_label_generator = batch_label_generator
+        # cache labels for a normal batch so we don't have to build them repeatly
+        if self._batch_label_generator:
+            self._labels = np.ones(self._batch_size, dtype=np.int64)
+        else:
+            self._labels = _build_labels_np(self._num_labels, self._batch_size)
 
     def __call__(self, sample):
         """Add data label for (batch, negative_batch).
@@ -69,25 +73,25 @@ class LabelBatchGenerator(object):
         label batch shape: (batch_size*(1+negative_samples),).
         """
         batch, negative_batch = sample
+        batch_size = batch.shape[0]
 
-        # deal with last batch
-        num_labels = batch.shape[0] * (1+negative_batch.shape[1])
-        if num_labels < self._labels.shape[0]:
-            labels = self._build_label_tensor(num_labels, batch.shape[0])
+        if self._batch_label_generator is not None:
+            neg_labels = self._batch_label_generator.generate_labels(negative_batch)
+            pos_labels = np.ones(batch_size, dtype=np.int64) if batch_size < self._batch_size else self._labels
+            labels = np.concatenate([pos_labels, neg_labels.ravel()])
+            return batch, negative_batch, labels
+
+        # all negative for negative batch
+        num_labels = batch_size * (1+self._num_negative_sample)
+        if batch_size < self._batch_size:
+            labels = _build_labels_np(num_labels, batch_size)
         else:
             labels = self._labels
         return batch, negative_batch, labels
     
-    def _build_label_tensor(self, num_labels, batch_size):
-        labels = np.full(num_labels, -1, dtype=np.int64)
-        labels[:batch_size] = 1
-        return _np_to_tensor(labels)
-
 def tensor_transform(sample):
     """Returns batch, negative_batch by the tensor."""
-
-    batch, negative_batch = sample
-    return _np_to_tensor(batch), _np_to_tensor(negative_batch)
+    return tuple(map(_np_to_tensor, sample))
 
 def none_label_batch_generator(sample):
     """Generates a None for labels."""

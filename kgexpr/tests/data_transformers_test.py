@@ -105,10 +105,10 @@ class DataTransformerTest(unittest.TestCase):
 
     def test_label_batch_generator(self):
         sample = self._gen_sample_with_negs()
-        transform = transformers.LabelBatchGenerator(self.config, False)
+        transform = transformers.LabelBatchGenerator(self.config)
         batch, negatives, labels = transform(sample)
         np.testing.assert_equal(
-            labels.numpy(), np.concatenate([np.ones(batch.shape[0], dtype=np.int64), np.full(negatives.shape[0]*negatives.shape[1], -1, dtype=np.int64)]))
+            labels, np.concatenate([np.ones(batch.shape[0], dtype=np.int64), np.full(negatives.shape[0]*negatives.shape[1], -1, dtype=np.int64)]))
 
     def none_none_label_batch_generator(self):
         sample = self._gen_transposed_sample_with_negs()
@@ -204,3 +204,48 @@ class TestDataTransformerTest(unittest.TestCase):
 
         self.assertEqual(splits, [(0,4,8,11)])
 
+
+
+@pytest.mark.numpyfile
+class DataTransformerCWASamplerTest(unittest.TestCase):
+    @classmethod
+    def setUp(cls):
+        cls.config = Config()
+        cls.triple_dir = 'kgexpr/tests/fixtures/triples'
+        cls.source = data.TripleSource(cls.triple_dir, 'hrt', ' ')
+        cls.dataset = data.TripleDataset(cls.source.train_set, batch_size=2)
+        cls.small_triple_list = next(iter(cls.dataset))
+        cls.num_corrupts = 1
+        cls.samples = (np.array([True, False], dtype=np.bool), cls.small_triple_list)
+        np.random.seed(0)
+
+    def _build_corruptor(self):
+        corruptor = kgedata.UniformCorruptor(self.num_corrupts, 1000)
+        return corruptor
+
+    def _build_corruptor_sampler(self):
+        corruptor = self._build_corruptor()
+        negative_sampler = kgedata.CWASampler(
+            self.source.num_entity,
+            self.source.num_relation, 
+            True)
+        return corruptor, negative_sampler
+
+    def _gen_sample_with_negs(self):
+        corruptor, negative_sampler = self._build_corruptor_sampler()
+        sample = transformers.CorruptionFlagGenerator(corruptor)(self.small_triple_list)
+        sample = transformers.NegativeBatchGenerator(negative_sampler)(sample)
+        return sample
+
+    def test_label_batch_generator(self):
+        sample = self._gen_sample_with_negs()
+        label_gen = kgedata.LabelGenerator(self.source.train_set)
+        transform = transformers.LabelBatchGenerator(self.config, label_gen)
+        batch, negatives, labels = transform(sample)
+        np.testing.assert_equal(
+            labels, np.array([
+                1, 1,
+                -1, 1, -1, -1, 1, -1, -1,
+                -1, -1, 1, -1, -1, 1, -1
+            ], dtype=np.int64).ravel()
+        )
