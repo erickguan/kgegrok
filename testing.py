@@ -12,14 +12,14 @@ config = utils.Config()
 triple_source = data.TripleSource("kgexpr/tests/fixtures/triples", "hrt", " ")
 ds = data.TripleDataset(triple_source.train_set, batch_size=2)
 np.random.seed(0)
-negative_sampler = kgedata.LCWANoThrowSampler(
+negative_sampler = kgedata.PerturbationSampler(
             triple_source.train_set,
             triple_source.num_entity,
             triple_source.num_relation,
             config.negative_entity,
             config.negative_relation,
             1000,
-            kgedata.LCWANoThrowSamplerStrategy.Hash)
+            kgedata.PerturbationSamplerStrategy.Hash)
 corruptor = kgedata.BernoulliCorruptor(triple_source.train_set, triple_source.num_relation, config.negative_entity, 1000)
 transforms = [
     transformers.CorruptionFlagGenerator(corruptor),

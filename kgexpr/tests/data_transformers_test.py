@@ -59,11 +59,11 @@ class DataTransformerTest(unittest.TestCase):
 
     def _build_corruptor_sampler(self):
         corruptor = self._build_corruptor()
-        negative_sampler = kgedata.LCWANoThrowSampler(
+        negative_sampler = kgedata.PerturbationSampler(
             self.source.train_set, self.source.num_entity,
             self.source.num_relation, 1, 1,
             1000,
-            kgedata.LCWANoThrowSamplerStrategy.Hash)
+            kgedata.PerturbationSamplerStrategy.Hash)
         return corruptor, negative_sampler
 
     def _gen_sample_with_negs(self):
@@ -119,10 +119,10 @@ class DataTransformerTest(unittest.TestCase):
     @pytest.mark.skip(reason="WIP")
     def test_literal_collate(self):
         np.random.seed(0)
-        negative_sampler = kgedata.LCWANoThrowSampler(
+        negative_sampler = kgedata.PerturbationSampler(
             self.source.train_set, self.source.num_entity,
             self.source.num_relation, 1, 1,
-            kgedata.LCWANoThrowSamplerStrategy.Hash)
+            kgedata.PerturbationSamplerStrategy.Hash)
         batch, negatives = collators.LiteralCollate(
             self.source,
             negative_sampler,

@@ -217,14 +217,14 @@ def create_dataloader(triple_source,
             triple_source.num_relation,
             config.negative_entity,
             config.base_seed + SEED_OFFSET)
-        negative_sampler = kgedata.LCWANoThrowSampler(
+        negative_sampler = kgedata.PerturbationSampler(
                     triple_source.train_set,
                     triple_source.num_entity,
                     triple_source.num_relation,
                     config.negative_entity,
                     config.negative_relation,
                     config.base_seed + 2*SEED_OFFSET,
-                    kgedata.LCWANoThrowSamplerStrategy.Hash)
+                    kgedata.PerturbationSamplerStrategy.Hash)
 
         transforms = [
             transformers.CorruptionFlagGenerator(corruptor),
