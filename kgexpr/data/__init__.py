@@ -229,7 +229,7 @@ def create_dataloader(triple_source,
         transforms = [
             transformers.CorruptionFlagGenerator(corruptor),
             transformers.NegativeBatchGenerator(negative_sampler),
-            transformers.TensorTransform(config)
+            transformers.tensor_transform
         ]
         if build_label:
             transforms.append(transformers.LabelBatchGenerator(config))
@@ -245,7 +245,7 @@ def create_dataloader(triple_source,
                          int(config.batch_size * config.evaluation_load_factor))
         transforms = [
             transformers.TripleTileGenerator(config, triple_source),
-            transformers.TestBatchTransform(config)
+            transformers.test_batch_transform
         ]
         if dataset_type == constants.DatasetType.VALIDATION:
             triple_set = triple_source.valid_set

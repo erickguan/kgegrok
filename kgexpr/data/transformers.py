@@ -40,13 +40,9 @@ class NegativeBatchGenerator(object):
         negative_batch = self.sampler.sample(corrupt_head, batch)
         return batch, negative_batch
 
-def _np_to_tensor(x, cuda_enabled):
-    x = torch.from_numpy(x)
+def _np_to_tensor(x):
     # Input is an index to find relevant embeddings. We don't track them
-    x.requires_grad_(False)
-    # if cuda_enabled:
-    #     x = x.cuda()
-    return x
+    return torch.from_numpy(x).requires_grad_(False)
 
 class LabelBatchGenerator(object):
     """Add data label (third element) for a sample."""
@@ -85,20 +81,13 @@ class LabelBatchGenerator(object):
     def _build_label_tensor(self, num_labels, batch_size):
         labels = np.full(num_labels, -1, dtype=np.int64)
         labels[:batch_size] = 1
-        return _np_to_tensor(labels, self.cuda_enabled)
+        return _np_to_tensor(labels)
 
-class TensorTransform(object):
+def tensor_transform(sample):
     """Returns batch, negative_batch by the tensor."""
 
-    def __init__(self, config, enable_cuda_override=None):
-        if enable_cuda_override is not None:
-            self.cuda_enabled = enable_cuda_override
-        else:
-            self.cuda_enabled = config.enable_cuda
-
-    def __call__(self, sample):
-        batch, negative_batch = sample
-        return _np_to_tensor(batch, self.cuda_enabled), _np_to_tensor(negative_batch, self.cuda_enabled)
+    batch, negative_batch = sample
+    return _np_to_tensor(batch), _np_to_tensor(negative_batch)
 
 def none_label_batch_generator(sample):
     """Generates a None for labels."""
@@ -133,21 +122,12 @@ class TripleTileGenerator(object):
 
         return sampled.T, batch, splits
 
-class TestBatchTransform(object):
+def test_batch_transform(sample):
     """Generates None and put things into Tensor."""
+    tiled, batch, splits = sample
 
-    def __init__(self, config, enable_cuda_override=None):
-        if enable_cuda_override is not None:
-            self.cuda_enabled = enable_cuda_override
-        else:
-            self.cuda_enabled = config.enable_cuda
-
-    def __call__(self, sample):
-        """process a mini-batch."""
-        tiled, batch, splits = sample
-
-        tiled = _np_to_tensor(tiled, self.cuda_enabled)
-        return (tiled, None, None), batch, splits
+    tiled = _np_to_tensor(tiled)
+    return (tiled, None, None), batch, splits
 
 def label_prediction_collate(sample):
     """Add all positive labels for sample.

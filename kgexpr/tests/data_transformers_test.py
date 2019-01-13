@@ -89,8 +89,7 @@ class DataTransformerTest(unittest.TestCase):
 
     def test_tensor_transform(self):
         sample = self._gen_sample_with_negs()
-        transform = transformers.TensorTransform(self.config)
-        batch, negatives = transform(sample)
+        batch, negatives = transformers.tensor_transform(sample)
         np.testing.assert_equal(
             batch.numpy(), np.array([
                 [0, 0, 1],
@@ -183,10 +182,9 @@ class TestDataTransformerTest(unittest.TestCase):
 
         self.assertEqual(splits, [(0,4,8,11)])
 
-    def test_TestBatchTransform(self):
+    def test_test_batch_transform(self):
         sample = self._gen_triple_tiles()
-        trans = transformers.TestBatchTransform(self.config)
-        tiled_t, batch, splits = trans(sample)
+        tiled_t, batch, splits = transformers.test_batch_transform(sample)
         self.assertEqual(self.source.num_entity, 4)
         self.assertEqual(self.source.num_relation, 3)
         np.testing.assert_equal(batch, np.array([[1, 2, 3]], dtype=np.int64))
