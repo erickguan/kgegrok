@@ -204,11 +204,28 @@ _SAFE_MINIMAL_BATCH_SIZE = 1
 
 SEED_OFFSET = 100
 
+def create_dataloader_from_dataset(dataset, config):
+    """Returns dataloader with dataset."""
+
+    return torch.utils.data.DataLoader(
+        dataset,
+        num_workers=config.num_workers,
+        pin_memory=True,
+        timeout=config.batch_worker_timeout,
+        batch_sampler=SequentialBatchSampler(dataset),
+        collate_fn=flat_collate_fn
+    )
+
 def create_dataloader(triple_source,
                       config,
                       build_label=False,
                       dataset_type=constants.DatasetType.TRAINING):
-    """Creates dataloader with certain types"""
+    """Creates dataloader.
+    When training, returns dataloader using perturbation sampler with bernoulli trick for training.
+    When validation/testing, returns dataloader with tile support.
+    If other configurations are used, such dataloader needs to be created manually.
+    See create_dataloader_from_dataset.
+    """
 
     # Use those C++ extension is fast but then we can't use spawn method to start data loader.
     if dataset_type == constants.DatasetType.TRAINING:
@@ -229,12 +246,12 @@ def create_dataloader(triple_source,
         transforms = [
             transformers.CorruptionFlagGenerator(corruptor),
             transformers.NegativeBatchGenerator(negative_sampler),
-            transformers.tensor_transform
         ]
         if build_label:
             transforms.append(transformers.LabelBatchGenerator(config))
         else:
             transforms.append(transformers.none_label_batch_generator)
+        transforms.append(transformers.tensor_transform)
 
         dataset = TripleDataset(
             triple_source.train_set,
@@ -254,18 +271,10 @@ def create_dataloader(triple_source,
 
         dataset = TripleDataset(
             triple_set,
-            batch_size=config.batch_size,
+            batch_size=batch_size,
             transform=Compose(transforms))
 
-    data_loader = torch.utils.data.DataLoader(
-        dataset,
-        num_workers=config.num_workers,
-        pin_memory=True,
-        timeout=config.batch_worker_timeout,
-        batch_sampler=SequentialBatchSampler(dataset),
-        collate_fn=flat_collate_fn
-    )
-    return data_loader
+    return create_dataloader_from_dataset(dataset, config)
 
 
 def sieve_and_expand_triple(triple_source, entities, relations, head, relation,
