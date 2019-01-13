@@ -104,8 +104,6 @@ class ComplEx(Model):
         self.rel_im_embeddings = nn.Embedding(self.triple_source.num_relation,
                                               self.embedding_dimension)
         self.softplus = nn.Softplus()
-        if self.config.enable_cuda:
-            self.softplus = self.softplus.cuda()
 
         nn.init.xavier_uniform_(self.ent_re_embeddings.weight.data)
         nn.init.xavier_uniform_(self.ent_im_embeddings.weight.data)
@@ -122,7 +120,7 @@ class ComplEx(Model):
         return loss + self.config.lambda_ * regul
 
     def forward(self, batch):
-        pos, neg, label = batch
+        pos, neg, labels = batch
 
         pos_h, pos_r, pos_t = pos.transpose(0, 1)
         e_re_h = self.ent_re_embeddings(pos_h)
@@ -134,10 +132,7 @@ class ComplEx(Model):
 
         # Calculating loss to get what the framework will optimize
         if neg is not None:
-            neg_h, neg_r, neg_t = neg.transpose(0, 1)
-            neg_h = neg_h.view(-1)
-            neg_r = neg_r.view(-1)
-            neg_t = neg_t.view(-1)
+            neg_h, neg_r, neg_t = neg.view(-1, 3).transpose(0, 1)
             neg_e_re_h = self.ent_re_embeddings(neg_h)
             neg_e_im_h = self.ent_im_embeddings(neg_h)
             neg_e_re_t = self.ent_re_embeddings(neg_t)
@@ -151,18 +146,19 @@ class ComplEx(Model):
             e_im_t = torch.cat((e_im_t, neg_e_im_t))
             r_re = torch.cat((r_re, neg_r_re))
             r_im = torch.cat((r_im, neg_r_im))
-            y = labels
 
             res = self._calc(e_re_h, e_im_h, e_re_t, e_im_t, r_re, r_im)
-            tmp = self.softplus(-y * res)
+            tmp = self.softplus(-labels * res)
 
             loss = torch.mean(tmp)
-            regul = torch.mean(e_re_h**2) + torch.mean(e_im_h**2) + torch.mean(
-                e_re_t**2) + torch.mean(e_im_t**2) + torch.mean(
-                    r_re**2) + torch.mean(r_im**2)
-            loss = self.loss_func(loss, regul)
+            regul = (torch.mean(e_re_h**2) +
+                torch.mean(e_im_h**2) +
+                torch.mean(e_re_t**2) +
+                torch.mean(e_im_t**2) +
+                torch.mean(r_re**2) +
+                torch.mean(r_im**2))
 
-            return loss
+            return self.loss_func(loss, regul)
         else:
             score = -self._calc(e_re_h, e_im_h, e_re_t, e_im_t, r_re, r_im)
             return score

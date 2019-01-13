@@ -93,6 +93,16 @@ def tensor_transform(sample):
     """Returns batch, negative_batch by the tensor."""
     return tuple(map(_np_to_tensor, sample))
 
+def _apply_tensor_float(labels):
+    return labels.float() if labels is not None else labels
+
+def labels_type_transform(sample):
+    """Returns the label transformed. As models requires a DoubleTensor"""
+
+    batch, negative_batch, labels = sample
+    labels = _apply_tensor_float(labels)
+    return batch, negative_batch, labels
+
 def none_label_batch_generator(sample):
     """Generates a None for labels."""
     batch, negative_batch = sample

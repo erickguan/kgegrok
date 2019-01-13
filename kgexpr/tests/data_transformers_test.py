@@ -103,12 +103,24 @@ class DataTransformerTest(unittest.TestCase):
             ],
             dtype=np.int64))
 
-    def test_label_batch_generator(self):
+    def _gen_labels(self):
         sample = self._gen_sample_with_negs()
         transform = transformers.LabelBatchGenerator(self.config)
-        batch, negatives, labels = transform(sample)
+        return transform(sample)
+
+    def test_label_batch_generator(self):
+        batch, negatives, labels = self._gen_labels()
         np.testing.assert_equal(
             labels, np.concatenate([np.ones(batch.shape[0], dtype=np.int64), np.full(negatives.shape[0]*negatives.shape[1], -1, dtype=np.int64)]))
+
+    def test_labels_type_transform(self):
+        batch, negatives, labels = self._gen_labels()
+        expected_labels = np.concatenate([np.ones(batch.shape[0], dtype=np.int64), np.full(negatives.shape[0]*negatives.shape[1], -1, dtype=np.int64)])
+        sample = transformers.tensor_transform([batch, negatives, labels])
+        _, _, labels = transformers.labels_type_transform(sample)
+        
+        self.assertTrue(
+            torch.all(torch.eq(labels, torch.from_numpy(expected_labels).float())))
 
     def none_none_label_batch_generator(self):
         sample = self._gen_transposed_sample_with_negs()
