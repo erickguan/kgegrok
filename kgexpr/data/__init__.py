@@ -252,8 +252,6 @@ def create_dataloader(triple_source,
         else:
             transforms.append(transformers.none_label_batch_generator)
         transforms.append(transformers.tensor_transform)
-        if build_label:
-            transforms.append(transformers.labels_type_transform)
 
         dataset = TripleDataset(
             triple_source.train_set,

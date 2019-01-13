@@ -115,10 +115,11 @@ class DataTransformerTest(unittest.TestCase):
 
     def test_labels_type_transform(self):
         batch, negatives, labels = self._gen_labels()
+        labels = labels.astype(np.int32)
         expected_labels = np.concatenate([np.ones(batch.shape[0], dtype=np.int64), np.full(negatives.shape[0]*negatives.shape[1], -1, dtype=np.int64)])
         sample = transformers.tensor_transform([batch, negatives, labels])
         _, _, labels = transformers.labels_type_transform(sample)
-        
+
         self.assertTrue(
             torch.all(torch.eq(labels, torch.from_numpy(expected_labels).float())))
 

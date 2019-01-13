@@ -47,7 +47,7 @@ def _np_to_tensor(x):
 
 def _build_labels_np(num_total, num_postive):
     """Builds a label array in place with [0:num_positive)=1; [num_positive, num_total) = -1"""
-    labels = np.full(num_total, -1, dtype=np.int64)
+    labels = np.full(num_total, -1, dtype=np.float32)
     labels[:num_postive] = 1
     return labels
 
@@ -62,7 +62,7 @@ class LabelBatchGenerator(object):
         self._batch_label_generator = batch_label_generator
         # cache labels for a normal batch so we don't have to build them repeatly
         if self._batch_label_generator:
-            self._labels = np.ones(self._batch_size, dtype=np.int64)
+            self._labels = np.ones(self._batch_size, dtype=np.float32)
         else:
             self._labels = _build_labels_np(self._num_labels, self._batch_size)
 
@@ -77,7 +77,7 @@ class LabelBatchGenerator(object):
 
         if self._batch_label_generator is not None:
             neg_labels = self._batch_label_generator.generate_labels(negative_batch)
-            pos_labels = np.ones(batch_size, dtype=np.int64) if batch_size < self._batch_size else self._labels
+            pos_labels = np.ones(batch_size, dtype=np.float32) if batch_size < self._batch_size else self._labels
             labels = np.concatenate([pos_labels, neg_labels.ravel()])
             return batch, negative_batch, labels
 
