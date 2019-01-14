@@ -46,9 +46,9 @@ def test_triple_source(source):
     assert source.num_entity == 4
     assert source.num_relation == 3
     np.testing.assert_equal(source.test_set, np.array([[1, 2, 3]], dtype=np.int64))
-    
+
 def test_SequentialBatchSampler(config, source):
-    dataset = data.TripleDataset(source.test_set, config)
+    dataset = data.TripleDataset(source.test_set)
     sampler = data.SequentialBatchSampler(dataset)
     it1 = iter(sampler)
     next(it1)
@@ -60,7 +60,7 @@ def test_SequentialBatchSampler(config, source):
         next(it2)
 
 def test_dataset_tensor(source, config):
-    dataset = data.TripleDataset(source.train_set, config, batch_size=2)
+    dataset = data.TripleDataset(source.train_set, batch_size=2)
     assert len(dataset) == 3
     np.testing.assert_equal(dataset._data[0], np.array([[0, 0, 1], [0, 1, 2]], dtype=np.int64))
     np.testing.assert_equal(dataset._data[-1], np.array([[2, 0, 3]], dtype=np.int64))
@@ -168,7 +168,7 @@ def test_dataloader_padding(config, source, cuda_device_2):
     np.testing.assert_equal(
         labels,
         np.array([
-            1, 1, 1, 1, 1, 1, 
+            1, 1, 1, 1, 1, 1,
             -1, -1, -1, -1, -1, -1,
             -1, -1, -1, -1, -1, -1
             ]))

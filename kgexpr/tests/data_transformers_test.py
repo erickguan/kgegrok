@@ -35,7 +35,7 @@ class DataTransformerTest(unittest.TestCase):
         cls.config = Config()
         cls.triple_dir = 'kgexpr/tests/fixtures/triples'
         cls.source = data.TripleSource(cls.triple_dir, 'hrt', ' ')
-        cls.dataset = data.TripleDataset(cls.source.train_set, cls.config, batch_size=2)
+        cls.dataset = data.TripleDataset(cls.source.train_set, batch_size=2)
         cls.small_triple_list = next(iter(cls.dataset))
         cls.num_corrupts = 1
         cls.samples = (np.array([True, False], dtype=np.bool), cls.small_triple_list)
@@ -161,7 +161,7 @@ class TestDataTransformerTest(unittest.TestCase):
         cls.config = Config()
         cls.triple_dir = 'kgexpr/tests/fixtures/triples'
         cls.source = data.TripleSource(cls.triple_dir, 'hrt', ' ')
-        cls.dataset = data.TripleDataset(cls.source.test_set, cls.config, batch_size=1)
+        cls.dataset = data.TripleDataset(cls.source.test_set, batch_size=1)
         cls.small_triple_list = next(iter(cls.dataset))
         np.random.seed(0)
 
@@ -226,7 +226,7 @@ class DataTransformerCWASamplerTest(unittest.TestCase):
         cls.config = Config()
         cls.triple_dir = 'kgexpr/tests/fixtures/triples'
         cls.source = data.TripleSource(cls.triple_dir, 'hrt', ' ')
-        cls.dataset = data.TripleDataset(cls.source.train_set, cls.config, batch_size=2)
+        cls.dataset = data.TripleDataset(cls.source.train_set, batch_size=2)
         cls.small_triple_list = next(iter(cls.dataset))
         cls.num_corrupts = 1
         cls.samples = (np.array([True, False], dtype=np.bool), cls.small_triple_list)
@@ -240,7 +240,7 @@ class DataTransformerCWASamplerTest(unittest.TestCase):
         corruptor = self._build_corruptor()
         negative_sampler = kgedata.CWASampler(
             self.source.num_entity,
-            self.source.num_relation, 
+            self.source.num_relation,
             True)
         return corruptor, negative_sampler
 

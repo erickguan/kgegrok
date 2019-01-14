@@ -79,11 +79,11 @@ class SequentialBatchSampler(object):
 
     def __init__(self, dataset):
         self.len = len(dataset)
-    
+
     def __iter__(self):
         self._iter = iter(range(self.len))
         return self
-    
+
     def __next__(self):
         return [next(self._iter)]
 
@@ -91,17 +91,19 @@ def flat_collate_fn(batch):
     """Flatten pytorch dataloader list since we only load 1 batch for dataloader."""
     return batch[0]
 
+MIN_NUM_PAD = 1
+
 class TripleDataset(Dataset):
     """Base class for triple dataset."""
 
     def __init__(self,
                  triples,
-                 config,
                  batch_size=constants.DEFAULT_BATCH_SIZE,
                  drop_last=False,
+                 pad_batch=True,
                  transform=None):
         """Builds the dataset with common parameters and data."""
-        self._config = config
+        self._pad_batch = pad_batch
         self._batch_size = batch_size
         self._drop_last = drop_last
         self._transform = transform
@@ -116,8 +118,8 @@ class TripleDataset(Dataset):
 
         if self._drop_last and len(self._data) > 1 and self._data[-1].shape != self._data[-2].shape:
             self._data.pop()
-        elif self._config.enable_cuda:
-            num_pads = self._data[-1].shape[0] % kgexpr.utils.num_cuda_devices()
+        elif self._pad_batch:
+            num_pads = self._data[-1].shape[0] % max(MIN_NUM_PAD, kgexpr.utils.num_cuda_devices())
             while num_pads > 0:
                 for i in range(len(self._data)):
                     pad = self._data[i][:num_pads]
@@ -265,7 +267,6 @@ def create_dataloader(triple_source,
 
         dataset = TripleDataset(
             triple_source.train_set,
-            config,
             batch_size=config.batch_size,
             transform=Compose(transforms))
     else:  # Validation and Test
@@ -282,7 +283,6 @@ def create_dataloader(triple_source,
 
         dataset = TripleDataset(
             triple_set,
-            config,
             batch_size=batch_size,
             transform=Compose(transforms))
 
