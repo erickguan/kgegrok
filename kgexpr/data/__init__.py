@@ -12,6 +12,7 @@ from torchvision.transforms import Compose
 import functools
 from kgexpr.data import constants, transformers
 from kgexpr.utils import deprecation
+import kgexpr.utils
 
 
 class TripleSource(object):
@@ -95,32 +96,41 @@ class TripleDataset(Dataset):
 
     def __init__(self,
                  triples,
+                 config,
                  batch_size=constants.DEFAULT_BATCH_SIZE,
                  drop_last=False,
                  transform=None):
         """Builds the dataset with common parameters and data."""
-        self.batch_size = batch_size
-        self.drop_last = drop_last
+        self._config = config
+        self._batch_size = batch_size
+        self._drop_last = drop_last
         self._transform = transform
         self._build_batches(triples)
 
     def _build_batches(self, triples):
-        self.data = []
+        self._data = []
 
-        for i in range(0, len(triples), self.batch_size):
-            v = np.array(triples[i:i+self.batch_size], dtype=np.int64)
-            self.data.append(v)
+        for i in range(0, len(triples), self._batch_size):
+            v = np.array(triples[i:i+self._batch_size], dtype=np.int64)
+            self._data.append(v)
 
-        if self.drop_last and len(self.data) > 1 and self.data[-1].shape != self.data[-2].shape:
-            self.data.pop()
+        if self._drop_last and len(self._data) > 1 and self._data[-1].shape != self._data[-2].shape:
+            self._data.pop()
+        elif self._config.enable_cuda:
+            num_pads = self._data[-1].shape[0] % kgexpr.utils.num_cuda_devices()
+            while num_pads > 0:
+                for i in range(len(self._data)):
+                    pad = self._data[i][:num_pads]
+                    num_pads -= pad.shape[0]
+                    self._data[-1] = np.concatenate([self._data[-1], pad])
 
     def __len__(self):
         """Returns the number of batches for triples."""
-        return len(self.data)
+        return len(self._data)
 
     def __getitem__(self, idx):
         """returns the batch with transform."""
-        sample = self.data[idx]
+        sample = self._data[idx]
         if self._transform:
             sample = self._transform(sample)
 
@@ -255,6 +265,7 @@ def create_dataloader(triple_source,
 
         dataset = TripleDataset(
             triple_source.train_set,
+            config,
             batch_size=config.batch_size,
             transform=Compose(transforms))
     else:  # Validation and Test
@@ -271,6 +282,7 @@ def create_dataloader(triple_source,
 
         dataset = TripleDataset(
             triple_set,
+            config,
             batch_size=batch_size,
             transform=Compose(transforms))
 

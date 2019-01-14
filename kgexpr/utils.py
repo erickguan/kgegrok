@@ -21,9 +21,11 @@ def str2bool(v):
     else:
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
+def num_cuda_devices():
+    return torch.cuda.device_count()
 
 def report_gpu_info():
-    count = torch.cuda.device_count()
+    count = num_cuda_devices
     for i in range(count):
         print(str(i) + " " + torch.cuda.get_device_name(i))
 
