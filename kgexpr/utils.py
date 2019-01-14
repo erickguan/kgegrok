@@ -25,7 +25,7 @@ def num_cuda_devices():
     return torch.cuda.device_count()
 
 def report_gpu_info():
-    count = num_cuda_devices
+    count = num_cuda_devices()
     for i in range(count):
         print(str(i) + " " + torch.cuda.get_device_name(i))
 
