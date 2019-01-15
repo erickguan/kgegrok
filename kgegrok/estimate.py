@@ -8,11 +8,11 @@ import torch.optim as optim
 
 import kgekit.data
 import kgedata
-from kgexpr import stats
-from kgexpr import data
-from kgexpr import evaluation
-from kgexpr.data import constants
-from kgexpr.utils import save_checkpoint, load_checkpoint, write_logging_data
+from kgegrok import stats
+from kgegrok import data
+from kgegrok import evaluation
+from kgegrok.data import constants
+from kgegrok.utils import save_checkpoint, load_checkpoint, write_logging_data
 
 
 def create_optimizer(optimizer_class, config, parameters):

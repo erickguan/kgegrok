@@ -1,6 +1,6 @@
 from enum import Flag, auto
-from kgexpr.data import constants
-from kgexpr.data import statstools
+from kgegrok.data import constants
+from kgegrok.data import statstools
 
 MEAN_RECIPROCAL_RANK_FEATURE_KEY = 'mean_reciprocal_rank'
 MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY = 'mean_filtered_reciprocal_rank'

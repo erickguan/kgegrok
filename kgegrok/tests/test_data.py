@@ -1,8 +1,8 @@
 import unittest
-from kgexpr import data
-from kgexpr.data import constants
-from kgexpr.data import transformers
-from kgexpr.stats.constants import StatisticsDimension
+from kgegrok import data
+from kgegrok.data import constants
+from kgegrok.data import transformers
+from kgegrok.stats.constants import StatisticsDimension
 import kgekit
 from torchvision import transforms
 import numpy as np
@@ -14,7 +14,7 @@ pytestmark = pytest.mark.random_order(disabled=True)
 
 class Config(object):
     """Mocked implementation of config"""
-    data_dir = "kgexpr/tests/fixtures/triples"
+    data_dir = "kgegrok/tests/fixtures/triples"
     triple_order = "hrt"
     triple_delimiter = ' '
     negative_entity = 1
@@ -36,7 +36,7 @@ def config():
 
 @pytest.fixture(scope="module")
 def source():
-    triple_dir = 'kgexpr/tests/fixtures/triples'
+    triple_dir = 'kgegrok/tests/fixtures/triples'
     return data.TripleSource(triple_dir, 'hrt', ' ')
 
 def test_triple_source(source):
@@ -135,17 +135,17 @@ def test_validation_dataloader(source, config):
     assert negatives == None
     assert labels == None
 
-import kgexpr.utils
+import kgegrok.utils
 
 @pytest.mark.usefixture("monkeypatch")
 @pytest.fixture(scope="function")
 def cuda_device_2(monkeypatch):
-    monkeypatch.setattr(kgexpr.utils, "num_cuda_devices", lambda: 2)
-    assert kgexpr.utils.num_cuda_devices() == 2
+    monkeypatch.setattr(kgegrok.utils, "num_cuda_devices", lambda: 2)
+    assert kgegrok.utils.num_cuda_devices() == 2
 
 def test_dataloader_padding(config, source, cuda_device_2):
     config.enable_cuda = True
-    assert kgexpr.utils.num_cuda_devices() == 2
+    assert kgegrok.utils.num_cuda_devices() == 2
 
     data_loader = data.create_dataloader(source, config, True, constants.DatasetType.TRAINING)
     sample_batched = next(iter(data_loader))

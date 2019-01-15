@@ -1,7 +1,7 @@
 import unittest
 import pytest
-from kgexpr import stats
-from kgexpr.stats.constants import *
+from kgegrok import stats
+from kgegrok.stats.constants import *
 
 
 class StatsTest(unittest.TestCase):

@@ -10,11 +10,11 @@ import torch.optim as optim
 import torch.multiprocessing as mp
 import visdom
 
-from kgexpr import data
-from kgexpr import estimate
-from kgexpr import stats
-from kgexpr import evaluation
-from kgexpr import utils
+from kgegrok import data
+from kgegrok import estimate
+from kgegrok import stats
+from kgegrok import evaluation
+from kgegrok import utils
 
 
 def _create_drawer(config):
@@ -87,13 +87,13 @@ def cli_config_and_parse_args(args):
 
 
 def seed_modules(config, numpy_seed, torch_seed, torcu_cuda_seed_all,
-                 cuda_deterministic, kgexpr_base_seed, cuda_benchmark):
+                 cuda_deterministic, kgegrok_base_seed, cuda_benchmark):
     np.random.seed(numpy_seed)
     torch.manual_seed(torch_seed)
     torch.cuda.manual_seed_all(torcu_cuda_seed_all)
     torch.backends.cudnn.deterministic = cuda_deterministic
     torch.backends.cudnn.benchmark = cuda_benchmark
-    config.base_seed = kgexpr_base_seed
+    config.base_seed = kgegrok_base_seed
 
 @contextmanager
 def _validation_resource_manager(mode, config, triple_source, required_modes=['train_validate', 'test']):
@@ -130,13 +130,13 @@ def cli(args):
         torch_seed=20000,
         torcu_cuda_seed_all=2192,
         cuda_deterministic=True,
-        kgexpr_base_seed=30000,
+        kgegrok_base_seed=30000,
         cuda_benchmark=config.cudnn_benchmark)
 
     triple_source = data.TripleSource(config.data_dir, config.triple_order,
                                       config.triple_delimiter)
-    model_class = utils.load_class_from_module(config.model, 'kgexpr.models',
-                                         'kgexpr.text_models')
+    model_class = utils.load_class_from_module(config.model, 'kgegrok.models',
+                                         'kgegrok.text_models')
 
     with _validation_resource_manager(parsed_args['mode'], config, triple_source) as pool:
         # maybe roughly 10s now

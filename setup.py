@@ -12,15 +12,15 @@ from setuptools.command.build_ext import build_ext
 from shutil import copyfile, copymode
 from setuptools import find_packages
 
-import kgexpr
+import kgegrok
 
 setup(
-    name='kgexpr',
-    version=kgexpr.__version__,
+    name='kgegrok',
+    version=kgegrok.__version__,
     description='knowledge representation learning',
     long_description=open("README.md", "r").read(),
     long_description_content_type="text/markdown",
-    url='http://github.com/fantasticfears/kgexpr',
+    url='http://github.com/fantasticfears/kgegrok',
     author='Erick Guan',
     author_email='fantasticfears@gmail.com',
     license='GPLv2',

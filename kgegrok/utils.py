@@ -10,7 +10,7 @@ from itertools import filterfalse
 import torch
 
 import kgekit.io
-from kgexpr.stats.constants import *
+from kgegrok.stats.constants import *
 
 
 def str2bool(v):

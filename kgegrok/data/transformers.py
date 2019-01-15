@@ -2,9 +2,9 @@
 
 import numpy as np
 import torch
-from kgexpr.data import constants
-from kgexpr.utils import deprecation
-from kgexpr.stats.constants import StatisticsDimension
+from kgegrok.data import constants
+from kgegrok.utils import deprecation
+from kgegrok.stats.constants import StatisticsDimension
 import kgedata
 import kgekit
 
@@ -88,7 +88,7 @@ class LabelBatchGenerator(object):
         else:
             labels = self._labels
         return batch, negative_batch, labels
-    
+
 def tensor_transform(sample):
     """Returns batch, negative_batch by the tensor."""
     return tuple(map(_np_to_tensor, sample))

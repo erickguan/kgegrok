@@ -1,12 +1,12 @@
 import pprint
-from kgexpr.data import constants
+from kgegrok.data import constants
 import kgekit
 import numpy as np
 import logging
 from collections import defaultdict
 import json
-from kgexpr.data import statstools
-from kgexpr.stats.constants import *
+from kgegrok.data import statstools
+from kgegrok.stats.constants import *
 
 
 class _StatisticsGathering(object):

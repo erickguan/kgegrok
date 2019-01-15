@@ -1,6 +1,6 @@
 import unittest
-from kgexpr import data
-from kgexpr.data import statstools
+from kgegrok import data
+from kgegrok.data import statstools
 import kgekit
 from torchvision import transforms
 import numpy as np
@@ -11,7 +11,7 @@ import kgedata
 
 class Config(object):
     """Mocked implementation of config"""
-    data_dir = "kgexpr/tests/fixtures/triples"
+    data_dir = "kgegrok/tests/fixtures/triples"
     triple_order = "hrt"
     triple_delimiter = ' '
     negative_entity = 1

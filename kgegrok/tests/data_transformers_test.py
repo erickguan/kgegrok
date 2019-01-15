@@ -1,19 +1,19 @@
 import unittest
-from kgexpr import data
-from kgexpr.data import transformers
+from kgegrok import data
+from kgegrok.data import transformers
 import kgekit
 import kgedata
 from torchvision import transforms
 import numpy as np
 import torch
 import pytest
-from kgexpr.stats.constants import *
+from kgegrok.stats.constants import *
 
 pytestmark = pytest.mark.random_order(disabled=True)
 
 class Config(object):
     """Mocked implementation of config"""
-    data_dir = "kgexpr/tests/fixtures/triples"
+    data_dir = "kgegrok/tests/fixtures/triples"
     triple_order = "hrt"
     triple_delimiter = ' '
     negative_entity = 1
@@ -33,7 +33,7 @@ class DataTransformerTest(unittest.TestCase):
     @classmethod
     def setUp(cls):
         cls.config = Config()
-        cls.triple_dir = 'kgexpr/tests/fixtures/triples'
+        cls.triple_dir = 'kgegrok/tests/fixtures/triples'
         cls.source = data.TripleSource(cls.triple_dir, 'hrt', ' ')
         cls.dataset = data.TripleDataset(cls.source.train_set, batch_size=2)
         cls.small_triple_list = next(iter(cls.dataset))
@@ -159,7 +159,7 @@ class TestDataTransformerTest(unittest.TestCase):
     @classmethod
     def setUp(cls):
         cls.config = Config()
-        cls.triple_dir = 'kgexpr/tests/fixtures/triples'
+        cls.triple_dir = 'kgegrok/tests/fixtures/triples'
         cls.source = data.TripleSource(cls.triple_dir, 'hrt', ' ')
         cls.dataset = data.TripleDataset(cls.source.test_set, batch_size=1)
         cls.small_triple_list = next(iter(cls.dataset))
@@ -224,7 +224,7 @@ class DataTransformerCWASamplerTest(unittest.TestCase):
     @classmethod
     def setUp(cls):
         cls.config = Config()
-        cls.triple_dir = 'kgexpr/tests/fixtures/triples'
+        cls.triple_dir = 'kgegrok/tests/fixtures/triples'
         cls.source = data.TripleSource(cls.triple_dir, 'hrt', ' ')
         cls.dataset = data.TripleDataset(cls.source.train_set, batch_size=2)
         cls.small_triple_list = next(iter(cls.dataset))

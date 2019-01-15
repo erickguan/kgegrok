@@ -10,9 +10,9 @@ import numpy as np
 import random
 from torchvision.transforms import Compose
 import functools
-from kgexpr.data import constants, transformers
-from kgexpr.utils import deprecation
-import kgexpr.utils
+from kgegrok.data import constants, transformers
+from kgegrok.utils import deprecation
+import kgegrok.utils
 
 
 class TripleSource(object):
@@ -119,7 +119,7 @@ class TripleDataset(Dataset):
         if self._drop_last and len(self._data) > 1 and self._data[-1].shape != self._data[-2].shape:
             self._data.pop()
         elif self._pad_batch:
-            num_pads = self._data[-1].shape[0] % max(MIN_NUM_PAD, kgexpr.utils.num_cuda_devices())
+            num_pads = self._data[-1].shape[0] % max(MIN_NUM_PAD, kgegrok.utils.num_cuda_devices())
             while num_pads > 0:
                 for i in range(len(self._data)):
                     pad = self._data[i][:num_pads]

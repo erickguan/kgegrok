@@ -1,4 +1,4 @@
-from kgexpr.cli import cli
+from kgegrok.cli import cli
 import sys
 
 if __name__ == '__main__':
