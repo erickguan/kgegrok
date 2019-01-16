@@ -54,7 +54,7 @@ model_class = utils.load_class_from_module(config.model, 'kgegrok.models',
                                         'kgegrok.text_models')
 
 
-with evaluation.validation_resource_manager('train_valid', config, triple_source) as pool:
+with evaluation.validation_resource_manager('train_validate', config, triple_source) as pool:
     for changed_config in ParameterGrid(grid):
         d = {}
         d.update(config.__dict__)
