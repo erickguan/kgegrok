@@ -43,7 +43,8 @@ if __name__ == '__main__':
         'optimizer': "SGD",
         'margin': 1.0,
         'epochs': 1000,
-        'lambda_': 0.001
+        'lambda_': 0.001,
+        'evaluation_load_factor': 0.05
     }
     config = utils.build_config_with_dict(default_args)
     print(config.__dict__)
