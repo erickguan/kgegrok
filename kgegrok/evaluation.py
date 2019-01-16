@@ -3,6 +3,7 @@ import sys
 import threading
 import contextlib
 import copy
+from contextlib import contextmanager
 
 import torch
 import torch.multiprocessing as mp
@@ -305,3 +306,19 @@ def _evaluate_predict_element(model, config, triple_index, num_expands,
                   str(filtered_rank))
     ranks_list.append(rank)
     filtered_ranks_list.append(filtered_rank)
+
+@contextmanager
+def validation_resource_manager(mode, config, triple_source, required_modes=['train_validate', 'test']):
+    """prepare resources if validation is needed."""
+    enabled = mode in required_modes
+    try:
+        if enabled:
+            ctx = mp.get_context('spawn')
+            pool = evaluation.EvaluationProcessPool(config, triple_source, ctx)
+            pool.start()
+            yield pool
+        else:
+            yield None
+    finally:
+        if enabled:
+           pool.stop()

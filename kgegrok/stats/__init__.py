@@ -66,7 +66,6 @@ def get_evaluation_statistics(rank_list, filtered_rank_list, features):
                           num_ranks)
     return gathering.get_result()
 
-
 def gen_drawer_option(config, title=None):
     if title is not None:
         title = "{}/{}".format(config.name, title)
@@ -202,3 +201,9 @@ def prepare_plot_validation_result(drawer, config):
                 drawer.create_plot(key, gen_drawer_option(config, key))
 
     return drawer
+
+def create_drawer(config):
+    import visdom
+
+    return ReportDrawer(visdom.Visdom(
+        port=6006), config) if config.plot_graph else None

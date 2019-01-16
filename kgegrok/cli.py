@@ -3,37 +3,31 @@ import numpy as np
 import sys
 import select
 import argparse
-from contextlib import contextmanager
 
 import torch
 import torch.optim as optim
 import torch.multiprocessing as mp
-import visdom
 
 from kgegrok import data
 from kgegrok import estimate
 from kgegrok import stats
 from kgegrok import evaluation
 from kgegrok import utils
-
-
-def _create_drawer(config):
-    return stats.ReportDrawer(visdom.Visdom(
-        port=6006), config) if config.plot_graph else None
+from kgegrok.stats import create_drawer
 
 def cli_profile(triple_source, config, model_class, optimizer_class):
     with torch.autograd.profiler.profile() as prof:
         model = estimate.train(triple_source, config, model_class,
-                        optimizer_class, drawer=_create_drawer(config))
+                        optimizer_class, drawer=create_drawer(config))
     print(prof)
 
 def cli_train(triple_source, config, model_class, optimizer_class):
     model = estimate.train(triple_source, config, model_class,
-                           optimizer_class, drawer=_create_drawer(config))
+                           optimizer_class, drawer=create_drawer(config))
 
 def cli_train_and_validate(triple_source, config, model_class, optimizer_class, validation_process_pool):
     model = estimate.train_and_validate(triple_source, config, model_class,
-                                        optimizer_class, validation_process_pool, drawer=_create_drawer(config))
+                                        optimizer_class, validation_process_pool, drawer=create_drawer(config))
 
 def cli_test(triple_source, config, model_class, validation_process_pool):
     assert config.resume is not None and len(config.resume) > 0
@@ -79,37 +73,8 @@ def cli_config_and_parse_args(args):
             parser.add_argument("--{}".format(k), type=utils.Config.option_type(k))
 
     parsed_args = vars(parser.parse_args(args[1:]))
-    config = utils.Config(parsed_args)
-    config.enable_cuda = True if torch.cuda.is_available(
-    ) and config.enable_cuda else False
+    return utils.build_config_with_dict(parsed_args)
 
-    return config, parsed_args
-
-
-def seed_modules(config, numpy_seed, torch_seed, torcu_cuda_seed_all,
-                 cuda_deterministic, kgegrok_base_seed, cuda_benchmark):
-    np.random.seed(numpy_seed)
-    torch.manual_seed(torch_seed)
-    torch.cuda.manual_seed_all(torcu_cuda_seed_all)
-    torch.backends.cudnn.deterministic = cuda_deterministic
-    torch.backends.cudnn.benchmark = cuda_benchmark
-    config.base_seed = kgegrok_base_seed
-
-@contextmanager
-def _validation_resource_manager(mode, config, triple_source, required_modes=['train_validate', 'test']):
-    """prepare resources if validation is needed."""
-    enabled = mode in required_modes
-    try:
-        if enabled:
-            ctx = mp.get_context('spawn')
-            pool = evaluation.EvaluationProcessPool(self.config, self.triple_source, self.ctx)
-            pool.start()
-            yield pool
-        else:
-            yield None
-    finally:
-        if enabled:
-           pool.stop()
 
 def cli(args):
     logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
@@ -124,7 +89,7 @@ def cli(args):
     # let's save some seconds
     select.select([sys.stdin], [], [], 3)
 
-    seed_modules(
+    utils.seed_modules(
         config,
         numpy_seed=10000,
         torch_seed=20000,
@@ -138,7 +103,7 @@ def cli(args):
     model_class = utils.load_class_from_module(config.model, 'kgegrok.models',
                                          'kgegrok.text_models')
 
-    with _validation_resource_manager(parsed_args['mode'], config, triple_source) as pool:
+    with evaluation.validation_resource_manager(parsed_args['mode'], config, triple_source) as pool:
         # maybe roughly 10s now
         select.select([sys.stdin], [], [], 4)
 

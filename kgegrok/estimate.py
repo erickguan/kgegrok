@@ -70,7 +70,7 @@ def train_and_validate(triple_source,
         valid_data_loader = data.create_dataloader(
             triple_source,
             config,
-            collates_label=False,
+            build_label=False,
             dataset_type=constants.DatasetType.VALIDATION)
     model = nn.DataParallel(model_class(triple_source, config))
     # has to be here because https://discuss.pytorch.org/t/effect-of-calling-model-cuda-after-constructing-an-optimizer/15165/7

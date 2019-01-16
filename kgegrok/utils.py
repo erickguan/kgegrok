@@ -7,6 +7,7 @@ import warnings
 from pathlib import Path
 from itertools import filterfalse
 
+import numpy as np
 import torch
 
 import kgekit.io
@@ -96,7 +97,7 @@ class Config(object):
     negative_relation = 1
     batch_size = 100
     num_workers = 2
-    batch_worker_timeout = 1 # 1s
+    batch_worker_timeout = 0 # unlimited
     num_evaluation_workers = 2
     # due to tile in the evaluation, it's reasonable to have less batch size
     evaluation_load_factor = 0.0001
@@ -124,7 +125,7 @@ class Config(object):
     report_num_prediction_interactively = 10
 
     # filename to resume
-    save_per_epoch = 50
+    save_per_epoch = 200
     save_after_train = True
     resume = ""
 
@@ -164,3 +165,20 @@ def deprecation(message, since=None):
     if since is not None:
         message << " (since {})".format(since)
     warnings.warn(message, DeprecationWarning, stacklevel=2)
+
+def build_config_with_dict(args):
+    config = Config(args)
+    config.enable_cuda = True if torch.cuda.is_available(
+    ) and config.enable_cuda else False
+
+    return config
+
+
+def seed_modules(config, numpy_seed, torch_seed, torcu_cuda_seed_all,
+                 cuda_deterministic, kgegrok_base_seed, cuda_benchmark):
+    np.random.seed(numpy_seed)
+    torch.manual_seed(torch_seed)
+    torch.cuda.manual_seed_all(torcu_cuda_seed_all)
+    torch.backends.cudnn.deterministic = cuda_deterministic
+    torch.backends.cudnn.benchmark = cuda_benchmark
+    config.base_seed = kgegrok_base_seed
