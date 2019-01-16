@@ -311,6 +311,7 @@ def _evaluate_predict_element(model, config, triple_index, num_expands,
 def validation_resource_manager(mode, config, triple_source, required_modes=['train_validate', 'test']):
     """prepare resources if validation is needed."""
     enabled = mode in required_modes
+    pool = None
     try:
         if enabled:
             ctx = mp.get_context('spawn')
