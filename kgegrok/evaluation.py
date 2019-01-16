@@ -94,16 +94,16 @@ def _evaluation_worker_loop(resource, input_q, output):
                     result.append(
                         _evaluate_prediction_view(
                             predicted_batch[split[0]:split[1]], triple_index,
-                            ranker.rankHead, constants.HEAD_KEY))
+                            ranker.rank_head, constants.HEAD_KEY))
                     result.append(
                         _evaluate_prediction_view(
                             predicted_batch[split[1]:split[2]], triple_index,
-                            ranker.rankTail, constants.TAIL_KEY))
+                            ranker.rank_tail, constants.TAIL_KEY))
                 if split[2] != split[3]:
                     result.append(
                         _evaluate_prediction_view(
                             predicted_batch[split[2]:split[3]], triple_index,
-                            ranker.rankRelation, constants.RELATION_KEY))
+                            ranker.rank_relation, constants.RELATION_KEY))
             output.put(result)
     except StopIteration:
         print("[Evaluation Worker {}] stops.".format(mp.current_process().name))
@@ -270,16 +270,16 @@ def evaulate_prediction_np_collate(model, triple_source, config, ranker,
                         stats.StatisticsDimension.COMBINED_ENTITY):
                 _evaluate_predict_element(
                     model, config, triple_index, triple_source.num_entity,
-                    data.TripleElement.HEAD, ranker.rankHead, head_ranks,
+                    data.TripleElement.HEAD, ranker.rank_head, head_ranks,
                     filtered_head_ranks)
                 _evaluate_predict_element(
                     model, config, triple_index, triple_source.num_entity,
-                    data.TripleElement.TAIL, ranker.rankTail, tail_ranks,
+                    data.TripleElement.TAIL, ranker.rank_tail, tail_ranks,
                     filtered_tail_ranks)
             if config.report_dimension & stats.StatisticsDimension.RELATION:
                 _evaluate_predict_element(
                     model, config, triple_index, triple_source.num_relation,
-                    data.TripleElement.RELATION, ranker.rankRelation,
+                    data.TripleElement.RELATION, ranker.rank_relation,
                     relation_ranks, filtered_relation_ranks)
 
     return (head_ranks, filtered_head_ranks), (
