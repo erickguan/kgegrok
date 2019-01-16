@@ -191,7 +191,7 @@ class TestDataTransformerTest(unittest.TestCase):
             [1, 0, 3],
             [1, 1, 3],
             [1, 2, 3], # 10
-        ], dtype=np.int64).T)
+        ], dtype=np.int64))
 
         self.assertEqual(splits, [(0,4,8,11)])
 
@@ -213,7 +213,7 @@ class TestDataTransformerTest(unittest.TestCase):
             [1, 0, 3],
             [1, 1, 3],
             [1, 2, 3], # 10
-        ], dtype=np.int64).T)
+        ], dtype=np.int64))
 
         self.assertEqual(splits, [(0,4,8,11)])
 

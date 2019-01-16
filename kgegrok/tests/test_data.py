@@ -116,9 +116,9 @@ def test_validation_dataloader(source, config):
     data_loader = data.create_dataloader(source, config, False, constants.DatasetType.VALIDATION)
     batch, original, splits = next(iter(data_loader))
     batch, negatives, labels = batch
-    assert batch.shape == (3, 11)
+    assert batch.shape == (11, 3)
     np.testing.assert_equal(
-        batch.numpy().T,
+        batch.numpy(),
         np.array([
             [0, 1, 2],
             [1, 1, 2],

@@ -134,7 +134,7 @@ class TripleTileGenerator(object):
                 StatisticsDimension.COMBINED_ENTITY),
             self.config.report_dimension & StatisticsDimension.RELATION)
 
-        return sampled.T, batch, splits
+        return sampled, batch, splits
 
 def test_batch_transform(sample):
     """Generates None and put things into Tensor."""
