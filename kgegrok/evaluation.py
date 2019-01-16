@@ -312,9 +312,9 @@ def validation_resource_manager(mode, config, triple_source, required_modes=['tr
     """prepare resources if validation is needed."""
     enabled = mode in required_modes
     if enabled:
+        ctx = mp.get_context('spawn')
+        pool = EvaluationProcessPool(config, triple_source, ctx)
         try:
-            ctx = mp.get_context('spawn')
-            pool = evaluation.EvaluationProcessPool(config, triple_source, ctx)
             pool.start()
             yield pool
         finally:
