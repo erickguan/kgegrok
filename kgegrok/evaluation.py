@@ -311,15 +311,13 @@ def _evaluate_predict_element(model, config, triple_index, num_expands,
 def validation_resource_manager(mode, config, triple_source, required_modes=['train_validate', 'test']):
     """prepare resources if validation is needed."""
     enabled = mode in required_modes
-    pool = None
-    try:
-        if enabled:
+    if enabled:
+        try:
             ctx = mp.get_context('spawn')
             pool = evaluation.EvaluationProcessPool(config, triple_source, ctx)
             pool.start()
             yield pool
-        else:
-            yield None
-    finally:
-        if enabled:
-           pool.stop()
+        finally:
+            pool.stop()
+    else:
+        yield None
