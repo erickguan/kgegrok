@@ -87,10 +87,6 @@ class TransE(Model):
 class ComplEx(Model):
     """ComplEx builds more dimension size."""
 
-    @classmethod
-    def require_labels(cls):
-        return True
-
     def __init__(self, triple_source, config):
         super(ComplEx, self).__init__(triple_source, config)
         self.embedding_dimension = self.config.entity_embedding_dimension

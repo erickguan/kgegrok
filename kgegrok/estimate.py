@@ -72,9 +72,10 @@ def train_and_validate(triple_source,
             config,
             build_label=False,
             dataset_type=constants.DatasetType.VALIDATION)
-    model = nn.DataParallel(model_class(triple_source, config))
-    # has to be here because https://discuss.pytorch.org/t/effect-of-calling-model-cuda-after-constructing-an-optimizer/15165/7
+    model = model_class(triple_source, config)
     if config.enable_cuda:
+        model = nn.DataParallel(model)
+        # has to be here because https://discuss.pytorch.org/t/effect-of-calling-model-cuda-after-constructing-an-optimizer/15165/7
         model.cuda()
     optimizer = create_optimizer(optimizer_class, config, model.parameters())
     load_checkpoint(config, model, optimizer)
