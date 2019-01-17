@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "c9c1679b4656189fadd085282b7083c01d4bece7f77fbca41d9d9d8c0cd5445d"
+            "sha256": "6a6d86864d658e863abb8bd563b28f2a0880e20a101ea216e0e699d51f451c9d"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -18,17 +18,17 @@
     "default": {
         "boto3": {
             "hashes": [
-                "sha256:2aae5d59a1e463056c1db531c9a26605176a5dbb8c0134c7dfdd288d9d7d2267",
-                "sha256:a75462a89808130b0e74dffffe8d9f851f8c5f6f68c016938addc84397ba6953"
+                "sha256:122603b00f8c458236d1bd09850bdea56fc45f271e75ca38e66dbce37f72cada",
+                "sha256:99ec19dc4f0aa8a8354db7baebe1ff57bd18aeb6a539b28693b2e8ca8dc3d85b"
             ],
-            "version": "==1.9.79"
+            "version": "==1.9.80"
         },
         "botocore": {
             "hashes": [
-                "sha256:8d87d5ff0c3ce5515d00579168c61544b735705121d4fdf94291e0b4e9a0339a",
-                "sha256:ba2f8c353a3e34cc5c750fef7716d31068c866d4b3b29142b891ce7a55ba7804"
+                "sha256:76a2969278250e010253ddf514f4b54eaa7d2b1430f682874c3c2ab92f25a96d",
+                "sha256:8c579bac9abeaff1270a7a25964b01d3db1367f42fa5f826e1303ec8a4b13cef"
             ],
-            "version": "==1.12.79"
+            "version": "==1.12.80"
         },
         "certifi": {
             "hashes": [
@@ -68,10 +68,10 @@
         },
         "kgekit": {
             "hashes": [
-                "sha256:4e921ddf64cdedf90067e0b80005c8c84b5986519ba3af42a7992d12811352bc"
+                "sha256:b3d9c8e5d122cc52653207f9409293001e611b95095ab7065f2d91702c5ecf43"
             ],
             "index": "pypi",
-            "version": "==0.15.1"
+            "version": "==0.15.3"
         },
         "kgexpr": {
             "editable": true,
