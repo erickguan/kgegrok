@@ -3,6 +3,7 @@ import numpy as np
 import sys
 import select
 import argparse
+import os.path
 
 import torch
 import torch.optim as optim
@@ -44,7 +45,7 @@ if __name__ == '__main__':
         'margin': 1.0,
         'epochs': 1000,
         'lambda_': 0.001,
-        'evaluation_load_factor': 0.05
+        'evaluation_load_factor': 0.01
     }
     config = utils.build_config_with_dict(default_args)
     print(config.__dict__)
@@ -65,6 +66,7 @@ if __name__ == '__main__':
                 changed_config['entity_embedding_dimension'],
                 changed_config['alpha'])
             d.update(changed_config)
+            if os.path.exists(os.path.join('model_states', changed_config['name'], 'checkpoint.pth.tar_1000')): continue
             search_config = utils.build_config_with_dict(d)
 
             utils.seed_modules(

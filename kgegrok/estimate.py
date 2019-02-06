@@ -54,6 +54,7 @@ def test(triple_source, config, model_class, pool):
 
     return model
 
+INDEX_OFFSET = 1
 
 def train_and_validate(triple_source,
                        config,
@@ -86,7 +87,6 @@ def train_and_validate(triple_source,
         if enable_validation:
             stats.prepare_plot_validation_result(drawer, config)
 
-    INDEX_OFFSET = 1
     for i_epoch in range(INDEX_OFFSET, config.epochs + INDEX_OFFSET, 1):
         model.train()
         logging.info('--------------------')
