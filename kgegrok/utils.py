@@ -183,3 +183,38 @@ def seed_modules(config, numpy_seed, torch_seed, torcu_cuda_seed_all,
     torch.backends.cudnn.deterministic = cuda_deterministic
     torch.backends.cudnn.benchmark = cuda_benchmark
     config.base_seed = kgegrok_base_seed
+
+
+class AtomicCounter(object):
+    """An atomic, thread-safe incrementing counter. Used for passing counter.
+    """
+
+    def __init__(self, initial=0):
+        """Initialize a new atomic counter to given initial value (default 0)."""
+        self.value = initial
+        # Not needed because of GIL.
+        try:
+            nc = getattr(contextlib, 'nullcontext')
+        except AttributeError:
+            nc = contextlib.suppress()
+        self._lock = nc  # threading.Lock()
+
+    def increment(self, num=1):
+        """Atomically increment the counter by num (default 1) and return the
+        new value.
+        """
+        with self._lock:
+            self.value += num
+            return self.value
+
+    def decrement(self, num=1):
+        """Atomically increment the counter by num (default 1) and return the
+        new value.
+        """
+        with self._lock:
+            self.value -= num
+            return self.value
+
+    def reset(self):
+        with self._lock:
+            self.value = 0

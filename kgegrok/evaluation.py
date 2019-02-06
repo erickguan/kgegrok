@@ -3,8 +3,8 @@
 import logging
 import sys
 import threading
-import contextlib
-import copy
+import collections
+import queue
 from contextlib import contextmanager
 
 import torch
@@ -15,41 +15,6 @@ import kgedata
 from kgegrok.data import constants
 from kgegrok import stats
 from kgegrok import data
-
-
-class AtomicCounter(object):
-    """An atomic, thread-safe incrementing counter. Used for passing counter.
-    """
-
-    def __init__(self, initial=0):
-        """Initialize a new atomic counter to given initial value (default 0)."""
-        self.value = initial
-        # Not needed because of GIL.
-        try:
-            nc = getattr(contextlib, 'nullcontext')
-        except AttributeError:
-            nc = contextlib.suppress()
-        self._lock = nc  # threading.Lock()
-
-    def increment(self, num=1):
-        """Atomically increment the counter by num (default 1) and return the
-        new value.
-        """
-        with self._lock:
-            self.value += num
-            return self.value
-
-    def decrement(self, num=1):
-        """Atomically increment the counter by num (default 1) and return the
-        new value.
-        """
-        with self._lock:
-            self.value -= num
-            return self.value
-
-    def reset(self):
-        with self._lock:
-            self.value = 0
 
 
 def evaluate_single_triple(prediction, prediction_type, triple_index, config,
@@ -79,126 +44,117 @@ def _evaluate_prediction_view(result_view, triple_index, rank_fn, datatype):
     return (datatype, rank, filtered_rank)
 
 
-def _evaluation_worker_loop(resource, input_q, output):
-    ranker = resource.ranker
+def _evaluation_worker_loop(evaluator):
+    results_list = evaluator._results_list
     try:
         while True:
-            p = input_q.get()
+            p = evaluator._input.get()
             if p is None:
                 continue
             if isinstance(p, str) and p == 'STOP':
                 raise StopIteration
             batch_tensor, batch, splits = p
             predicted_batch = batch_tensor.data.numpy()
-            results = ranker.submit(predicted_batch, batch, splits, ascending_rank=True)
-            output.put(results)
-    except StopIteration:
-        print("[Evaluation Worker {}] stops.".format(mp.current_process().name))
-        sys.stdout.flush()
-
-
-def _evaluation_result_thread_loop(resource, output, results_list, counter):
-    hr, fhr, tr, ftr, rr, frr = results_list
-
-    try:
-        while True:
-            results = output.get()
-            if results is None:
-                continue
-            if isinstance(results, str) and results == 'STOP':
-                raise StopIteration
+            results = evaluator._ranker.submit(predicted_batch, batch, splits, ascending_rank=True)
             for result in results:
-                hr.append(result[0])
-                fhr.append(result[1])
-                tr.append(result[2])
-                ftr.append(result[3])
-                rr.append(result[4])
-                frr.append(result[5])
-            counter.decrement()
+                results_list['hr'].append(result[0])
+                results_list['fhr'].append(result[1])
+                results_list['tr'].append(result[2])
+                results_list['ftr'].append(result[3])
+                results_list['rr'].append(result[4])
+                results_list['frr'].append(result[5])
+            evaluator._cv.acquire()
+            evaluator._counter -= 1
+            evaluator._cv.notify()
+            evaluator._cv.release()
     except StopIteration:
-        print("[Result Worker {}] stops.".format(mp.current_process().name))
+        print("[Evaluation Worker {}] stops.".format(threading.current_thread().name))
         sys.stdout.flush()
 
 
-RESULT_LIST_SIZE = 6
+_CV_TIMEOUT = 0.01
 
-
-class EvaluationProcessPool(object):
+# Note: might be worthy to invest on concurrent.future. Doesn't feel like thread pool helps much.
+class ParallelEvaluator(object):
+    """Evaluates the validation/test batch parallelly."""
 
     def __init__(self, config, triple_source, context):
         self._config = config
-        self._context = context
-        self._manager = self._context.Manager()
-        self._ns = self._manager.Namespace()
-        self._ns.ranker = kgedata.Ranker(triple_source.train_set,
-                                        triple_source.valid_set,
-                                        triple_source.test_set)
-        self._input = self._context.SimpleQueue()
-        self._output = self._context.SimpleQueue()
-        self._results_list = [list() for _ in range(RESULT_LIST_SIZE)]
-        self._counter = AtomicCounter()
+        self._ranker = kgedata.Ranker(triple_source.train_set,
+                                      triple_source.valid_set,
+                                      triple_source.test_set)
+        self._input = queue.SimpleQueue()
+        self._cv = threading.Condition()
+        self._prepare_list()
 
     def _prepare_list(self):
-        self._counter.reset()
-        for i in range(RESULT_LIST_SIZE):
-            self._results_list[i].clear()
+        self._counter = 0
+        self._results_list = collections.defaultdict(list)
 
     def start(self):
         self._prepare_list()
-        self._processes = [
+        self._threads = [
             threading.Thread(
                 target=_evaluation_worker_loop,
-                args=(
-                    self._ns,
-                    self._input,
-                    self._output,
-                )) for _ in range(self._config.num_evaluation_workers)
+                args=(self,),
+            ) for _ in range(self._config.num_evaluation_workers)
         ]
-        self._result_thread = threading.Thread(
-            target=_evaluation_result_thread_loop,
-            args=(
-                self._ns,
-                self._output,
-                self._results_list,
-                self._counter,
-            ))
-        for p in self._processes:
+        for p in self._threads:
             p.start()
-        self._result_thread.start()
 
     def stop(self):
-        for p in self._processes:
-            try:
-                p.join()
-            except AttributeError:
-                p.terminate()  # close() added in 3.7
         # Put as many as stop markers for workers to stop.
         for i in range(self._config.num_evaluation_workers * 2):
             self._input.put('STOP')
-        self._output.put('STOP')
-        self._output.put('STOP')
-        for p in self._processes:
+        for p in self._threads:
             p.join()
-        self._result_thread.join()
 
     def evaluate_batch(self, test_package):
         """Batch is a Tensor."""
-        self._input.put(test_package)
-        self._counter.increment()
         logging.debug(
-            "Putting a new batch for evaluation. Now we have sent {} batches.".
-            format(self._counter.value))
+            "Putting a new batch {} for evaluation. Now we have sent {} batches.".
+            format(test_package, self._counter))
+        self._input.put(test_package)
+        self._counter += 1
 
     def wait_evaluation_results(self):
         logging.debug("Starts to wait for result batches.")
-        # Protected by GIL
-        while self._counter.value > 0:
-            logging.debug("counter is now at {}.".format(self._counter.value))
-            continue
+
+        if self._config.num_evaluation_workers <= 0:
+            results_list = self._results_list
+            for _ in range(self._counter):
+                p = self._input.get_nowait()
+                batch_tensor, batch, splits = p
+                predicted_batch = batch_tensor.data.numpy()
+                results = evaluator._ranker.submit(predicted_batch, batch, splits, ascending_rank=True)
+                for result in results:
+                    results_list['hr'].append(result[0])
+                    results_list['fhr'].append(result[1])
+                    results_list['tr'].append(result[2])
+                    results_list['ftr'].append(result[3])
+                    results_list['rr'].append(result[4])
+                    results_list['frr'].append(result[5])
         else:
-            logging.debug("results list {}".format(self._results_list))
-            # deep copy that before we destroyed them
-            results = tuple([copy.deepcopy(r) for r in self._results_list])
+            while True:
+                self._cv.acquire()
+                self._cv.wait(timeout=_CV_TIMEOUT)
+                logging.debug("counter is now at {}.".format(self._counter))
+                if self._counter <= 0:
+                    self._cv.release()
+                    break
+                self._cv.release()
+
+        logging.debug("results list {}".format(self._results_list))
+        # deep copy that before we destroyed them
+
+        results = tuple([
+            self._results_list['hr'],
+            self._results_list['fhr'],
+            self._results_list['tr'],
+            self._results_list['ftr'],
+            self._results_list['rr'],
+            self._results_list['frr'],
+        ])
 
         # Reset
         self._prepare_list()
@@ -218,8 +174,7 @@ def predict_links(model, triple_source, config, data_loader, pool):
         pool.evaluate_batch((predicted_batch, batch, splits))
 
     # Synchonized point. We want all our results back.
-    head_ranks, filtered_head_ranks, tail_ranks, filtered_tail_ranks, relation_ranks, filtered_relation_ranks = pool.wait_evaluation_results(
-    )
+    head_ranks, filtered_head_ranks, tail_ranks, filtered_tail_ranks, relation_ranks, filtered_relation_ranks = pool.wait_evaluation_results()
     logging.info(
         "Batch size of rank lists (hr, frr, tr, ftr, rr, frr): {}, {}, {}, {}, {}, {}"
         .format(
@@ -298,7 +253,7 @@ def validation_resource_manager(config, triple_source, required_modes=['train_va
     enabled = config.mode in required_modes
     if enabled:
         ctx = mp.get_context('spawn')
-        pool = EvaluationProcessPool(config, triple_source, ctx)
+        pool = ParallelEvaluator(config, triple_source, ctx)
         try:
             pool.start()
             yield pool
