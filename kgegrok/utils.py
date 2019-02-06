@@ -132,6 +132,7 @@ class Config(object):
     # Introduce underministic behaviour but allow cudnn find best algoritm
     cudnn_benchmark = True
     enable_cuda = True
+    mode = 'train'
 
     # logging
     logging_path = "logs"
