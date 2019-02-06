@@ -64,7 +64,6 @@ def cli_demo_prediction(triple_source, config, model_class):
 
 def cli_config_and_parse_args(args):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--mode', default='train')
     for k in utils.Config.registered_options():
         cfg_type = utils.Config.option_type(k)
         if cfg_type == bool:
@@ -82,7 +81,7 @@ def cli(args):
                         level=logging.INFO)
     utils.report_gpu_info()
 
-    config, parsed_args = cli_config_and_parse_args(args)
+    config = cli_config_and_parse_args(args)
     print(config.__dict__)
     print("Continue? Starts in 10s. [Ctrl-C] to stop.")
 
@@ -103,28 +102,28 @@ def cli(args):
     model_class = utils.load_class_from_module(config.model, 'kgegrok.models',
                                          'kgegrok.text_models')
 
-    with evaluation.validation_resource_manager(parsed_args['mode'], config, triple_source) as pool:
+    with evaluation.validation_resource_manager(config, triple_source) as pool:
         # maybe roughly 10s now
         select.select([sys.stdin], [], [], 4)
 
-        if parsed_args['mode'] == 'train':
+        if config.mode == 'train':
             optimizer_class = utils.load_class_from_module(config.optimizer,
                                                     'torch.optim')
             cli_train(triple_source, config, model_class, optimizer_class)
-        elif parsed_args['mode'] == 'train_validate':
+        elif config.mode == 'train_validate':
             optimizer_class = utils.load_class_from_module(config.optimizer,
                                                     'torch.optim')
             cli_train_and_validate(triple_source, config, model_class, optimizer_class, pool)
-        elif parsed_args['mode'] == 'test':
+        elif config.mode == 'test':
             cli_test(triple_source, config, model_class, pool)
-        elif parsed_args['mode'] == 'demo_prediction':
+        elif config.mode == 'demo_prediction':
             cli_demo_prediction(triple_source, config, model_class)
-        elif parsed_args['mode'] == 'profile':
+        elif config.mode == 'profile':
             optimizer_class = utils.load_class_from_module(config.optimizer,
                                         'torch.optim')
             cli_profile(triple_source, config, model_class, optimizer_class)
         else:
-            raise RuntimeError("Wrong mode {} selected.".format(parsed_args['mode']))
+            raise RuntimeError("Wrong mode {} selected.".format(config.mode))
 
 
 if __name__ == '__main__':

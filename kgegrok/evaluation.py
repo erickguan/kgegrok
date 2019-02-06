@@ -1,3 +1,5 @@
+"""Asynchorous evaluation. It aims to utilize GPUs when the CPU is busy.
+"""
 import logging
 import sys
 import threading
@@ -88,23 +90,8 @@ def _evaluation_worker_loop(resource, input_q, output):
                 raise StopIteration
             batch_tensor, batch, splits = p
             predicted_batch = batch_tensor.data.numpy()
-            result = []
-            for triple_index, split in zip(batch, splits):
-                if split[0] != split[1] and split[1] != split[2]:
-                    result.append(
-                        _evaluate_prediction_view(
-                            predicted_batch[split[0]:split[1]], triple_index,
-                            ranker.rank_head, constants.HEAD_KEY))
-                    result.append(
-                        _evaluate_prediction_view(
-                            predicted_batch[split[1]:split[2]], triple_index,
-                            ranker.rank_tail, constants.TAIL_KEY))
-                if split[2] != split[3]:
-                    result.append(
-                        _evaluate_prediction_view(
-                            predicted_batch[split[2]:split[3]], triple_index,
-                            ranker.rank_relation, constants.RELATION_KEY))
-            output.put(result)
+            results = ranker.submit(predicted_batch, batch, splits, ascending_rank=True)
+            output.put(results)
     except StopIteration:
         print("[Evaluation Worker {}] stops.".format(mp.current_process().name))
         sys.stdout.flush()
@@ -112,11 +99,6 @@ def _evaluation_worker_loop(resource, input_q, output):
 
 def _evaluation_result_thread_loop(resource, output, results_list, counter):
     hr, fhr, tr, ftr, rr, frr = results_list
-    RESULTS_LIST = {
-        constants.HEAD_KEY: (hr, fhr),
-        constants.TAIL_KEY: (tr, ftr),
-        constants.RELATION_KEY: (rr, frr)
-    }
 
     try:
         while True:
@@ -125,10 +107,13 @@ def _evaluation_result_thread_loop(resource, output, results_list, counter):
                 continue
             if isinstance(results, str) and results == 'STOP':
                 raise StopIteration
-            for datatype, rank, filtered_rank in results:
-                rank_list, filtered_rank_list = RESULTS_LIST[datatype]
-                rank_list.append(rank)
-                filtered_rank_list.append(filtered_rank)
+            for result in results:
+                hr.append(result[0])
+                fhr.append(result[1])
+                tr.append(result[2])
+                ftr.append(result[3])
+                rr.append(result[4])
+                frr.append(result[5])
             counter.decrement()
     except StopIteration:
         print("[Result Worker {}] stops.".format(mp.current_process().name))
@@ -161,7 +146,7 @@ class EvaluationProcessPool(object):
     def start(self):
         self._prepare_list()
         self._processes = [
-            self._context.Process(
+            threading.Thread(
                 target=_evaluation_worker_loop,
                 args=(
                     self._ns,
@@ -184,7 +169,7 @@ class EvaluationProcessPool(object):
     def stop(self):
         for p in self._processes:
             try:
-                p.close()
+                p.join()
             except AttributeError:
                 p.terminate()  # close() added in 3.7
         # Put as many as stop markers for workers to stop.
@@ -308,9 +293,9 @@ def _evaluate_predict_element(model, config, triple_index, num_expands,
     filtered_ranks_list.append(filtered_rank)
 
 @contextmanager
-def validation_resource_manager(mode, config, triple_source, required_modes=['train_validate', 'test']):
+def validation_resource_manager(config, triple_source, required_modes=['train_validate', 'test']):
     """prepare resources if validation is needed."""
-    enabled = mode in required_modes
+    enabled = config.mode in required_modes
     if enabled:
         ctx = mp.get_context('spawn')
         pool = EvaluationProcessPool(config, triple_source, ctx)
