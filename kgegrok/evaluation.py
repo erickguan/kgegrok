@@ -4,7 +4,6 @@ import logging
 import sys
 import threading
 import queue
-import copy
 from contextlib import contextmanager
 
 import torch
@@ -74,54 +73,6 @@ def _evaluation_worker_loop(evaluator):
 
 _CV_TIMEOUT = 0.01
 
-def _take_batch_result(evaluator, callback):
-    if evaluator._config.num_evaluation_workers <= 0:
-        results_list = evaluator._results_list
-        for _ in range(evaluator._counter):
-            p = evaluator._input.get_nowait()
-            batch_tensor, batch, splits = p
-            predicted_batch = batch_tensor.data.numpy()
-            results = evaluator._ranker.submit(predicted_batch, batch, splits, ascending_rank=True)
-            for result in results:
-                results_list['hr'].append(result[0])
-                results_list['fhr'].append(result[1])
-                results_list['tr'].append(result[2])
-                results_list['ftr'].append(result[3])
-                results_list['rr'].append(result[4])
-                results_list['frr'].append(result[5])
-    else:
-        while True:
-            evaluator._cv.acquire()
-            evaluator._cv.wait(timeout=_CV_TIMEOUT)
-            logging.debug("counter is now at {}.".format(evaluator._counter))
-            if evaluator._counter <= 0:
-                evaluator._cv.release()
-                break
-            evaluator._cv.release()
-
-    logging.debug("results list {}".format(evaluator._results_list))
-    # deep copy that before we destroyed them
-
-    print(evaluator._results_list)
-    sys.stdout.flush()
-    results = tuple(copy.deepcopy([
-        evaluator._results_list['hr'],
-        evaluator._results_list['fhr'],
-        evaluator._results_list['tr'],
-        evaluator._results_list['ftr'],
-        evaluator._results_list['rr'],
-        evaluator._results_list['frr'],
-    ]))
-
-    # Reset
-    evaluator._prepare_list()
-    evaluator._mutex.set()
-    print("results list[0] copied {}".format(results))
-    sys.stdout.flush()
-    if callback: callback(results)
-
-    return results
-
 # Note: might be worthy to invest on concurrent.future. Doesn't feel like thread pool helps much.
 class ParallelEvaluator(object):
     """Evaluates the validation/test batch parallelly."""
@@ -133,8 +84,6 @@ class ParallelEvaluator(object):
                                       triple_source.test_set)
         self._input = queue.SimpleQueue()
         self._cv = threading.Condition()
-        self._mutex = threading.Event()
-        self._mutex.set()
         self._prepare_list()
 
     def _prepare_list(self):
@@ -174,23 +123,40 @@ class ParallelEvaluator(object):
         self._input.put(test_package)
         self._counter += 1
 
-    def report_result(self, callback):
-        self._mutex.clear()
-        t = threading.Thread(
-            target=_take_batch_result,
-            args=(self, callback,))
-        t.start()
-
-    def wait_evaluation_results(self, callback=None):
+    def report_result(self):
         logging.debug("Starts to wait for result batches.")
 
-        return _take_batch_result(self, callback)
+        while True:
+            evaluator._cv.acquire()
+            evaluator._cv.wait(timeout=_CV_TIMEOUT)
+            logging.debug("counter is now at {}.".format(evaluator._counter))
+            if evaluator._counter <= 0:
+                evaluator._cv.release()
+                break
+            evaluator._cv.release()
+
+        logging.debug("results list {}".format(evaluator._results_list))
+        # deep copy that before we destroyed them
+
+        results = tuple(([
+            evaluator._results_list['hr'],
+            evaluator._results_list['fhr'],
+            evaluator._results_list['tr'],
+            evaluator._results_list['ftr'],
+            evaluator._results_list['rr'],
+            evaluator._results_list['frr'],
+        ]))
+
+        # Reset
+        evaluator._prepare_list()
+        logging.debug("results list[0] copied {}".format(results))
+
+        return results
 
 
 def predict_links(model, triple_source, config, data_loader, pool, callback=None):
     model.eval()
 
-    pool._mutex.wait()
     for sample_batched in data_loader:
         sampled, batch, splits = sample_batched
         predicted_batch = model.forward(sampled).cpu()

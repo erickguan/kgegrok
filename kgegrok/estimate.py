@@ -48,8 +48,8 @@ def test(triple_source, config, model_class, pool):
 
     logging.info('Testing starts')
     with torch.no_grad():
-        evaluation.predict_links(model, triple_source, config, data_loader,
-                                 pool, lambda results: stats.report_prediction_result(config, results, drawer=None))
+        results = evaluation.predict_links(model, triple_source, config, data_loader, pool)
+    stats.report_prediction_result(config, results, drawer=None)
 
     return model
 
@@ -116,9 +116,9 @@ def train_and_validate(triple_source,
         if enable_validation:
             logging.info('Evaluation for epoch ' + str(i_epoch))
             with torch.no_grad():
-                evaluation.predict_links(model, triple_source, config,
-                                         valid_data_loader, pool,
-                                         lambda results: stats.report_prediction_result(config, results, epoch=i_epoch, drawer=drawer))
+                results = evaluation.predict_links(model, triple_source, config,
+                                         valid_data_loader, pool)
+            stats.report_prediction_result(config, results, epoch=i_epoch, drawer=drawer)
 
         if config.save_per_epoch > 0 and i_epoch % config.save_per_epoch == 0:
             save_checkpoint({

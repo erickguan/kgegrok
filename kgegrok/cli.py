@@ -78,7 +78,7 @@ def cli_config_and_parse_args(args):
 def cli(args):
     logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
                         datefmt='%m/%d/%Y %H:%M:%S',
-                        level=logging.DEBUG)
+                        level=logging.INFO)
     utils.report_gpu_info()
 
     config = cli_config_and_parse_args(args)
