@@ -1,10 +1,13 @@
 import pprint
-from kgegrok.data import constants
-import kgekit
-import numpy as np
+import sys
 import logging
-from collections import defaultdict
 import json
+from collections import defaultdict
+
+import numpy as np
+
+import kgekit
+from kgegrok.data import constants
 from kgegrok.data import statstools
 from kgegrok.stats.constants import *
 
