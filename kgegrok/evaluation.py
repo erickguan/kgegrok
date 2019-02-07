@@ -3,7 +3,6 @@
 import logging
 import sys
 import threading
-import collections
 import queue
 import copy
 from contextlib import contextmanager
@@ -103,6 +102,8 @@ def _take_batch_result(evaluator, callback):
     logging.debug("results list {}".format(evaluator._results_list))
     # deep copy that before we destroyed them
 
+    print(evaluator._results_list)
+    sys.stdout.flush()
     results = tuple(copy.deepcopy([
         evaluator._results_list['hr'],
         evaluator._results_list['fhr'],
@@ -114,7 +115,9 @@ def _take_batch_result(evaluator, callback):
 
     # Reset
     evaluator._prepare_list()
-    logging.debug("results list[0] copied {}".format(results))
+    evaluator._mutex.set()
+    print("results list[0] copied {}".format(results))
+    sys.stdout.flush()
     if callback: callback(results)
 
     return results
@@ -130,13 +133,20 @@ class ParallelEvaluator(object):
                                       triple_source.test_set)
         self._input = queue.SimpleQueue()
         self._cv = threading.Condition()
+        self._mutex = threading.Event()
+        self._mutex.set()
         self._prepare_list()
 
     def _prepare_list(self):
         self._counter = 0
-        self._mutex = threading.Event()
-        self._mutex.set()
-        self._results_list = collections.defaultdict(list)
+        self._results_list = {
+            'hr': [],
+            'fhr': [],
+            'tr': [],
+            'ftr': [],
+            'rr': [],
+            'frr': []
+        }
 
     def start(self):
         self._prepare_list()
@@ -158,7 +168,6 @@ class ParallelEvaluator(object):
 
     def evaluate_batch(self, test_package):
         """Batch is a Tensor."""
-        self._mutex.wait()
         logging.debug(
             "Putting a new batch {} for evaluation. Now we have sent {} batches.".
             format(test_package, self._counter))
@@ -181,6 +190,7 @@ class ParallelEvaluator(object):
 def predict_links(model, triple_source, config, data_loader, pool, callback=None):
     model.eval()
 
+    pool._mutex.wait()
     for sample_batched in data_loader:
         sampled, batch, splits = sample_batched
         predicted_batch = model.forward(sampled).cpu()
