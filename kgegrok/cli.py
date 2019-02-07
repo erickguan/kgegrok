@@ -25,13 +25,13 @@ def cli_train(triple_source, config, model_class, optimizer_class):
     model = estimate.train(triple_source, config, model_class,
                            optimizer_class, drawer=create_drawer(config))
 
-def cli_train_and_validate(triple_source, config, model_class, optimizer_class, validation_process_pool):
+def cli_train_and_validate(triple_source, config, model_class, optimizer_class, validation_evaluator):
     model = estimate.train_and_validate(triple_source, config, model_class,
-                                        optimizer_class, validation_process_pool, drawer=create_drawer(config))
+                                        optimizer_class, validation_evaluator, drawer=create_drawer(config))
 
-def cli_test(triple_source, config, model_class, validation_process_pool):
+def cli_test(triple_source, config, model_class, validation_evaluator):
     assert config.resume is not None and len(config.resume) > 0
-    model = estimate.test(triple_source, config, model_class, validation_process_pool)
+    model = estimate.test(triple_source, config, model_class, validation_evaluator)
 
 
 def _get_and_validate_input(entities, relations):
@@ -102,28 +102,28 @@ def cli(args):
     model_class = utils.load_class_from_module(config.model, 'kgegrok.models',
                                          'kgegrok.text_models')
 
-    with evaluation.validation_resource_manager(config, triple_source) as pool:
-        # maybe roughly 10s now
-        select.select([sys.stdin], [], [], 4)
+    evaluator = evaluation.ParallelEvaluator(config, triple_source)
+    # maybe roughly 10s now
+    select.select([sys.stdin], [], [], 4)
 
-        if config.mode == 'train':
-            optimizer_class = utils.load_class_from_module(config.optimizer,
-                                                    'torch.optim')
-            cli_train(triple_source, config, model_class, optimizer_class)
-        elif config.mode == 'train_validate':
-            optimizer_class = utils.load_class_from_module(config.optimizer,
-                                                    'torch.optim')
-            cli_train_and_validate(triple_source, config, model_class, optimizer_class, pool)
-        elif config.mode == 'test':
-            cli_test(triple_source, config, model_class, pool)
-        elif config.mode == 'demo_prediction':
-            cli_demo_prediction(triple_source, config, model_class)
-        elif config.mode == 'profile':
-            optimizer_class = utils.load_class_from_module(config.optimizer,
-                                        'torch.optim')
-            cli_profile(triple_source, config, model_class, optimizer_class)
-        else:
-            raise RuntimeError("Wrong mode {} selected.".format(config.mode))
+    if config.mode == 'train':
+        optimizer_class = utils.load_class_from_module(config.optimizer,
+                                                'torch.optim')
+        cli_train(triple_source, config, model_class, optimizer_class)
+    elif config.mode == 'train_validate':
+        optimizer_class = utils.load_class_from_module(config.optimizer,
+                                                'torch.optim')
+        cli_train_and_validate(triple_source, config, model_class, optimizer_class, evaluator)
+    elif config.mode == 'test':
+        cli_test(triple_source, config, model_class, evaluator)
+    elif config.mode == 'demo_prediction':
+        cli_demo_prediction(triple_source, config, model_class)
+    elif config.mode == 'profile':
+        optimizer_class = utils.load_class_from_module(config.optimizer,
+                                    'torch.optim')
+        cli_profile(triple_source, config, model_class, optimizer_class)
+    else:
+        raise RuntimeError("Wrong mode {} selected.".format(config.mode))
 
 
 if __name__ == '__main__':

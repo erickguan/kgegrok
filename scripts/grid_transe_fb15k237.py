@@ -56,29 +56,29 @@ if __name__ == '__main__':
                                             'kgegrok.text_models')
 
 
-    with evaluation.validation_resource_manager('train_validate', config, triple_source) as pool:
-        for changed_config in ParameterGrid(grid):
-            d = {}
-            d.update(config.__dict__)
-            changed_config['name'] = "TransE-FB15k237-neg_e_{}-neg_r_{}-ent_dim_{}-alpha_{}".format(
-                changed_config['negative_entity'],
-                changed_config['negative_relation'],
-                changed_config['entity_embedding_dimension'],
-                changed_config['alpha'])
-            d.update(changed_config)
-            if os.path.exists(os.path.join('model_states', changed_config['name'], 'checkpoint.pth.tar_1000')): continue
-            search_config = utils.build_config_with_dict(d)
+    evaluator = evaluation.ParallelEvaluator(config, triple_source)
+    for changed_config in ParameterGrid(grid):
+        d = {}
+        d.update(config.__dict__)
+        changed_config['name'] = "TransE-FB15k237-neg_e_{}-neg_r_{}-ent_dim_{}-alpha_{}".format(
+            changed_config['negative_entity'],
+            changed_config['negative_relation'],
+            changed_config['entity_embedding_dimension'],
+            changed_config['alpha'])
+        d.update(changed_config)
+        if os.path.exists(os.path.join('model_states', changed_config['name'], 'checkpoint.pth.tar_1000')): continue
+        search_config = utils.build_config_with_dict(d)
 
-            utils.seed_modules(
-                config,
-                numpy_seed=10000,
-                torch_seed=20000,
-                torcu_cuda_seed_all=2192,
-                cuda_deterministic=True,
-                kgegrok_base_seed=30000,
-                cuda_benchmark=config.cudnn_benchmark)
+        utils.seed_modules(
+            config,
+            numpy_seed=10000,
+            torch_seed=20000,
+            torcu_cuda_seed_all=2192,
+            cuda_deterministic=True,
+            kgegrok_base_seed=30000,
+            cuda_benchmark=config.cudnn_benchmark)
 
-            optimizer_class = utils.load_class_from_module(config.optimizer,
-                                                        'torch.optim')
-            model = estimate.train_and_validate(triple_source, search_config, model_class,
-                                                optimizer_class, pool, drawer=stats.create_drawer(config))
+        optimizer_class = utils.load_class_from_module(config.optimizer,
+                                                    'torch.optim')
+        model = estimate.train_and_validate(triple_source, search_config, model_class,
+                                            optimizer_class, evaluator, drawer=stats.create_drawer(config))

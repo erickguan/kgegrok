@@ -31,7 +31,7 @@ def create_optimizer(optimizer_class, config, parameters):
         return optimizer_class(parameters, lr=config.alpha)
 
 
-def test(triple_source, config, model_class, pool):
+def test(triple_source, config, model_class, evaluator):
     """Test config.resume model."""
     data_loader = data.create_dataloader(
         triple_source,
@@ -48,7 +48,7 @@ def test(triple_source, config, model_class, pool):
 
     logging.info('Testing starts')
     with torch.no_grad():
-        results = evaluation.predict_links(model, triple_source, config, data_loader, pool)
+        results = evaluation.predict_links(model, triple_source, config, data_loader, evaluator)
     stats.report_prediction_result(config, results, drawer=None)
 
     return model
@@ -59,7 +59,7 @@ def train_and_validate(triple_source,
                        config,
                        model_class,
                        optimizer_class,
-                       pool=None,
+                       evaluator=None,
                        drawer=None,
                        enable_validation=True):
     """Train and validates the dataset."""
@@ -117,7 +117,7 @@ def train_and_validate(triple_source,
             logging.info('Evaluation for epoch ' + str(i_epoch))
             with torch.no_grad():
                 results = evaluation.predict_links(model, triple_source, config,
-                                         valid_data_loader, pool)
+                                                   valid_data_loader, evaluator)
             stats.report_prediction_result(config, results, epoch=i_epoch, drawer=drawer)
 
         if config.save_per_epoch > 0 and i_epoch % config.save_per_epoch == 0:

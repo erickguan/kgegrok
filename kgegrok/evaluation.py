@@ -78,7 +78,7 @@ _CV_TIMEOUT = 0.01
 class ParallelEvaluator(object):
     """Evaluates the validation/test batch parallelly."""
 
-    def __init__(self, config, triple_source, context):
+    def __init__(self, config, triple_source):
         self._config = config
         self._ranker = kgedata.Ranker(triple_source.train_set,
                                       triple_source.valid_set,
