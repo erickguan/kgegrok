@@ -5,6 +5,7 @@ import sys
 import threading
 import collections
 import queue
+import copy
 from contextlib import contextmanager
 
 import torch
@@ -102,14 +103,14 @@ def _take_batch_result(evaluator, callback):
     logging.debug("results list {}".format(evaluator._results_list))
     # deep copy that before we destroyed them
 
-    results = tuple([
+    results = tuple(copy.deepcopy([
         evaluator._results_list['hr'],
         evaluator._results_list['fhr'],
         evaluator._results_list['tr'],
         evaluator._results_list['ftr'],
         evaluator._results_list['rr'],
         evaluator._results_list['frr'],
-    ])
+    ]))
 
     # Reset
     evaluator._prepare_list()
