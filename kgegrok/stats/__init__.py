@@ -76,6 +76,7 @@ def gen_drawer_option(config, title=None):
 def _report_prediction_element(element, epoch):
     pprint.pprint(epoch)
     pprint.pprint(element)
+    sys.stdout.flush()
 
 
 def _append_drawer(drawer, epoch, result, prefix_key=None):

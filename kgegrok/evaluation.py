@@ -74,6 +74,50 @@ def _evaluation_worker_loop(evaluator):
 
 _CV_TIMEOUT = 0.01
 
+def _take_batch_result(evaluator, callback):
+    if evaluator._config.num_evaluation_workers <= 0:
+        results_list = evaluator._results_list
+        for _ in range(evaluator._counter):
+            p = evaluator._input.get_nowait()
+            batch_tensor, batch, splits = p
+            predicted_batch = batch_tensor.data.numpy()
+            results = evaluator._ranker.submit(predicted_batch, batch, splits, ascending_rank=True)
+            for result in results:
+                results_list['hr'].append(result[0])
+                results_list['fhr'].append(result[1])
+                results_list['tr'].append(result[2])
+                results_list['ftr'].append(result[3])
+                results_list['rr'].append(result[4])
+                results_list['frr'].append(result[5])
+    else:
+        while True:
+            evaluator._cv.acquire()
+            evaluator._cv.wait(timeout=_CV_TIMEOUT)
+            logging.debug("counter is now at {}.".format(evaluator._counter))
+            if evaluator._counter <= 0:
+                evaluator._cv.release()
+                break
+            evaluator._cv.release()
+
+    logging.debug("results list {}".format(evaluator._results_list))
+    # deep copy that before we destroyed them
+
+    results = tuple([
+        evaluator._results_list['hr'],
+        evaluator._results_list['fhr'],
+        evaluator._results_list['tr'],
+        evaluator._results_list['ftr'],
+        evaluator._results_list['rr'],
+        evaluator._results_list['frr'],
+    ])
+
+    # Reset
+    evaluator._prepare_list()
+    logging.debug("results list[0] copied {}".format(results))
+    if callback: callback(results)
+
+    return results
+
 # Note: might be worthy to invest on concurrent.future. Doesn't feel like thread pool helps much.
 class ParallelEvaluator(object):
     """Evaluates the validation/test batch parallelly."""
@@ -89,6 +133,8 @@ class ParallelEvaluator(object):
 
     def _prepare_list(self):
         self._counter = 0
+        self._mutex = threading.Event()
+        self._mutex.set()
         self._results_list = collections.defaultdict(list)
 
     def start(self):
@@ -111,59 +157,27 @@ class ParallelEvaluator(object):
 
     def evaluate_batch(self, test_package):
         """Batch is a Tensor."""
+        self._mutex.wait()
         logging.debug(
             "Putting a new batch {} for evaluation. Now we have sent {} batches.".
             format(test_package, self._counter))
         self._input.put(test_package)
         self._counter += 1
 
-    def wait_evaluation_results(self):
+    def report_result(self, callback):
+        self._mutex.clear()
+        t = threading.Thread(
+            target=_take_batch_result,
+            args=(self, callback,))
+        t.start()
+
+    def wait_evaluation_results(self, callback=None):
         logging.debug("Starts to wait for result batches.")
 
-        if self._config.num_evaluation_workers <= 0:
-            results_list = self._results_list
-            for _ in range(self._counter):
-                p = self._input.get_nowait()
-                batch_tensor, batch, splits = p
-                predicted_batch = batch_tensor.data.numpy()
-                results = evaluator._ranker.submit(predicted_batch, batch, splits, ascending_rank=True)
-                for result in results:
-                    results_list['hr'].append(result[0])
-                    results_list['fhr'].append(result[1])
-                    results_list['tr'].append(result[2])
-                    results_list['ftr'].append(result[3])
-                    results_list['rr'].append(result[4])
-                    results_list['frr'].append(result[5])
-        else:
-            while True:
-                self._cv.acquire()
-                self._cv.wait(timeout=_CV_TIMEOUT)
-                logging.debug("counter is now at {}.".format(self._counter))
-                if self._counter <= 0:
-                    self._cv.release()
-                    break
-                self._cv.release()
-
-        logging.debug("results list {}".format(self._results_list))
-        # deep copy that before we destroyed them
-
-        results = tuple([
-            self._results_list['hr'],
-            self._results_list['fhr'],
-            self._results_list['tr'],
-            self._results_list['ftr'],
-            self._results_list['rr'],
-            self._results_list['frr'],
-        ])
-
-        # Reset
-        self._prepare_list()
-        logging.debug("results list[0] copied {}".format(results))
-
-        return results
+        return _take_batch_result(self, callback)
 
 
-def predict_links(model, triple_source, config, data_loader, pool):
+def predict_links(model, triple_source, config, data_loader, pool, callback=None):
     model.eval()
 
     for sample_batched in data_loader:
@@ -173,18 +187,21 @@ def predict_links(model, triple_source, config, data_loader, pool):
 
         pool.evaluate_batch((predicted_batch, batch, splits))
 
-    # Synchonized point. We want all our results back.
-    head_ranks, filtered_head_ranks, tail_ranks, filtered_tail_ranks, relation_ranks, filtered_relation_ranks = pool.wait_evaluation_results()
-    logging.info(
-        "Batch size of rank lists (hr, frr, tr, ftr, rr, frr): {}, {}, {}, {}, {}, {}"
-        .format(
-            len(head_ranks), len(filtered_head_ranks), len(tail_ranks),
-            len(filtered_tail_ranks), len(relation_ranks),
-            len(filtered_relation_ranks)))
-    return (head_ranks, filtered_head_ranks), (
-        tail_ranks, filtered_tail_ranks), (relation_ranks,
-                                           filtered_relation_ranks)
-
+    if callback:
+        pool.report_result(callback)
+    else:
+        # Synchonized point. We want all our results back.
+        head_ranks, filtered_head_ranks, tail_ranks, filtered_tail_ranks, relation_ranks, filtered_relation_ranks = pool.wait_evaluation_results()
+        logging.info(
+            "Batch size of rank lists (hr, frr, tr, ftr, rr, frr): {}, {}, {}, {}, {}, {}"
+            .format(
+                len(head_ranks), len(filtered_head_ranks), len(tail_ranks),
+                len(filtered_tail_ranks), len(relation_ranks),
+                len(filtered_relation_ranks)))
+        results = (head_ranks, filtered_head_ranks), (
+            tail_ranks, filtered_tail_ranks), (relation_ranks,
+                                            filtered_relation_ranks)
+        return results
 
 # FIXME: can't be used with multiprocess now. See predict_links
 def evaulate_prediction_np_collate(model, triple_source, config, ranker,
