@@ -44,17 +44,17 @@ def _evaluate_prediction_view(result_view, triple_index, rank_fn, datatype):
 
 
 def _evaluation_worker_loop(evaluator):
-    results_list = evaluator._results_list
+    results_list = self._results_list
     try:
         while True:
-            p = evaluator._input.get()
+            p = self._input.get()
             if p is None:
                 continue
             if isinstance(p, str) and p == 'STOP':
                 raise StopIteration
             batch_tensor, batch, splits = p
             predicted_batch = batch_tensor.data.numpy()
-            results = evaluator._ranker.submit(predicted_batch, batch, splits, ascending_rank=True)
+            results = self._ranker.submit(predicted_batch, batch, splits, ascending_rank=True)
             for result in results:
                 results_list['hr'].append(result[0])
                 results_list['fhr'].append(result[1])
@@ -62,10 +62,10 @@ def _evaluation_worker_loop(evaluator):
                 results_list['ftr'].append(result[3])
                 results_list['rr'].append(result[4])
                 results_list['frr'].append(result[5])
-            evaluator._cv.acquire()
-            evaluator._counter -= 1
-            evaluator._cv.notify()
-            evaluator._cv.release()
+            self._cv.acquire()
+            self._counter -= 1
+            self._cv.notify()
+            self._cv.release()
     except StopIteration:
         print("[Evaluation Worker {}] stops.".format(threading.current_thread().name))
         sys.stdout.flush()
@@ -127,28 +127,28 @@ class ParallelEvaluator(object):
         logging.debug("Starts to wait for result batches.")
 
         while True:
-            evaluator._cv.acquire()
-            evaluator._cv.wait(timeout=_CV_TIMEOUT)
-            logging.debug("counter is now at {}.".format(evaluator._counter))
-            if evaluator._counter <= 0:
-                evaluator._cv.release()
+            self._cv.acquire()
+            self._cv.wait(timeout=_CV_TIMEOUT)
+            logging.debug("counter is now at {}.".format(self._counter))
+            if self._counter <= 0:
+                self._cv.release()
                 break
-            evaluator._cv.release()
+            self._cv.release()
 
-        logging.debug("results list {}".format(evaluator._results_list))
+        logging.debug("results list {}".format(self._results_list))
         # deep copy that before we destroyed them
 
         results = tuple(([
-            evaluator._results_list['hr'],
-            evaluator._results_list['fhr'],
-            evaluator._results_list['tr'],
-            evaluator._results_list['ftr'],
-            evaluator._results_list['rr'],
-            evaluator._results_list['frr'],
+            self._results_list['hr'],
+            self._results_list['fhr'],
+            self._results_list['tr'],
+            self._results_list['ftr'],
+            self._results_list['rr'],
+            self._results_list['frr'],
         ]))
 
         # Reset
-        evaluator._prepare_list()
+        self._prepare_list()
         logging.debug("results list[0] copied {}".format(results))
 
         return results
