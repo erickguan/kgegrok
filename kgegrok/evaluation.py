@@ -4,7 +4,7 @@ import logging
 import sys
 import threading
 import queue
-import copy
+import atexit
 from contextlib import contextmanager
 
 import torch
@@ -95,6 +95,17 @@ class ParallelEvaluator(object):
         }
         self._prepare_list()
 
+        self._threads = [
+            threading.Thread(
+                target=_evaluation_worker_loop,
+                args=(self,),
+            ) for _ in range(self._config.num_evaluation_workers)
+        ]
+        for p in self._threads:
+            p.start()
+        atexit.register(self.cleanup)
+
+
     def _prepare_list(self):
         self._counter = 0
         self._results_list['hr'] = []
@@ -104,18 +115,7 @@ class ParallelEvaluator(object):
         self._results_list['rr'] = []
         self._results_list['frr'] = []
 
-    def start(self):
-        self._prepare_list()
-        self._threads = [
-            threading.Thread(
-                target=_evaluation_worker_loop,
-                args=(self,),
-            ) for _ in range(self._config.num_evaluation_workers)
-        ]
-        for p in self._threads:
-            p.start()
-
-    def stop(self):
+    def cleanup(self):
         # Put as many as stop markers for workers to stop.
         for i in range(self._config.num_evaluation_workers * 2):
             self._input.put('STOP')
@@ -145,14 +145,14 @@ class ParallelEvaluator(object):
         logging.debug("results list {}".format(self._results_list))
         # deep copy that before we destroyed them
 
-        results = tuple(copy.deepcopy([
+        results = tuple([
             self._results_list['hr'],
             self._results_list['fhr'],
             self._results_list['tr'],
             self._results_list['ftr'],
             self._results_list['rr'],
             self._results_list['frr'],
-        ]))
+        ])
 
         # Reset
         self._prepare_list()
@@ -161,7 +161,7 @@ class ParallelEvaluator(object):
         return results
 
 
-def predict_links(model, triple_source, config, data_loader, pool):
+def predict_links(model, triple_source, config, data_loader, evaluator):
     model.eval()
 
     for sample_batched in data_loader:
@@ -169,10 +169,10 @@ def predict_links(model, triple_source, config, data_loader, pool):
         predicted_batch = model.forward(sampled).cpu()
         logging.debug("Current batch's shape {}.".format(predicted_batch.shape))
 
-        pool.evaluate_batch((predicted_batch, batch, splits))
+        evaluator.evaluate_batch((predicted_batch, batch, splits))
 
     # Synchonized point. We want all our results back.
-    return pool.get_results()
+    return evaluator.get_results()
 
 # FIXME: can't be used with multiprocess now. See predict_links
 def evaulate_prediction_np_collate(model, triple_source, config, ranker,
