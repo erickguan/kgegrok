@@ -44,17 +44,17 @@ def _evaluate_prediction_view(result_view, triple_index, rank_fn, datatype):
 
 
 def _evaluation_worker_loop(evaluator):
-    results_list = self._results_list
+    results_list = evaluator._results_list
     try:
         while True:
-            p = self._input.get()
+            p = evaluator._input.get()
             if p is None:
                 continue
             if isinstance(p, str) and p == 'STOP':
                 raise StopIteration
             batch_tensor, batch, splits = p
             predicted_batch = batch_tensor.data.numpy()
-            results = self._ranker.submit(predicted_batch, batch, splits, ascending_rank=True)
+            results = evaluator._ranker.submit(predicted_batch, batch, splits, ascending_rank=True)
             for result in results:
                 results_list['hr'].append(result[0])
                 results_list['fhr'].append(result[1])
@@ -62,10 +62,10 @@ def _evaluation_worker_loop(evaluator):
                 results_list['ftr'].append(result[3])
                 results_list['rr'].append(result[4])
                 results_list['frr'].append(result[5])
-            self._cv.acquire()
-            self._counter -= 1
-            self._cv.notify()
-            self._cv.release()
+            evaluator._cv.acquire()
+            evaluator._counter -= 1
+            evaluator._cv.notify()
+            evaluator._cv.release()
     except StopIteration:
         print("[Evaluation Worker {}] stops.".format(threading.current_thread().name))
         sys.stdout.flush()
