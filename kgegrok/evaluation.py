@@ -85,10 +85,6 @@ class ParallelEvaluator(object):
                                       triple_source.test_set)
         self._input = queue.SimpleQueue()
         self._cv = threading.Condition()
-        self._prepare_list()
-
-    def _prepare_list(self):
-        self._counter = 0
         self._results_list = {
             'hr': [],
             'fhr': [],
@@ -97,6 +93,16 @@ class ParallelEvaluator(object):
             'rr': [],
             'frr': []
         }
+        self._prepare_list()
+
+    def _prepare_list(self):
+        self._counter = 0
+        self._results_list['hr'] = []
+        self._results_list['fhr'] = []
+        self._results_list['tr'] = []
+        self._results_list['ftr'] = []
+        self._results_list['rr'] = []
+        self._results_list['frr'] = []
 
     def start(self):
         self._prepare_list()
