@@ -123,7 +123,7 @@ class ParallelEvaluator(object):
         self._input.put(test_package)
         self._counter += 1
 
-    def report_result(self):
+    def get_results(self):
         logging.debug("Starts to wait for result batches.")
 
         while True:
@@ -154,7 +154,7 @@ class ParallelEvaluator(object):
         return results
 
 
-def predict_links(model, triple_source, config, data_loader, pool, callback=None):
+def predict_links(model, triple_source, config, data_loader, pool):
     model.eval()
 
     for sample_batched in data_loader:
@@ -164,11 +164,8 @@ def predict_links(model, triple_source, config, data_loader, pool, callback=None
 
         pool.evaluate_batch((predicted_batch, batch, splits))
 
-    if callback:
-        pool.report_result(callback)
-    else:
-        # Synchonized point. We want all our results back.
-        return pool.wait_evaluation_results()
+    # Synchonized point. We want all our results back.
+    return pool.get_results()
 
 # FIXME: can't be used with multiprocess now. See predict_links
 def evaulate_prediction_np_collate(model, triple_source, config, ranker,
