@@ -191,17 +191,7 @@ def predict_links(model, triple_source, config, data_loader, pool, callback=None
         pool.report_result(callback)
     else:
         # Synchonized point. We want all our results back.
-        head_ranks, filtered_head_ranks, tail_ranks, filtered_tail_ranks, relation_ranks, filtered_relation_ranks = pool.wait_evaluation_results()
-        logging.info(
-            "Batch size of rank lists (hr, frr, tr, ftr, rr, frr): {}, {}, {}, {}, {}, {}"
-            .format(
-                len(head_ranks), len(filtered_head_ranks), len(tail_ranks),
-                len(filtered_tail_ranks), len(relation_ranks),
-                len(filtered_relation_ranks)))
-        results = (head_ranks, filtered_head_ranks), (
-            tail_ranks, filtered_tail_ranks), (relation_ranks,
-                                            filtered_relation_ranks)
-        return results
+        return pool.wait_evaluation_results()
 
 # FIXME: can't be used with multiprocess now. See predict_links
 def evaulate_prediction_np_collate(model, triple_source, config, ranker,

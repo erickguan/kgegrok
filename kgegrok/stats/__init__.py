@@ -95,12 +95,12 @@ def report_prediction_result(config,
                              printing=True,
                              epoch=None,
                              drawer=None):
-    heads, tails, relations = result
+    hr, fhr, tr, ftr, rr, frr = result
     ret_values = {}
 
     if config.report_dimension & StatisticsDimension.SEPERATE_ENTITY:
-        head_result = get_evaluation_statistics(*heads, config.report_features)
-        tail_result = get_evaluation_statistics(*tails, config.report_features)
+        head_result = get_evaluation_statistics(hr, fhr, config.report_features)
+        tail_result = get_evaluation_statistics(tr, ftr, config.report_features)
         ret_values[constants.HEAD_KEY] = head_result
         ret_values[constants.TAIL_KEY] = tail_result
         _report_prediction_element(head_result, epoch)
@@ -110,8 +110,8 @@ def report_prediction_result(config,
             _append_drawer(drawer, epoch, tail_result, constants.TAIL_KEY)
 
     elif config.report_dimension & StatisticsDimension.COMBINED_ENTITY:
-        head_result = get_evaluation_statistics(*heads, config.report_features)
-        tail_result = get_evaluation_statistics(*tails, config.report_features)
+        head_result = get_evaluation_statistics(hr, fhr, config.report_features)
+        tail_result = get_evaluation_statistics(tr, ftr, config.report_features)
         combined = {
             k: (h + tail_result[k]) / 2.0 for k, h in head_result.items()
         }
@@ -121,7 +121,7 @@ def report_prediction_result(config,
             _append_drawer(drawer, epoch, combined)
 
     if config.report_dimension & StatisticsDimension.RELATION:
-        relation_result = get_evaluation_statistics(*relations,
+        relation_result = get_evaluation_statistics(rr, frr,
                                                     config.report_features)
         ret_values[constants.RELATION_KEY] = relation_result
         _report_prediction_element(relation_result, epoch)
