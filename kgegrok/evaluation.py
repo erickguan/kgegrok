@@ -4,6 +4,7 @@ import logging
 import sys
 import threading
 import queue
+import copy
 from contextlib import contextmanager
 
 import torch
@@ -138,7 +139,7 @@ class ParallelEvaluator(object):
         logging.debug("results list {}".format(self._results_list))
         # deep copy that before we destroyed them
 
-        results = tuple(([
+        results = tuple(copy.deepcopy([
             self._results_list['hr'],
             self._results_list['fhr'],
             self._results_list['tr'],
