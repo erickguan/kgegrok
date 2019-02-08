@@ -1,2 +1,3 @@
 prune model_states
 include *.py
+graft data/FB15k-237

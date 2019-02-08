@@ -28,7 +28,6 @@ setup(
     install_requires=['kgekit', 'numpy>=1.10', 'torch>=1.0'],
     test_suite='tests',
     zip_safe=False,
-    include_package_data=True,
     classifiers=[
         'Development Status :: 4 - Beta',
         'License :: OSI Approved :: GNU General Public License v2 (GPLv2)',
