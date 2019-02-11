@@ -16,6 +16,7 @@ scikit-learn = "*"
 [dev-packages]
 pytest = "*"
 pylint = "*"
+yapf = "*"
 
 [requires]
 python_version = "3.7"

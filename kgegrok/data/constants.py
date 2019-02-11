@@ -20,10 +20,10 @@ DEFAULT_BATCH_SIZE = 100
 
 
 class TripleElement(Flag):
-    HEAD = 1
-    RELATION = 2
-    TAIL = 3
+  HEAD = 1
+  RELATION = 2
+  TAIL = 3
 
-    @classmethod
-    def has_value(cls, value):
-        return any(value == item for item in cls)
+  @classmethod
+  def has_value(cls, value):
+    return any(value == item for item in cls)
