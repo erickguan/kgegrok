@@ -129,34 +129,39 @@ def test_tensor_transform(negative_sample_with_negs):
 
 
 @pytest.fixture(scope="module")
-def generated_labels(config, negative_sample_with_negs):
-  transform = transformers.LabelBatchGenerator(config)
+def generated_labels(config, source, negative_sample_with_negs):
+  neg_labels = kgedata.MemoryLabelGenerator(source.train_set)
+  pos_labels = kgedata.StaticLabelGenerator(True)
+  transform = transformers.LabelBatchGenerator(config, neg_labels, pos_labels)
   return transform(negative_sample_with_negs)
 
 
 def test_label_batch_generator(generated_labels):
   batch, negatives, labels = generated_labels
+  np.testing.assert_equal(labels[0], np.ones(batch.shape[0], dtype=np.int64))
   np.testing.assert_equal(
-      labels,
-      np.concatenate([
-          np.ones(batch.shape[0], dtype=np.int64),
-          np.full(negatives.shape[0] * negatives.shape[1], -1, dtype=np.int64)
-      ]))
+      labels[1],
+      np.full(negatives.shape[0] * negatives.shape[1], -1, dtype=np.int64))
 
 
 def test_labels_type_transform(generated_labels):
   batch, negatives, labels = generated_labels
-  labels = labels.astype(np.int32)
-  expected_labels = np.concatenate([
-      np.ones(batch.shape[0], dtype=np.int64),
-      np.full(negatives.shape[0] * negatives.shape[1], -1, dtype=np.int64)
-  ])
+  pos_labels, neg_labels = labels
+  pos_labels = pos_labels.astype(np.int32)
+  neg_labels = neg_labels.astype(np.int32)
+  labels = (pos_labels, neg_labels)
+  expected_pos_labels = np.ones(batch.shape[0], dtype=np.int64)
+  expected_neg_labels = np.full(
+      negatives.shape[0] * negatives.shape[1], -1, dtype=np.int64)
   sample = transformers.tensor_transform([batch, negatives, labels])
   _, _, labels = transformers.labels_type_transform(sample)
 
   assert True == torch.all(
-      torch.eq(labels,
-               torch.from_numpy(expected_labels).float()))
+      torch.eq(labels[0],
+               torch.from_numpy(expected_pos_labels).float()))
+  assert True == torch.all(
+      torch.eq(labels[1],
+               torch.from_numpy(expected_neg_labels).float()))
 
 
 def none_none_label_batch_generator(negative_sample_with_negs):

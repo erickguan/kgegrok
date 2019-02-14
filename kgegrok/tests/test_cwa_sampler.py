@@ -76,10 +76,12 @@ def generated_sample_with_negs(corruptor, neg_sampler, small_triple_list):
 
 
 def test_label_batch_generator(source, generated_sample_with_negs, config):
-  label_gen = kgedata.LabelGenerator(source.train_set)
-  transform = transformers.LabelBatchGenerator(config, label_gen)
+  label_gen = kgedata.MemoryLabelGenerator(source.train_set)
+  pos_label_gen = kgedata.StaticLabelGenerator(True)
+  transform = transformers.LabelBatchGenerator(config, label_gen, pos_label_gen)
   batch, negatives, labels = transform(generated_sample_with_negs)
   np.testing.assert_equal(
-      labels,
-      np.array([1, 1, -1, 1, -1, -1, 1, -1, -1, -1, -1, 1, -1, -1, 1, -1],
+      labels[0],
+      np.array([1, 1]))
+  np.testing.assert_equal(labels[1], np.array([-1, 1, -1, -1, 1, -1, -1, -1, -1, 1, -1, -1, 1, -1],
                dtype=np.int64).ravel())

@@ -23,7 +23,7 @@ class Config(object):
   batch_size = 100
   batch_worker_timeout = 0
   evaluation_load_factor = 0.1
-  num_workers = 1
+  num_workers = 0
   entity_embedding_dimension = 10
   margin = 0.01
   epochs = 1
@@ -113,10 +113,12 @@ def test_data_loader_with_label(source, config):
                               [0, 0, 0],
                               [0, 2, 1],
                           ], dtype=np.int64))
-  labels = labels.numpy()
-  assert labels.shape == (15,)
-  np.testing.assert_equal(
-      labels, np.array([1, 1, 1, 1, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]))
+  pos_labels = labels[0].numpy()
+  neg_labels = labels[1].numpy()
+  assert pos_labels.shape == (5,)
+  np.testing.assert_equal(pos_labels, np.array([1, 1, 1, 1, 1]))
+  np.testing.assert_equal(neg_labels,
+                          np.array([-1, -1, -1, -1, -1, -1, -1, -1, -1, -1]))
 
 
 def test_validation_dataloader(source, config):
@@ -179,9 +181,13 @@ def test_dataloader_padding(config, source, cuda_device_2):
                               [0, 0, 0],
                               [0, 2, 1],
                           ], dtype=np.int64))
-  labels = labels.numpy()
-  assert labels.shape == (18,)
+  pos_labels, neg_labels = labels
+  print(labels)
+  pos_labels = pos_labels.numpy()
+  print(pos_labels, pos_labels.shape)
+  neg_labels = neg_labels.numpy()
+  assert pos_labels.shape == (6,)
+  assert neg_labels.shape == (12,)
+  np.testing.assert_equal(pos_labels, np.array([1, 1, 1, 1, 1, 1]))
   np.testing.assert_equal(
-      labels,
-      np.array(
-          [1, 1, 1, 1, 1, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]))
+      neg_labels, np.array([-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]))

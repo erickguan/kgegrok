@@ -237,6 +237,26 @@ def create_dataloader_from_dataset(dataset, config):
       collate_fn=flat_collate_fn)
 
 
+def create_cwa_training_dataloader(triple_source, config):
+  """Creates the CWA dataloader for training."""
+  corruptor = kgedata.StaticCorruptor(config.negative_entity, False)
+  sampler = kgedata.CWASampler(triple_source.num_entity,
+                               triple_source.num_relation, False)
+
+  transforms = [
+      transformers.CorruptionFlagGenerator(corruptor),
+      transformers.NegativeBatchGenerator(sampler),
+  ]
+  transforms.append(transformers.LabelBatchGenerator(config))
+  transforms.append(transformers.tensor_transform)
+
+  dataset = TripleDataset(
+      triple_source.train_set,
+      batch_size=config.batch_size,
+      transform=Compose(transforms))
+  return create_dataloader_from_dataset(dataset, config)
+
+
 def create_dataloader(triple_source,
                       config,
                       build_label=False,
@@ -264,7 +284,12 @@ def create_dataloader(triple_source,
         transformers.NegativeBatchGenerator(negative_sampler),
     ]
     if build_label:
-      transforms.append(transformers.LabelBatchGenerator(config))
+      negative_label_generator = kgedata.MemoryLabelGenerator(
+          triple_source.train_set)
+      positive_label_generator = kgedata.StaticLabelGenerator(True)
+      transforms.append(
+          transformers.LabelBatchGenerator(config, negative_label_generator,
+                                           positive_label_generator))
     else:
       transforms.append(transformers.none_label_batch_generator)
     transforms.append(transformers.tensor_transform)
