@@ -60,6 +60,7 @@ INDEX_OFFSET = 1
 
 def train_and_validate(triple_source,
                        config,
+                       data_loader,
                        model_class,
                        optimizer_class,
                        evaluator=None,
@@ -67,8 +68,6 @@ def train_and_validate(triple_source,
                        enable_validation=True):
   """Train and validates the dataset."""
   # Data loaders have many processes. Here it's main process.
-  data_loader = data.create_dataloader(triple_source, config,
-                                       model_class.require_labels())
   if enable_validation:
     valid_data_loader = data.create_dataloader(
         triple_source,
@@ -148,11 +147,12 @@ def train_and_validate(triple_source,
   return model
 
 
-def train(triple_source, config, model_class, optimizer_class, drawer):
+def train(triple_source, config, data_loader, model_class, optimizer_class, drawer):
   """Train the dataset."""
   train_and_validate(
       triple_source,
       config,
+      data_loader,
       model_class,
       optimizer_class,
       drawer=drawer,

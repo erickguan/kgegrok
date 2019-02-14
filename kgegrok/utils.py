@@ -118,6 +118,13 @@ class Config(object):
   weight_decay = 0.96
   lambda_ = 0.001
 
+  # ConvE hyperparameters
+  input_dropout = 0.5
+  dropout = 0.5
+  feature_map_dropout = 0.5
+  use_bias = True
+  label_smoothing_epsilon = 0.1
+
   # Stats
   report_features = LinkPredictionStatistics.DEFAULT
   report_dimension = StatisticsDimension.DEFAULT

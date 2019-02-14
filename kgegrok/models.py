@@ -91,6 +91,10 @@ class TransE(Model):
 class ComplEx(Model):
   """ComplEx builds more dimension size."""
 
+  @classmethod
+  def require_labels(cls):
+    return True
+
   def __init__(self, triple_source, config):
     super(ComplEx, self).__init__(triple_source, config)
     self.embedding_dimension = self.config.entity_embedding_dimension
@@ -159,3 +163,66 @@ class ComplEx(Model):
     else:
       score = -self._calc(e_re_h, e_im_h, e_re_t, e_im_t, r_re, r_im)
       return score
+
+class ConvE(Model):
+  """ConvE builds with the convolution operation."""
+
+  @classmethod
+  def require_labels(cls):
+    return True
+
+  def __init__(self, triple_source, config):
+    super(ConvE, self).__init__(triple_source, config)
+    self.embedding_dimension = self.config.entity_embedding_dimension
+
+    self.emb_e = torch.nn.Embedding(self.triple_source.num_entity, self.embedding_dimension)
+    self.emb_rel = torch.nn.Embedding(self.triple_source.num_relation, self.embedding_dimension)
+    self.inp_drop = torch.nn.Dropout(self.config.input_dropout)
+    self.hidden_drop = torch.nn.Dropout(self.config.dropout)
+    self.feature_map_drop = torch.nn.Dropout2d(self.config.feature_map_dropout)
+    self.loss = torch.nn.BCELoss()
+
+    self.conv1 = torch.nn.Conv2d(1, 32, (3, 3), 1, 0, bias=self.config.use_bias)
+    self.bn0 = torch.nn.BatchNorm2d(1)
+    self.bn1 = torch.nn.BatchNorm2d(32)
+    self.bn2 = torch.nn.BatchNorm1d(self.embedding_dimension)
+    self.register_parameter('b', torch.nn.Parameter(torch.zeros(self.triple_source.num_entity)))
+    self.fc = torch.nn.Linear(int(362.88 * self.embedding_dimension), self.embedding_dimension)
+    self.sigmoid = torch.nn.Sigmoid()
+
+    nn.init.xavier_uniform_(self.emb_e.weight.data)
+    nn.init.xavier_uniform_(self.emb_rel.weight.data)
+
+  def forward(self, batch):
+    pos, neg, labels = batch
+
+    if neg is not None:
+      h, r, t = neg.view(-1, 3).transpose(0, 1)
+      _, labels = labels
+    else:
+      h, r, t = pos.transpose(0, 1)
+
+    e1_embedded = self.emb_e(h).view(-1, 1, 10, 20)
+    rel_embedded = self.emb_rel(r).view(-1, 1, 10, 20)
+    stacked_inputs = torch.cat([e1_embedded, rel_embedded], 2)
+    stacked_inputs = self.bn0(stacked_inputs)
+    x = self.inp_drop(stacked_inputs)
+    x = self.conv1(x)
+    x = self.bn1(x)
+    x = F.relu(x)
+    x = self.feature_map_drop(x)
+    x = x.view(self.config.batch_size, -1)
+    x = self.fc(x)
+    x = self.hidden_drop(x)
+    x = self.bn2(x)
+    x = F.relu(x)
+    x = torch.mm(x, self.emb_e.weight.transpose(1,0))
+    x += self.b.expand_as(x)
+    pred = self.sigmoid(x)
+
+    if neg is not None:
+      print(pred.shape, h.shape, labels.shape)
+      labels = ((1.0 - self.config.label_smoothing_epsilon)*labels) + (1.0/labels.size(1))
+      return self.loss(pred, labels)
+    else:
+      return pred

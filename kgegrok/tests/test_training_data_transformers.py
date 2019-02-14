@@ -112,6 +112,13 @@ def test_negative_batch_generator(negative_sample_with_negs):
                dtype=np.int64))
 
 
+def test_batch_masker(negative_sample_with_negs):
+  masker = transformers.BatchMasker((True, False))
+  batch, negatives = masker(negative_sample_with_negs)
+  assert batch is None
+  assert negatives is not None
+
+
 def test_tensor_transform(negative_sample_with_negs):
   batch, negatives = transformers.tensor_transform(negative_sample_with_negs)
   np.testing.assert_equal(batch.numpy(),

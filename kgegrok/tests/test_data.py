@@ -182,9 +182,7 @@ def test_dataloader_padding(config, source, cuda_device_2):
                               [0, 2, 1],
                           ], dtype=np.int64))
   pos_labels, neg_labels = labels
-  print(labels)
   pos_labels = pos_labels.numpy()
-  print(pos_labels, pos_labels.shape)
   neg_labels = neg_labels.numpy()
   assert pos_labels.shape == (6,)
   assert neg_labels.shape == (12,)

@@ -43,7 +43,9 @@ def _np_to_tensor(x):
   if x is None: return x
   # Input is an index to find relevant embeddings. We don't track them
   if type(x) == tuple:
-    return tuple((torch.from_numpy(i).requires_grad_(False) for i in x))
+    return tuple(map(_np_to_tensor, x))
+  if type(x) == list:
+    return list(map(_np_to_tensor, x))
   return torch.from_numpy(x).requires_grad_(False)
 
 
@@ -74,13 +76,12 @@ class LabelBatchGenerator(object):
     pos_labels = self._positive_label_generator(
         (batch_size,
         )) if batch_size < self._batch_size else self._cached_pos_labels
-    print(batch_size, self._batch_size, pos_labels, pos_labels.shape, pos_labels.strides, type(pos_labels))
     return batch, negative_batch, (pos_labels, neg_labels.ravel())
 
 
 def tensor_transform(sample):
   """Returns batch, negative_batch by the tensor."""
-  return tuple(map(_np_to_tensor, sample))
+  return _np_to_tensor(sample)
 
 
 def _apply_tensor_float(labels):
@@ -134,6 +135,19 @@ def test_batch_transform(sample):
 
   tiled = _np_to_tensor(tiled)
   return (tiled, None, None), batch, splits
+
+
+class BatchMasker(object):
+  """Mask the batch given parameters."""
+
+  def __init__(self, masks):
+    self._masks = masks
+
+  def __call__(self, batch):
+    """process mini-batch."""
+    mi = iter(self._masks)
+    return tuple(
+        map(lambda x: None if next(mi) else x, batch))
 
 
 def label_prediction_collate(sample):

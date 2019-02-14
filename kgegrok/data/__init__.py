@@ -247,7 +247,16 @@ def create_cwa_training_dataloader(triple_source, config):
       transformers.CorruptionFlagGenerator(corruptor),
       transformers.NegativeBatchGenerator(sampler),
   ]
-  transforms.append(transformers.LabelBatchGenerator(config))
+
+  negative_label_generator = kgedata.MemoryLabelGenerator(
+      triple_source.train_set)
+  positive_label_generator = lambda x: None
+  transforms.append(
+      transformers.LabelBatchGenerator(config, negative_label_generator,
+                                        positive_label_generator))
+  transforms.append(
+    transformers.BatchMasker((True, False, False))
+  )
   transforms.append(transformers.tensor_transform)
 
   dataset = TripleDataset(

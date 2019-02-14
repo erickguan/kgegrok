@@ -13,6 +13,7 @@ from kgegrok import estimate
 from kgegrok import stats
 from kgegrok import evaluation
 from kgegrok import utils
+from kgegrok import models
 from kgegrok.stats import create_drawer
 
 
@@ -27,10 +28,21 @@ def cli_profile(triple_source, config, model_class, optimizer_class):
   print(prof)
 
 
+def _build_data_loader_based_on_model(model_class, triple_source, config):
+  if model_class == models.ConvE:
+    data_loader = data.create_cwa_training_dataloader(triple_source, config)
+  else:
+    data_loader = data.create_dataloader(triple_source, config,
+                                         model_class.require_labels())
+  return data_loader
+
+
 def cli_train(triple_source, config, model_class, optimizer_class):
+  data_loader = _build_data_loader_based_on_model(model_class, triple_source, config)
   model = estimate.train(
       triple_source,
       config,
+      data_loader,
       model_class,
       optimizer_class,
       drawer=create_drawer(config))
@@ -38,9 +50,11 @@ def cli_train(triple_source, config, model_class, optimizer_class):
 
 def cli_train_and_validate(triple_source, config, model_class, optimizer_class,
                            validation_evaluator):
+  data_loader = _build_data_loader_based_on_model(model_class, triple_source, config)
   model = estimate.train_and_validate(
       triple_source,
       config,
+      data_loader,
       model_class,
       optimizer_class,
       validation_evaluator,
@@ -132,8 +146,8 @@ def cli(args):
   elif config.mode == 'train_validate':
     optimizer_class = utils.load_class_from_module(config.optimizer,
                                                    'torch.optim')
-    cli_train_and_validate(triple_source, config, model_class, optimizer_class,
-                           evaluator)
+    cli_train_and_validate(triple_source, config, model_class,
+                           optimizer_class, evaluator)
   elif config.mode == 'test':
     cli_test(triple_source, config, model_class, evaluator)
   elif config.mode == 'demo_prediction':

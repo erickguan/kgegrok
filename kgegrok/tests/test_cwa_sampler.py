@@ -21,7 +21,8 @@ class Config(object):
   negative_entity = 1
   negative_relation = 1
   batch_size = 2
-  num_workers = 1
+  batch_worker_timeout = 2
+  num_workers = 0
   entity_embedding_dimension = 10
   margin = 0.01
   epochs = 1
@@ -80,8 +81,42 @@ def test_label_batch_generator(source, generated_sample_with_negs, config):
   pos_label_gen = kgedata.StaticLabelGenerator(True)
   transform = transformers.LabelBatchGenerator(config, label_gen, pos_label_gen)
   batch, negatives, labels = transform(generated_sample_with_negs)
+  np.testing.assert_equal(labels[0], np.array([1, 1]))
   np.testing.assert_equal(
-      labels[0],
-      np.array([1, 1]))
-  np.testing.assert_equal(labels[1], np.array([-1, 1, -1, -1, 1, -1, -1, -1, -1, 1, -1, -1, 1, -1],
+      labels[1],
+      np.array([-1, 1, -1, -1, 1, -1, -1, -1, -1, 1, -1, -1, 1, -1],
                dtype=np.int64).ravel())
+
+
+import kgegrok.utils
+
+
+@pytest.mark.usefixture("monkeypatch")
+@pytest.fixture(scope="function")
+def cuda_device_2(monkeypatch):
+  monkeypatch.setattr(kgegrok.utils, "num_cuda_devices", lambda: 2)
+  assert kgegrok.utils.num_cuda_devices() == 2
+
+
+def test_cwa_training_dataloader(config, source, cuda_device_2):
+  config.enable_cuda = True
+  assert kgegrok.utils.num_cuda_devices() == 2
+
+  data_loader = data.create_cwa_training_dataloader(source, config)
+  sample_batched = next(iter(data_loader))
+  batch, negatives, labels = sample_batched
+  assert batch is None
+  assert negatives.shape == (2, 4, 3)
+  np.testing.assert_equal(
+      negatives.numpy()[0, :],
+      np.array([
+          [0, 0, 0],
+          [0, 0, 1],
+          [0, 0, 2],
+          [0, 0, 3],
+      ], dtype=np.int64))
+  pos_labels, neg_labels = labels
+  assert pos_labels is None
+  neg_labels = neg_labels.numpy()
+  assert neg_labels.shape == (8,)
+  np.testing.assert_equal(neg_labels, np.array([-1, 1, -1, -1, -1, -1, 1, -1]))
