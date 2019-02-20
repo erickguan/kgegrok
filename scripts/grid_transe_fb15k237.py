@@ -81,11 +81,14 @@ if __name__ == '__main__':
         kgegrok_base_seed=30000,
         cuda_benchmark=config.cudnn_benchmark)
 
-    optimizer_class = utils.load_class_from_module(config.optimizer,
+    optimizer_class = utils.load_class_from_module(search_config.optimizer,
                                                    'torch.optim')
+    data_loader = data.create_dataloader(triple_source, search_config,
+                                         model_class.require_labels())
     model = estimate.train_and_validate(
         triple_source,
         search_config,
+        data_loader,
         model_class,
         optimizer_class,
         evaluator,
