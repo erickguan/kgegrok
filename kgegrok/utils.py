@@ -102,6 +102,8 @@ class Config(object):
   num_evaluation_workers = 2
   # due to tile in the evaluation, it's reasonable to have less batch size
   evaluation_load_factor = 0.0001
+  # validate per evaulation step for efficiency
+  evaluation_step = 20
   base_seed = 50000
 
   # Model

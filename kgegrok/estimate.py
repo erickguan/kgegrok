@@ -114,7 +114,7 @@ def train_and_validate(triple_source,
           Y=np.array([loss_epoch], dtype='f'))
     logging.info("Epoch " + str(i_epoch) + ": loss " + str(loss_epoch))
 
-    if enable_validation:
+    if enable_validation and config.evaluation_step > 0 and i_epoch % config.evaluation_step == 0:
       logging.info('Evaluation for epoch ' + str(i_epoch))
       with torch.no_grad():
         results = evaluation.predict_links(model, triple_source, config,
