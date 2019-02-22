@@ -26,7 +26,7 @@ def create_optimizer(optimizer_class, config, parameters):
   elif optimizer_class == optim.Adadelta:
     return optimizer_class(parameters, lr=config.alpha)
   elif optimizer_class == optim.Adam:
-    return optimizer_class(parameters, lr=config.alpha)
+    return optimizer_class(parameters, lr=config.alpha, weight_decay=config.weight_decay)
   else:
     return optimizer_class(parameters, lr=config.alpha)
 
