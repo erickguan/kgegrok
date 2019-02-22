@@ -62,12 +62,11 @@ def load_checkpoint(config, model, optimizer=None):
       logging.info("no checkpoint found at '{}'".format(config.resume))
 
 
-def write_logging_data(raw_data, config):
+def write_logging_data(drawer, config):
   """writes the logging data."""
   log_path = os.path.join(config.logging_path, config.name)
-  with open(log_path, 'w') as f:
-    logging.info("Writting data into log file at {}.".format(log_path))
-    f.write(json.dumps(raw_data))
+  logging.info("Writting data into log file at {}.".format(log_path))
+  drawer.log_to_filename(log_path)
 
 
 def load_class_from_module(class_name, *modules):

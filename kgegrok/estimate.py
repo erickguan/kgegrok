@@ -141,7 +141,7 @@ def train_and_validate(triple_source,
                     postfix_num=config.epochs)
 
   if drawer is not None:
-    write_logging_data(drawer.dump_raw_data(), config)
+    write_logging_data(drawer, config)
 
   return model
 
