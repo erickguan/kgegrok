@@ -173,6 +173,9 @@ class ReportDrawer(object):
       print(content)
     return content
 
+  def log_to_filename(log_path):
+    self.drawer.log_to_filename(log_path)
+
   def dump_raw_data(self):
     """Dumps all raw data."""
 
