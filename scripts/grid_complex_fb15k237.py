@@ -80,7 +80,6 @@ if __name__ == '__main__':
         torch_seed=20000,
         torcu_cuda_seed_all=2192,
         cuda_deterministic=True,
-        kgegrok_base_seed=30000,
         cuda_benchmark=config.cudnn_benchmark)
 
     optimizer_class = utils.load_class_from_module(search_config.optimizer,

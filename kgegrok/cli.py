@@ -127,7 +127,6 @@ def cli(args):
       torch_seed=20000,
       torcu_cuda_seed_all=2192,
       cuda_deterministic=True,
-      kgegrok_base_seed=30000,
       cuda_benchmark=config.cudnn_benchmark)
 
   triple_source = data.TripleSource(config.data_dir, config.triple_order,
