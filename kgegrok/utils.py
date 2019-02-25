@@ -103,6 +103,7 @@ class Config(object):
   evaluation_load_factor = 0.0001
   # validate per evaulation step for efficiency
   evaluation_step = 20
+  base_seed = 50000
 
   # Model
   model = "TransE"
@@ -186,7 +187,7 @@ def build_config_with_dict(args):
 
 
 def seed_modules(config, numpy_seed, torch_seed, torcu_cuda_seed_all,
-                 cuda_deterministic, cuda_benchmark):
+                 cuda_deterministic, kgegrok_base_seed, cuda_benchmark):
   np.random.seed(numpy_seed)
   torch.manual_seed(torch_seed)
   torch.cuda.manual_seed_all(torcu_cuda_seed_all)
