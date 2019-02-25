@@ -24,7 +24,7 @@ if __name__ == '__main__':
       'negative_entity': [1, 5, 10, 15],
       'negative_relation': [0, 1, 5],
       'entity_embedding_dimension': [30, 50, 100, 150, 200],
-      'alpha': [0.001, 0.005, 0.01, 0.1]
+      'alpha': [0.001, 0.005, 0.01, 0.1],
       'weight_decay': [0.96]
   }]
 
