@@ -2,7 +2,9 @@ import pprint
 import sys
 import logging
 import json
+import functools
 from collections import defaultdict
+from typing import Iterable
 
 import numpy as np
 
@@ -12,10 +14,80 @@ from kgegrok.data import statstools
 from kgegrok.stats.constants import *
 
 
-class _StatisticsGathering(object):
+class StatTool(object):
+  @staticmethod
+  def extract_ranks(ranks, key, filtered: bool):
+    """Extarct ranks from rank results."""
+    hr, fhr, tr, ftr, rr, frr = ranks
+    if key == constants.HEAD_KEY:
+      return fhr if filtered else hr
+    elif key == constants.TAIL_KEY:
+      return ftr if filtered else tr
+    elif key == constants.RELATION_KEY:
+      return frr if filtered else rr
+    # elif key == constants.ENTITY_KEY:
+    #   if filtered:
+    #     return {k: (h + ftr[k]) / 2.0 for k, h in fhr.items()}
+    #   else:
+    #     return {k: (h + tr[k]) / 2.0 for k, h in hr.items()}
+    #   return fn(stat, combined)
+    else:
+      raise RuntimeError("Invalid key for rank extraction")
 
-  def __init__(self):
-    self.result = {}
+  @staticmethod
+  def gen_key(*argv):
+    """generate the statistical tool's result."""
+    return statstools.dict_key_gen(*tuple(map(str, argv)))
+
+  def __call__(self, results, ranks):
+    raise NotImplementedError()
+
+
+class ElementHitStatTool(StatTool):
+  """Calculate hits on an element in a triple."""
+  def __init__(self, entity_key, hit_level, filtered=False):
+    self._entity_key = entity_key
+    self._hit_level = hit_level
+    self._filtered = filtered
+
+  def __call__(self, results, ranks):
+    """Extract ranks from result triples. Applies with the calculation function.
+    And then stored in a dict with key defined."""
+    ranks = StatTool.extract_ranks(ranks, self._entity_key, filtered=self._filtered)
+
+    value = statstools.calc_hits(self._hit_level, ranks, len(ranks))
+
+    results[StatTool.gen_key(self._entity_key, HITS_FEATURE_PREFIX, self._hit_level)] = value
+    return results
+
+class CombinedEntityHitStatTool(ElementHitStatTool):
+  """Calculate hits on entities in a triple."""
+  def __init__(self, entity_key, hit_level, filtered=False):
+    super().__init__(entity_key, hit_level, filtered=filtered)
+
+  def __call__(self, results, result_ranks):
+    """Extract ranks from result triples. Applies with the calculation function.
+    And then stored in a dict with key defined."""
+    ranks = StatTool.extract_ranks(result_ranks, constants.HEAD_KEY, filtered=self._filtered)
+    head_result = statstools.calc_hits(self._hit_level, ranks, len(ranks))
+    ranks = StatTool.extract_ranks(result_ranks, constants.TAIL_KEY, filtered=self._filtered)
+    tail_result = statstools.calc_hits(self._hit_level, ranks, len(ranks))
+    value = (head_result + tail_result) / 2.0
+
+    results[StatTool.gen_key(self._entity_key, HITS_FEATURE_PREFIX, self._hit_level)] = value
+    return results
+
+class StatGather(object):
+  """Collects stats from ranking data."""
+
+  def __init__(self, stats: Iterable[StatTool] = None):
+    """creates a stat gather with certain statistical tools."""
+    self._gathers = []
+    if stats is not None:
+      for s in stats: self.add_stat(s)
+
+  def add_stat(self, stat: StatTool):
+    self._gathers.append(stat)
 
   def add_rank(self, key, ranks, num_ranks):
     self.result[key] = statstools.calc_rank(ranks, num_ranks)
@@ -26,16 +98,18 @@ class _StatisticsGathering(object):
   def add_hit(self, key, ranks, target, num_ranks):
     self.result[key] = statstools.calc_hits(target, ranks, num_ranks)
 
-  def get_result(self):
-    return self.result
-
+  def __call__(self, rank_results):
+    return functools.reduce(lambda reduced, stat: stat(reduced, rank_results),
+      self._gathers,
+      {}
+    )
 
 def get_evaluation_statistics(rank_list, filtered_rank_list, features):
   num_ranks = len(rank_list)
   assert isinstance(rank_list, list) and isinstance(
       filtered_rank_list, list) and num_ranks == len(filtered_rank_list)
 
-  gathering = _StatisticsGathering()
+  gathering = StatGather()
   if LinkPredictionStatistics.MEAN_RECIPROCAL_RANK & features:
     gathering.add_reciprocal_rank(MEAN_RECIPROCAL_RANK_FEATURE_KEY, rank_list,
                                   num_ranks)

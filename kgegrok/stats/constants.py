@@ -14,6 +14,7 @@ HITS_5_FEATURE_KEY = 'hits_5'
 HITS_5_FILTERED_FEATURE_KEY = "hits_5_filtered"
 HITS_10_FEATURE_KEY = 'hits_10'
 HITS_10_FILTERED_FEATURE_KEY = "hits_10_filtered"
+HITS_FEATURE_PREFIX = 'hits'
 LOSS_FEATURE_KEY = 'loss'
 
 
