@@ -180,3 +180,11 @@ def test_combined_stat_gather(combined_stat_gather, rank_results):
   assert ((9+2+6+8+9)/5.0 + (6+6+3+5+1)/5.0) / 2.0 == pytest.approx(results[stats.StatTool.gen_key(constants.ENTITY_KEY, MEAN_FILTERED_RANK_FEATURE_KEY)])
   assert ((1/9.0+1/3.0+1/7.0+1/11.0+1/10.0)/5.0 + (1/7.0+1/6.0+1/8.0+1/5.0+1/4.0)/5.0) / 2.0 == pytest.approx(results[stats.StatTool.gen_key(constants.ENTITY_KEY, MEAN_RECIPROCAL_RANK_FEATURE_KEY)])
   assert ((1/9.0+1/2.0+1/6.0+1/8.0+1/9.0)/5.0 + (1/6.0+1/6.0+1/3.0+1/5.0+1/1.0)/5.0) / 2.0 == pytest.approx(results[stats.StatTool.gen_key(constants.ENTITY_KEY, MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY)])
+
+def test_stat_gather_after_gather_hook(combined_stat_gather, rank_results):
+  def after_gather_hook(results, ranks, epoch):
+    assert ranks == rank_results
+    assert epoch == 1
+    assert (1/5.0 + 3/5.0) / 2.0 == pytest.approx(results[stats.StatTool.gen_key(constants.ENTITY_KEY, HITS_FEATURE_PREFIX, 6)])
+  combined_stat_gather.add_after_gather(after_gather_hook)
+  combined_stat_gather(rank_results, 1)

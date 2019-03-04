@@ -129,6 +129,9 @@ class Config(object):
   # Stats
   report_features = LinkPredictionStatistics.DEFAULT
   report_dimension = StatisticsDimension.DEFAULT
+  report_hits = "1,3,5,10"
+  report_hits_filtered = "1,3,5,10"
+  print_stats = True
 
   # Interactive response control
   report_num_prediction_interactively = 10

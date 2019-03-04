@@ -64,7 +64,7 @@ def cli_train_and_validate(triple_source, config, model_class, optimizer_class,
 def cli_test(triple_source, config, model_class, validation_evaluator):
   assert config.resume is not None and len(config.resume) > 0
   model = estimate.test(triple_source, config, model_class,
-                        validation_evaluator)
+                        validation_evaluator, stat_gather=evaluation.build_stat_gather_from_config(config))
 
 
 def _get_and_validate_input(entities, relations):

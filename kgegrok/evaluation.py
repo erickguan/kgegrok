@@ -16,7 +16,51 @@ from kgegrok.data import constants
 from kgegrok import stats
 from kgegrok import data
 from kgegrok import utils
+from kgegrok.stats.constants import LinkPredictionStatistics, StatisticsDimension
 
+
+def build_stat_gather_from_config(config, drawer=None):
+  """Builds StatGather based on config.
+
+  It looks into report_dimension firstly.
+  Then it looks into report keys.
+  For hits, it looks into hits list.
+
+  In the end, it checks the printing results and drawer.
+  """
+
+  g = stats.StatGather()
+  keys = []
+  if config.report_dimension & StatisticsDimension.SEPERATE_ENTITY:
+    keys.append(constants.HEAD_KEY)
+    keys.append(constants.TAIL_KEY)
+  if config.report_dimension & StatisticsDimension.COMBINED_ENTITY:
+    keys.append(constants.ENTITY_KEY)
+  if config.report_dimension & StatisticsDimension.RELATION:
+    keys.append(constants.RELATION_KEY)
+
+  for key in keys:
+    if config.report_features & LinkPredictionStatistics.MEAN_RECIPROCAL_RANK:
+      g.add_stat(stats.ElementMeanReciprocalRankStatTool(key, filtered=False))
+    if config.report_features & LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK:
+      g.add_stat(stats.ElementMeanReciprocalRankStatTool(key, filtered=True))
+    if config.report_features & LinkPredictionStatistics.MEAN_RANK:
+      g.add_stat(stats.ElementMeanRankStatTool(key, filtered=False))
+    if config.report_features & LinkPredictionStatistics.MEAN_FILTERED_RANK:
+      g.add_stat(stats.ElementMeanRankStatTool(key, filtered=True))
+    if config.report_features & LinkPredictionStatistics.HITS:
+      for hit in config.report_hits.split(','):
+        g.add_stat(stats.ElementHitStatTool(key, int(hit), filtered=False))
+    if config.report_features & LinkPredictionStatistics.HITS_FILTERED:
+      for hit in config.report_hits_filtered.split(','):
+        g.add_stat(stats.ElementHitStatTool(key, int(hit), filtered=True))
+
+  if config.print_stats:
+    g.add_after_gather(stats.print_hook_after_stat_epoch)
+  if config.plot_graph and drawer is not None:
+    g.add_after_gather(drawer.hook_after_stat_epoch())
+
+  return g
 
 def evaluate_single_triple(prediction, prediction_type, triple_index, config,
                            entities, relations):
