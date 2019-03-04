@@ -25,12 +25,6 @@ class StatTool(object):
       return ftr if filtered else tr
     elif key == constants.RELATION_KEY:
       return frr if filtered else rr
-    # elif key == constants.ENTITY_KEY:
-    #   if filtered:
-    #     return {k: (h + ftr[k]) / 2.0 for k, h in fhr.items()}
-    #   else:
-    #     return {k: (h + tr[k]) / 2.0 for k, h in hr.items()}
-    #   return fn(stat, combined)
     else:
       raise RuntimeError("Invalid key for rank extraction")
 
@@ -44,11 +38,13 @@ class StatTool(object):
 
 
 class ElementHitStatTool(StatTool):
-  """Calculate hits on an element in a triple."""
+  """Calculate hits on an element in triples."""
   def __init__(self, entity_key, hit_level, filtered=False):
     self._entity_key = entity_key
     self._hit_level = hit_level
     self._filtered = filtered
+    self._prefix_key = FILTERED_HITS_FEATURE_PREFIX if self._filtered else HITS_FEATURE_PREFIX
+    self._result_key = StatTool.gen_key(self._entity_key, self._prefix_key, self._hit_level)
 
   def __call__(self, results, ranks):
     """Extract ranks from result triples. Applies with the calculation function.
@@ -57,7 +53,7 @@ class ElementHitStatTool(StatTool):
 
     value = statstools.calc_hits(self._hit_level, ranks, len(ranks))
 
-    results[StatTool.gen_key(self._entity_key, HITS_FEATURE_PREFIX, self._hit_level)] = value
+    results[self._result_key] = value
     return results
 
 class CombinedEntityHitStatTool(ElementHitStatTool):
@@ -74,7 +70,83 @@ class CombinedEntityHitStatTool(ElementHitStatTool):
     tail_result = statstools.calc_hits(self._hit_level, ranks, len(ranks))
     value = (head_result + tail_result) / 2.0
 
-    results[StatTool.gen_key(self._entity_key, HITS_FEATURE_PREFIX, self._hit_level)] = value
+    results[self._result_key] = value
+    return results
+
+class ElementMeanRankStatTool(StatTool):
+  """Calculate mean rank on an element in triples."""
+
+  def __init__(self, entity_key, filtered=False):
+    self._entity_key = entity_key
+    self._filtered = filtered
+    self._prefix_key = MEAN_FILTERED_RANK_FEATURE_KEY if self._filtered else MEAN_RANK_FEATURE_KEY
+    self._result_key = StatTool.gen_key(self._entity_key, self._prefix_key)
+
+
+  def __call__(self, results, ranks):
+    """Extract ranks from result triples. Applies with the calculation function.
+    And then stored in a dict with key defined."""
+    ranks = StatTool.extract_ranks(ranks, self._entity_key, filtered=self._filtered)
+
+    value = statstools.calc_rank(ranks, len(ranks))
+
+    results[self._result_key] = value
+    return results
+
+class CombinedEntityMeanRankStatTool(ElementMeanRankStatTool):
+  """Calculate mean rank on two entities in triples."""
+
+  def __init__(self, entity_key, filtered=False):
+    super().__init__(entity_key, filtered=filtered)
+
+  def __call__(self, results, result_ranks):
+    """Extract ranks from result triples. Applies with the calculation function.
+    And then stored in a dict with key defined."""
+    ranks = StatTool.extract_ranks(result_ranks, constants.HEAD_KEY, filtered=self._filtered)
+    head_result = statstools.calc_rank(ranks, len(ranks))
+    ranks = StatTool.extract_ranks(result_ranks, constants.TAIL_KEY, filtered=self._filtered)
+    tail_result = statstools.calc_rank(ranks, len(ranks))
+    value = (head_result + tail_result) / 2.0
+
+    results[self._result_key] = value
+    return results
+
+
+class ElementMeanReciprocalRankStatTool(StatTool):
+  """Calculate mean reciprocal rank on an element in triples."""
+
+  def __init__(self, entity_key, filtered=False):
+    self._entity_key = entity_key
+    self._filtered = filtered
+    self._prefix_key = MEAN_FILTERED_RECIPROCAL_RANK_FEATURE_KEY if self._filtered else MEAN_RECIPROCAL_RANK_FEATURE_KEY
+    self._result_key = StatTool.gen_key(self._entity_key, self._prefix_key)
+
+  def __call__(self, results, ranks):
+    """Extract ranks from result triples. Applies with the calculation function.
+    And then stored in a dict with key defined."""
+    ranks = StatTool.extract_ranks(ranks, self._entity_key, filtered=self._filtered)
+
+    value = statstools.calc_reciprocal_rank(ranks, len(ranks))
+
+    results[self._result_key] = value
+    return results
+
+class CombinedEntityMeanReciprocalRankStatTool(ElementMeanReciprocalRankStatTool):
+  """Calculate mean reciprocal rank on two entities in triples."""
+
+  def __init__(self, entity_key, filtered=False):
+    super().__init__(entity_key, filtered=filtered)
+
+  def __call__(self, results, result_ranks):
+    """Extract ranks from result triples. Applies with the calculation function.
+    And then stored in a dict with key defined."""
+    ranks = StatTool.extract_ranks(result_ranks, constants.HEAD_KEY, filtered=self._filtered)
+    head_result = statstools.calc_reciprocal_rank(ranks, len(ranks))
+    ranks = StatTool.extract_ranks(result_ranks, constants.TAIL_KEY, filtered=self._filtered)
+    tail_result = statstools.calc_reciprocal_rank(ranks, len(ranks))
+    value = (head_result + tail_result) / 2.0
+
+    results[self._result_key] = value
     return results
 
 class StatGather(object):
@@ -88,15 +160,6 @@ class StatGather(object):
 
   def add_stat(self, stat: StatTool):
     self._gathers.append(stat)
-
-  def add_rank(self, key, ranks, num_ranks):
-    self.result[key] = statstools.calc_rank(ranks, num_ranks)
-
-  def add_reciprocal_rank(self, key, ranks, num_ranks):
-    self.result[key] = statstools.calc_reciprocal_rank(ranks, num_ranks)
-
-  def add_hit(self, key, ranks, target, num_ranks):
-    self.result[key] = statstools.calc_hits(target, ranks, num_ranks)
 
   def __call__(self, rank_results):
     return functools.reduce(lambda reduced, stat: stat(reduced, rank_results),
