@@ -25,12 +25,23 @@ class Model(nn.Module):
     self.config = config
 
   def forward(self, batch):
-    """Args:
-        batch tensor with shape (batch_size, 1, 3).
-        negative_batch tensor with shape (batch_size, negative_samples, 3).
-        To use Embbeddings like (batch_size, embedding_size), we need to extract
-        h, r, t into (batch_size)
-        """
+    r"""Args:
+    `batch` is a tuple of (triples, negative_triples, labels).
+    `negative_triples` and `labels` can be None.
+    batch has a shpe of (batch_size, 3)
+    negative_triples has a shpe of (batch_size, negative_samples, 3)
+    labels is a tuple of (positive_labels, negative_labels).
+    positive_labels has a shape of (batch_size,)
+    negative_labels has a shape of (batch_size * negative_samples,)
+
+    batch can be unwrapped as `pos, neg, labels = batch`.
+    (h, r, t) can be obtained by `h, r, t = pos.transpose(0, 1)`.
+    (neg_h, neg_r, neg_t) can be obtained by `neg_h, neg_r, neg_t = neg.view(-1, 3).transpose(0, 1)`
+    (pos_labels, neg_labels) can be obtained by `pos_labels, neg_labels = labels`
+
+    However, namely, how the actual batch looks depends on the data transforms.
+    It can be easier to follow this data structure when building models.
+    """
     raise NotImplementedError
 
 
