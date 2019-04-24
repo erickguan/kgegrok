@@ -224,8 +224,8 @@ def predict_links(model, triple_source, config, data_loader, evaluator):
 # FIXME: can't be used with multiprocess now. See predict_links
 def evaulate_prediction_np_collate(model, triple_source, config, ranker,
                                    data_loader):
-  utils.deprecation("multiprocess validation is not in use any more", since: "0.5.0")
   """use with NumpyCollate."""
+  utils.deprecation("multiprocess validation is not in use any more", "0.5.0")
   model.eval()
 
   head_ranks = []
@@ -268,7 +268,7 @@ def _evaluate_predict_element(model, config, triple_index, num_expands,
                               element_type, rank_fn, ranks_list,
                               filtered_ranks_list):
   """Evaluation a single triple with expanded sets."""
-  utils.deprecation("multiprocess validation is not in use any more", since: "0.5.0")
+  utils.deprecation("multiprocess validation is not in use any more", since="0.5.0")
   batch = data.expand_triple_to_sets(
       kgekit.data.unpack(triple_index), num_expands, element_type)
   batch = data.convert_triple_tuple_to_torch(batch, config)
@@ -290,7 +290,7 @@ def validation_resource_manager(config,
                                 triple_source,
                                 required_modes=['train_validate', 'test']):
   """prepare resources if validation is needed."""
-  utils.deprecation("process manager not in use any more", since: "0.5.0")
+  utils.deprecation("process manager not in use any more", since="0.5.0")
   enabled = config.mode in required_modes
   if enabled:
     ctx = mp.get_context('spawn')
