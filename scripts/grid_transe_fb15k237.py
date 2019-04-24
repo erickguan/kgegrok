@@ -55,7 +55,6 @@ if __name__ == '__main__':
   model_class = utils.load_class_from_module(config.model, 'kgegrok.models',
                                              'kgegrok.text_models')
 
-  evaluator = evaluation.ParallelEvaluator(config, triple_source)
   for changed_config in ParameterGrid(grid):
     d = {}
     d.update(config.__dict__)
@@ -85,11 +84,12 @@ if __name__ == '__main__':
                                                    'torch.optim')
     data_loader = data.create_dataloader(triple_source, search_config,
                                          model_class.require_labels())
+    drawer = stats.create_drawer(search_config)
     model = estimate.train_and_validate(
         triple_source,
         search_config,
         data_loader,
         model_class,
         optimizer_class,
-        evaluator,
-        drawer=stats.create_drawer(config))
+        stat_gather=evaluation.build_stat_gather_from_config(config, drawer),
+        drawer=drawer)

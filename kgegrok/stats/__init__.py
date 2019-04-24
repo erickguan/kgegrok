@@ -215,7 +215,7 @@ class ReportDrawer(object):
 
     def fn(results, _, epoch):
       if epoch is None: return
-      for key, value in result.items():
+      for key, value in results.items():
         self.append(
             key,
             X=np.array([epoch], dtype='i'),
