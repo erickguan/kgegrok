@@ -18,7 +18,7 @@ class HitsReducer(object):
 
 
 def dict_key_gen(*args):
-  return "_".join(args)
+  return "_".join(map(str, args))
 
 
 def calc_rank(ranks, num_ranks):
@@ -42,4 +42,4 @@ def calc_hits(target, ranks, num_ranks):
     raise RuntimeError(
         "Rank are not enough for num_entry. len(ranks): {}, num_ranks: {}".
         format(len(ranks), num_ranks))
-  return functools.reduce(HitsReducer(target), ranks) / float(num_ranks)
+  return functools.reduce(HitsReducer(target), ranks, 0) / float(num_ranks)

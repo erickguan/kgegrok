@@ -62,13 +62,6 @@ def load_checkpoint(config, model, optimizer=None):
       logging.info("no checkpoint found at '{}'".format(config.resume))
 
 
-def write_logging_data(drawer, config):
-  """writes the logging data."""
-  log_path = os.path.join(config.logging_path, config.name)
-  logging.info("Writting data into log file at {}.".format(log_path))
-  drawer.log_to_filename(log_path)
-
-
 def load_class_from_module(class_name, *modules):
   for module in modules:
     mod = importlib.import_module(module)
@@ -129,6 +122,9 @@ class Config(object):
   # Stats
   report_features = LinkPredictionStatistics.DEFAULT
   report_dimension = StatisticsDimension.DEFAULT
+  report_hits = "1,3,5,10"
+  report_hits_filtered = "1,3,5,10"
+  print_stats = True
 
   # Interactive response control
   report_num_prediction_interactively = 10

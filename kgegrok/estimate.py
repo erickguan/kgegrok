@@ -12,7 +12,7 @@ from kgegrok import stats
 from kgegrok import data
 from kgegrok import evaluation
 from kgegrok.data import constants
-from kgegrok.utils import save_checkpoint, load_checkpoint, write_logging_data
+from kgegrok.utils import save_checkpoint, load_checkpoint
 
 
 def create_optimizer(optimizer_class, config, parameters):
@@ -31,7 +31,7 @@ def create_optimizer(optimizer_class, config, parameters):
     return optimizer_class(parameters, lr=config.alpha)
 
 
-def test(triple_source, config, model_class, evaluator):
+def test(triple_source, config, model_class, evaluator, stat_gather):
   """Test config.resume model."""
   data_loader = data.create_dataloader(
       triple_source,
@@ -50,7 +50,7 @@ def test(triple_source, config, model_class, evaluator):
   with torch.no_grad():
     results = evaluation.predict_links(model, triple_source, config,
                                        data_loader, evaluator)
-  stats.report_prediction_result(config, results, drawer=None)
+  stat_gather(results)
 
   return model
 
@@ -65,6 +65,7 @@ def train_and_validate(triple_source,
                        optimizer_class,
                        evaluator=None,
                        drawer=None,
+                       stat_gather=None,
                        enable_validation=True):
   """Train and validates the dataset."""
   # Data loaders have many processes. Here it's main process.
@@ -85,8 +86,6 @@ def train_and_validate(triple_source,
   if drawer is not None:
     drawer.create_plot(stats.LOSS_FEATURE_KEY,
                        stats.gen_drawer_option(config, "Loss value"))
-    if enable_validation:
-      stats.prepare_plot_validation_result(drawer, config)
 
   for i_epoch in range(INDEX_OFFSET, config.epochs + INDEX_OFFSET, 1):
     model.train()
@@ -110,7 +109,7 @@ def train_and_validate(triple_source,
     if drawer is not None:
       drawer.append(
           stats.LOSS_FEATURE_KEY,
-          X=np.array([i_epoch], dtype='f'),
+          X=np.array([i_epoch], dtype='i'),
           Y=np.array([loss_epoch], dtype='f'))
     logging.info("Epoch " + str(i_epoch) + ": loss " + str(loss_epoch))
 
@@ -119,8 +118,8 @@ def train_and_validate(triple_source,
       with torch.no_grad():
         results = evaluation.predict_links(model, triple_source, config,
                                            valid_data_loader, evaluator)
-      stats.report_prediction_result(
-          config, results, epoch=i_epoch, drawer=drawer)
+      if stat_gather is not None:
+        stat_gather(results, epoch=i_epoch)
 
     if config.save_per_epoch > 0 and i_epoch % config.save_per_epoch == 0:
       save_checkpoint({
@@ -140,9 +139,6 @@ def train_and_validate(triple_source,
                     config,
                     postfix_num=config.epochs)
 
-  if drawer is not None:
-    write_logging_data(drawer, config)
-
   return model
 
 
@@ -155,6 +151,7 @@ def train(triple_source, config, data_loader, model_class, optimizer_class, draw
       model_class,
       optimizer_class,
       drawer=drawer,
+      stat_gather=evaluation.build_stat_gather_from_config(config, drawer),
       enable_validation=False)
 
 

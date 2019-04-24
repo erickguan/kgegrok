@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-torch = "==1.0.0"
+torch = "==1.0.1.post2"
 torchvision = "*"
 kgekit = "==0.22.1"
 visdom = "*"
