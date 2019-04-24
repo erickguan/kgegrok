@@ -197,7 +197,7 @@ class ReportDrawer(object):
   def default_drawer_options(config, title=None):
     if title is not None:
       title = "{}/{}".format(config.name, title)
-    return dict(fillarea=True, xlabel="Epoch", width=600, height=600, title=title, log_to_filename=log_path = os.path.join(config.logging_path, config.name))
+    return dict(fillarea=True, xlabel="Epoch", width=600, height=600, title=title)
 
   def __init__(self, drawer, config):
     self.drawer = drawer
@@ -235,15 +235,18 @@ class ReportDrawer(object):
 
   def append(self, key, X, Y):
     """X and Y are numpy array"""
-    if not self._is_plot_exist:
-      raise RuntimeError("{} doesn't exists in drawer.".format(key))
     if not self._lazy_create_plot(key, X, Y):
       # append condition
       self.drawer.line(X=X, Y=Y, win=self.plots[key], update='append')
 
-  def create_plot(self, key, options=None):
+  def create_plot_opts(self, key, options=None, use_default=True):
     # lazy creation so we can avoid an empty record in the beginning
-    self.plots_opts[key] = options
+    if use_default:
+      opt = ReportDrawer.default_drawer_options(self.config)
+      opt.update(options)
+    else:
+      opt = options
+    self.plots_opts[key] = opt
 
   def _dump_win_data(self, win):
     content = self.drawer.get_window_data(win)
@@ -267,7 +270,7 @@ def create_drawer(config):
   import visdom
 
   return ReportDrawer(visdom.Visdom(
-      port=6006), config) if config.plot_graph else None
+      port=6006, log_to_filename=os.path.join(config.logging_path, config.name)), config) if config.plot_graph else None
 
 
 def report_prediction_result(stat_gather,

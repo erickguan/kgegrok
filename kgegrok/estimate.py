@@ -84,8 +84,8 @@ def train_and_validate(triple_source,
   load_checkpoint(config, model, optimizer)
 
   if drawer is not None:
-    drawer.create_plot(stats.LOSS_FEATURE_KEY,
-                       stats.gen_drawer_option(config, "Loss value"))
+    drawer.create_plot_opts(stats.LOSS_FEATURE_KEY,
+                            dict(title="Loss value"))
 
   for i_epoch in range(INDEX_OFFSET, config.epochs + INDEX_OFFSET, 1):
     model.train()
