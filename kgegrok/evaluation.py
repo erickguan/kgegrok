@@ -40,23 +40,39 @@ def build_stat_gather_from_config(config, drawer=None):
     keys.append(constants.RELATION_KEY)
 
   for key in keys:
-    if config.report_features & LinkPredictionStatistics.MEAN_RECIPROCAL_RANK:
-      g.add_stat(stats.ElementMeanReciprocalRankStatTool(key, filtered=False))
-    if config.report_features & LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK:
-      g.add_stat(stats.ElementMeanReciprocalRankStatTool(key, filtered=True))
-    if config.report_features & LinkPredictionStatistics.MEAN_RANK:
-      g.add_stat(stats.ElementMeanRankStatTool(key, filtered=False))
-    if config.report_features & LinkPredictionStatistics.MEAN_FILTERED_RANK:
-      g.add_stat(stats.ElementMeanRankStatTool(key, filtered=True))
-    if config.report_features & LinkPredictionStatistics.HITS:
-      for hit in config.report_hits.split(','):
-        g.add_stat(stats.ElementHitStatTool(key, int(hit), filtered=False))
-    if config.report_features & LinkPredictionStatistics.HITS_FILTERED:
-      for hit in config.report_hits_filtered.split(','):
-        g.add_stat(stats.ElementHitStatTool(key, int(hit), filtered=True))
+    if key == constants.ENTITY_KEY:
+      if config.report_features & LinkPredictionStatistics.MEAN_RECIPROCAL_RANK:
+        g.add_stat(stats.CombinedEntityMeanReciprocalRankStatTool(key, filtered=False))
+      if config.report_features & LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK:
+        g.add_stat(stats.CombinedEntityMeanReciprocalRankStatTool(key, filtered=True))
+      if config.report_features & LinkPredictionStatistics.MEAN_RANK:
+        g.add_stat(stats.CombinedEntityMeanRankStatTool(key, filtered=False))
+      if config.report_features & LinkPredictionStatistics.MEAN_FILTERED_RANK:
+        g.add_stat(stats.CombinedEntityMeanRankStatTool(key, filtered=True))
+      if config.report_features & LinkPredictionStatistics.HITS:
+        for hit in config.report_hits.split(','):
+          g.add_stat(stats.CombinedEntityHitStatTool(key, int(hit), filtered=False))
+      if config.report_features & LinkPredictionStatistics.HITS_FILTERED:
+        for hit in config.report_hits_filtered.split(','):
+          g.add_stat(stats.CombinedEntityHitStatTool(key, int(hit), filtered=True))
+    else:
+      if config.report_features & LinkPredictionStatistics.MEAN_RECIPROCAL_RANK:
+        g.add_stat(stats.ElementMeanReciprocalRankStatTool(key, filtered=False))
+      if config.report_features & LinkPredictionStatistics.MEAN_FILTERED_RECIPROCAL_RANK:
+        g.add_stat(stats.ElementMeanReciprocalRankStatTool(key, filtered=True))
+      if config.report_features & LinkPredictionStatistics.MEAN_RANK:
+        g.add_stat(stats.ElementMeanRankStatTool(key, filtered=False))
+      if config.report_features & LinkPredictionStatistics.MEAN_FILTERED_RANK:
+        g.add_stat(stats.ElementMeanRankStatTool(key, filtered=True))
+      if config.report_features & LinkPredictionStatistics.HITS:
+        for hit in config.report_hits.split(','):
+          g.add_stat(stats.ElementHitStatTool(key, int(hit), filtered=False))
+      if config.report_features & LinkPredictionStatistics.HITS_FILTERED:
+        for hit in config.report_hits_filtered.split(','):
+          g.add_stat(stats.ElementHitStatTool(key, int(hit), filtered=True))
 
   if config.print_stats:
-    g.add_after_gather(stats.print_hook_after_stat_epoch)
+    g.add_after_gather(stats.print_hook_after_stat_epoch())
   if config.plot_graph and drawer is not None:
     g.add_after_gather(drawer.hook_after_stat_epoch())
 
