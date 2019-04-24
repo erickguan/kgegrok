@@ -12,7 +12,7 @@ from kgegrok import stats
 from kgegrok import data
 from kgegrok import evaluation
 from kgegrok.data import constants
-from kgegrok.utils import save_checkpoint, load_checkpoint, write_logging_data
+from kgegrok.utils import save_checkpoint, load_checkpoint
 
 
 def create_optimizer(optimizer_class, config, parameters):
@@ -138,9 +138,6 @@ def train_and_validate(triple_source,
     },
                     config,
                     postfix_num=config.epochs)
-
-  if drawer is not None:
-    write_logging_data(drawer, config)
 
   return model
 

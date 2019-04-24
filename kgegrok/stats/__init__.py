@@ -197,7 +197,7 @@ class ReportDrawer(object):
   def default_drawer_options(config, title=None):
     if title is not None:
       title = "{}/{}".format(config.name, title)
-    return dict(fillarea=True, xlabel="Epoch", width=600, height=600, title=title)
+    return dict(fillarea=True, xlabel="Epoch", width=600, height=600, title=title, log_to_filename=log_path = os.path.join(config.logging_path, config.name))
 
   def __init__(self, drawer, config):
     self.drawer = drawer
@@ -254,9 +254,6 @@ class ReportDrawer(object):
     except json.JSONDecodeError:
       print(content)
     return content
-
-  def log_to_filename(self, log_path):
-    self.drawer.log_to_filename(log_to_filename)
 
   def dump_raw_data(self):
     """Dumps all raw data."""
