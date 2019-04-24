@@ -94,5 +94,6 @@ if __name__ == '__main__':
         data_loader,
         model_class,
         optimizer_class,
+        evaluator=evaluator,
         stat_gather=evaluation.build_stat_gather_from_config(config, drawer),
         drawer=drawer)

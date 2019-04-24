@@ -55,6 +55,7 @@ if __name__ == '__main__':
   model_class = utils.load_class_from_module(config.model, 'kgegrok.models',
                                              'kgegrok.text_models')
 
+  evaluator = evaluation.ParallelEvaluator(config, triple_source)
   for changed_config in ParameterGrid(grid):
     d = {}
     d.update(config.__dict__)
@@ -91,5 +92,6 @@ if __name__ == '__main__':
         data_loader,
         model_class,
         optimizer_class,
+        evaluator=evaluator,
         stat_gather=evaluation.build_stat_gather_from_config(config, drawer),
         drawer=drawer)

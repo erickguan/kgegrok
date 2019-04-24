@@ -26,8 +26,12 @@ class StatTool(object):
       return ftr if filtered else tr
     elif key == constants.RELATION_KEY:
       return frr if filtered else rr
+    elif key == constants.ENTITY_KEY:
+      print(fhr)
+      # TODO: merge two lists
+      return (fhr + ftr) / 2.0 if filtered else (hr + tr) / 2.0
     else:
-      raise RuntimeError("Invalid key for rank extraction")
+      raise RuntimeError("Invalid key {} for rank extraction".format(key))
 
   @staticmethod
   def gen_key(*argv):
